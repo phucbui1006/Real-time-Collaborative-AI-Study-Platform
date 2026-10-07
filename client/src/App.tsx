@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, ReactNode, useEffect, useState } from "react";
-import logo from "./assets/peermind-logo.png";
+import logo from "./assets/logo/Logo web.png";
 
 const heroPhoto =
   "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=85&w=1400";
