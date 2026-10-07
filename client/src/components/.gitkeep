@@ -1,0 +1,9 @@
+// Thư mục này chứa các component UI tái sử dụng của PeerMind.
+// Ví dụ: Button, Modal, Navbar, Sidebar, Card, Badge, v.v.
+//
+// Cấu trúc gợi ý:
+//   components/
+//   ├── ui/           → Các component primitive (Button, Input, Modal...)
+//   ├── layout/       → Layout components (Navbar, Sidebar, Footer...)
+//   ├── features/     → Feature-specific components (RoomCard, QuizCard...)
+//   └── shared/       → Shared helpers (Icon, Avatar, ProgressBar...)
