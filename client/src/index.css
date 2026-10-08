@@ -27,12 +27,13 @@ button {
 .nav-link {
   position: relative;
   color: #59617d;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
   transition: color 180ms ease;
 }
 
-.nav-link:hover {
+.nav-link:hover,
+.nav-link.active {
   color: #7657d8;
 }
 
@@ -41,14 +42,15 @@ button {
   right: 50%;
   bottom: -0.55rem;
   left: 50%;
-  height: 2px;
+  height: 2.5px;
   border-radius: 999px;
   background: #7657d8;
   content: "";
   transition: right 180ms ease, left 180ms ease;
 }
 
-.nav-link:hover::after {
+.nav-link:hover::after,
+.nav-link.active::after {
   right: 0;
   left: 0;
 }

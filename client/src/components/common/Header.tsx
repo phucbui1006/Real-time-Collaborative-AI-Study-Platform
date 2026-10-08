@@ -33,12 +33,9 @@ export function Header({ activeTab, onSelectTab, onLogout }: HeaderProps) {
               <button
                 key={item.id}
                 onClick={() => onSelectTab(item.id)}
-                className={`relative py-6 text-base transition-colors cursor-pointer ${
-                  isActive ? "font-bold text-[#17204d]" : "font-medium text-slate-500 hover:text-[#17204d]"
-                }`}
+                className={`nav-link cursor-pointer ${isActive ? "active font-bold" : ""}`}
               >
                 {item.label}
-                {isActive && <span className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-[#17204d]" />}
               </button>
             );
           })}
