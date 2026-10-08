@@ -441,20 +441,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       <div className="mx-auto max-w-[1500px] px-5 py-7 sm:px-8 lg:py-10">
         {activeTab === "documents" && <LibraryPage />}
         {activeTab === "classrooms" && <ClassroomsPage />}
-        {activeTab === "tests" && (
-          <main className="w-full max-w-5xl mx-auto">
-            <div className="mb-8">
-              <p className="eyebrow">Xin chào, Minh Anh</p>
-              <h1 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] sm:text-4xl">
-                Bài kiểm tra trực tuyến
-              </h1>
-              <p className="mt-2 text-slate-500">
-                Đánh giá kiến thức và chinh phục mục tiêu tiếp theo.
-              </p>
-            </div>
-            <TestsPage />
-          </main>
-        )}
+        {activeTab === "tests" && <TestsPage />}
       </div>
     </div>
   );
