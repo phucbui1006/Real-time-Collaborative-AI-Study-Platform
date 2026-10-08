@@ -1,7 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import logo from "./assets/logo/Logo web.png";
 import { Header, DashboardTab } from "./components/common/Header";
-import { Sidebar } from "./components/common/Sidebar";
 import LibraryPage from "./pages/LibraryPage";
 import ClassroomsPage from "./pages/ClassroomsPage";
 import TestsPage from "./pages/TestsPage";
@@ -440,30 +439,21 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       </div>
 
       <div className="mx-auto max-w-[1500px] px-5 py-7 sm:px-8 lg:py-10">
-        {activeTab === "documents" ? (
-          <LibraryPage />
-        ) : (
-          <div className="flex gap-8">
-            <Sidebar />
-            <main className="min-w-0 flex-1">
-              <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-                <div>
-                  <p className="eyebrow">Xin chào, Minh Anh</p>
-                  <h1 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] sm:text-4xl">
-                    {activeTab === "classrooms" && "Phòng học của bạn"}
-                    {activeTab === "tests" && "Bài kiểm tra trực tuyến"}
-                  </h1>
-                  <p className="mt-2 text-slate-500">
-                    {activeTab === "classrooms" && "Kết nối, thảo luận và tiến bộ cùng bạn bè."}
-                    {activeTab === "tests" && "Đánh giá kiến thức và chinh phục mục tiêu tiếp theo."}
-                  </p>
-                </div>
-              </div>
-
-              {activeTab === "classrooms" && <ClassroomsPage />}
-              {activeTab === "tests" && <TestsPage />}
-            </main>
-          </div>
+        {activeTab === "documents" && <LibraryPage />}
+        {activeTab === "classrooms" && <ClassroomsPage />}
+        {activeTab === "tests" && (
+          <main className="w-full max-w-5xl mx-auto">
+            <div className="mb-8">
+              <p className="eyebrow">Xin chào, Minh Anh</p>
+              <h1 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] sm:text-4xl">
+                Bài kiểm tra trực tuyến
+              </h1>
+              <p className="mt-2 text-slate-500">
+                Đánh giá kiến thức và chinh phục mục tiêu tiếp theo.
+              </p>
+            </div>
+            <TestsPage />
+          </main>
         )}
       </div>
     </div>
