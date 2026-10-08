@@ -1,9 +1,9 @@
 // config/gemini.js — Cấu hình Google Gemini AI SDK
 
-const { GoogleGenAI } = require('@google/genai')
+const { GoogleGenerativeAI } = require('@google/generative-ai')
 const { GEMINI_API_KEY } = require('./env')
 
-const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY })
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
 
 /**
  * Lấy model Gemini Flash (nhanh & miễn phí ở tier cơ bản)
