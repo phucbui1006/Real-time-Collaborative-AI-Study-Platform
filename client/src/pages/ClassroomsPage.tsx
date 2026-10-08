@@ -2,6 +2,7 @@ import { useState } from "react";
 import { RoomHistory } from "../components/classrooms/RoomHistory";
 import { JoinRoomModal } from "../components/classrooms/JoinRoomModal";
 import { CreateRoomModal } from "../components/classrooms/CreateRoomModal";
+import RoomView from "../components/classrooms/RoomView";
 import {
   INITIAL_HISTORY,
   COLORS,
@@ -22,6 +23,13 @@ export default function ClassroomsPage({
   const [joinCode, setJoinCode] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
 
+  // Trạng thái phòng hiện tại đang vào (nếu có)
+  const [activeRoom, setActiveRoom] = useState<{
+    name: string;
+    code: string;
+    isHost?: boolean;
+  } | null>(null);
+
   const remember = (room: { name: string; code: string }) =>
     setRooms((prev) => [
       {
@@ -37,6 +45,7 @@ export default function ClassroomsPage({
   const handleJoinSubmit = async (data: { code: string; password: string }) => {
     const room = await joinRoomApi(data);
     remember(room);
+    setActiveRoom({ name: room.name, code: room.code, isHost: false });
     onEnterRoom(room);
   };
 
@@ -44,6 +53,11 @@ export default function ClassroomsPage({
     const room = await createRoomApi(data);
     remember(room);
     return room;
+  };
+
+  const handleEnterCreatedRoom = (room: { name: string; code: string }) => {
+    setActiveRoom({ name: room.name, code: room.code, isHost: true });
+    onEnterRoom(room);
   };
 
   // "Vào lại": Điền mã phòng và mở popup Tham gia phòng
@@ -56,6 +70,17 @@ export default function ClassroomsPage({
     setJoinCode("");
     setJoinOpen(true);
   };
+
+  // Nếu đang trong phòng học
+  if (activeRoom) {
+    return (
+      <RoomView
+        room={activeRoom}
+        isHost={activeRoom.isHost ?? true}
+        onLeave={() => setActiveRoom(null)}
+      />
+    );
+  }
 
   return (
     <main className="w-full py-2 sm:py-6">
@@ -78,6 +103,7 @@ export default function ClassroomsPage({
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreate={handleCreateSubmit}
+        onEnterCreatedRoom={handleEnterCreatedRoom}
       />
     </main>
   );
