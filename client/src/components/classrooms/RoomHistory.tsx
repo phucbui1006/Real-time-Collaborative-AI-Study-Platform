@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { X, Plus, LogIn } from "lucide-react";
 import { RoomItem } from "../../services/roomService";
 
 interface RoomHistoryProps {
@@ -27,82 +28,83 @@ export function RoomHistory({
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold tracking-widest text-sky-600 uppercase">
+          <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
             XIN CHÀO, MINH ANH
           </p>
-          <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
             Phòng học của bạn
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Vào lại phòng cũ hoặc tham gia phòng mới bằng mã 6 số.
           </p>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           <button
             onClick={onOpenJoin}
-            className="rounded-full border border-violet-200 bg-violet-50 px-5 py-2.5 text-sm font-semibold text-violet-700 hover:bg-violet-100 transition-colors shadow-xs cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 h-9 px-4 py-2 rounded-md bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 text-sm font-medium shadow-2xs transition-colors duration-150 cursor-pointer"
           >
+            <LogIn className="h-4 w-4" strokeWidth={1.75} />
             Tham gia phòng
           </button>
           <button
             onClick={onOpenCreate}
-            className="rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-transform active:scale-95 cursor-pointer"
-            style={{ background: "#7c3aed" }}
+            className="inline-flex items-center justify-center gap-1.5 h-9 px-4 py-2 rounded-md bg-indigo-950 text-white hover:bg-indigo-900 border border-indigo-900/50 text-sm font-medium shadow-xs transition-colors duration-150 cursor-pointer"
           >
-            + Tạo phòng học
+            <Plus className="h-4 w-4" strokeWidth={1.75} />
+            Tạo phòng học
           </button>
         </div>
       </div>
 
       {/* Room list section */}
-      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+      <div className="rounded-lg bg-white p-6 border border-slate-200/80 shadow-2xs">
         <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h2 className="text-xl font-bold text-slate-900">Phòng đã tham gia</h2>
+          <h2 className="text-base font-semibold text-slate-900">Phòng đã tham gia</h2>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Tìm theo tên hoặc mã…"
-            className="w-full sm:w-64 rounded-full border border-slate-200 px-4 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200 transition-all"
+            className="h-9 w-full sm:w-64 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors duration-150"
           />
         </div>
 
         {filtered.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm text-slate-400">
+          <div className="rounded-lg border border-dashed border-slate-200 py-12 text-center text-sm text-slate-400">
             {rooms.length === 0
               ? 'Bạn chưa tham gia phòng nào. Bấm "Tham gia phòng" hoặc "Tạo phòng học" để bắt đầu.'
               : "Không tìm thấy phòng phù hợp."}
           </div>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-2.5">
             {filtered.map((r) => (
               <li
                 key={r.id}
-                className="flex items-center gap-4 rounded-2xl p-4 ring-1 ring-slate-100 hover:bg-slate-50 transition-colors"
+                className="flex items-center gap-3.5 rounded-lg p-3.5 border border-slate-200/80 hover:bg-slate-50/70 hover:border-slate-300 transition-colors"
               >
                 <div
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white shadow-xs"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white shadow-2xs"
                   style={{ background: r.color }}
                 >
                   {r.name.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold text-slate-900 text-base">{r.name}</div>
-                  <div className="mt-0.5 text-xs text-slate-500">
-                    Mã {r.code} · Vào gần nhất: {r.lastVisit}
+                  <div className="truncate font-medium text-slate-900 text-sm">{r.name}</div>
+                  <div className="mt-0.5 text-xs text-slate-500 font-mono tabular-nums">
+                    Mã <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-bold text-slate-700 border border-slate-200">{r.code}</span> · Vào gần nhất: {r.lastVisit}
                   </div>
                 </div>
                 <button
                   onClick={() => onRejoin(r)}
-                  className="rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-800 hover:bg-white hover:border-slate-400 transition-colors cursor-pointer"
+                  className="h-8 px-3 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs transition-colors duration-150 cursor-pointer"
                 >
                   Vào lại
                 </button>
                 <button
                   onClick={() => onRemove(r.id)}
                   aria-label={`Xoá ${r.name} khỏi lịch sử`}
-                  className="px-2 text-slate-300 hover:text-rose-500 transition-colors text-lg cursor-pointer"
+                  className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
                 >
-                  ✕
+                  <X className="h-4 w-4" strokeWidth={1.75} />
                 </button>
               </li>
             ))}
@@ -112,3 +114,4 @@ export function RoomHistory({
     </div>
   );
 }
+

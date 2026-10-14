@@ -1,8 +1,8 @@
 // client/src/components/common/Button.tsx
 import React from 'react'
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger'
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
   size?: 'sm' | 'md' | 'lg'
 }
 
@@ -13,16 +13,24 @@ export const Button: React.FC<ButtonProps> = ({
   className = '',
   ...props
 }) => {
-  const baseStyle = 'rounded-lg font-medium transition duration-200 flex items-center justify-center cursor-pointer'
+  const baseStyle =
+    'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:pointer-events-none'
+
   const variants = {
-    primary: 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20',
-    secondary: 'bg-slate-700 hover:bg-slate-600 text-slate-200',
-    danger: 'bg-rose-600 hover:bg-rose-500 text-white'
+    primary:
+      'bg-indigo-950 text-white hover:bg-indigo-900 border border-indigo-900/50 shadow-xs',
+    secondary:
+      'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-2xs',
+    ghost:
+      'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+    danger:
+      'bg-rose-600 text-white hover:bg-rose-700 border border-rose-700/50 shadow-xs'
   }
+
   const sizes = {
-    sm: 'px-3 py-1.5 text-xs',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-6 py-3 text-base'
+    sm: 'h-8 px-3 text-xs',
+    md: 'h-9 px-4 py-2 text-sm',
+    lg: 'h-10 px-5 text-sm'
   }
 
   return (

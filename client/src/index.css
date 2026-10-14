@@ -1,18 +1,31 @@
-@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Be Vietnam Pro", sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: "Plus Jakarta Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
 }
 
 html {
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
 }
 
 body {
   margin: 0;
   min-width: 320px;
-  background: #fcfdff;
+  background-color: #FAFAFA;
+  color: #334155; /* text-slate-700 */
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.025em;
+  color: #0f172a; /* text-slate-900 */
 }
 
 button,
@@ -24,190 +37,179 @@ button {
   cursor: pointer;
 }
 
+/* Nav Link — Crisp Academic Top Header Nav */
 .nav-link {
-  position: relative;
-  color: #59617d;
-  font-size: 0.95rem;
-  font-weight: 600;
-  transition: color 180ms ease;
-}
-
-.nav-link:hover,
-.nav-link.active {
-  color: #7657d8;
-}
-
-.nav-link::after {
-  position: absolute;
-  right: 50%;
-  bottom: -0.55rem;
-  left: 50%;
-  height: 2.5px;
-  border-radius: 999px;
-  background: #7657d8;
-  content: "";
-  transition: right 180ms ease, left 180ms ease;
-}
-
-.nav-link:hover::after,
-.nav-link.active::after {
-  right: 0;
-  left: 0;
-}
-
-.primary-button,
-.secondary-button {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  border-radius: 999px;
-  font-weight: 700;
-  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  height: 4rem; /* h-16 */
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b; /* text-slate-500 */
+  border-bottom: 2px solid transparent;
+  transition: color 150ms ease, border-color 150ms ease;
 }
 
+.nav-link:hover {
+  color: #0f172a; /* text-slate-900 */
+}
+
+.nav-link.active {
+  color: #1e1b4b; /* text-indigo-950 */
+  font-weight: 600;
+  border-bottom-color: #4f46e5; /* border-indigo-600 */
+}
+
+/* 3 Biến thể Button chuẩn UI_DESIGN */
 .primary-button {
-  background: #6f55d9;
-  padding: 0.75rem 1.4rem;
-  color: white;
-  box-shadow: 0 10px 25px rgba(111, 85, 217, 0.22);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.25rem; /* h-9 */
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem; /* rounded-md */
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: #1e1b4b; /* bg-indigo-950 */
+  color: #ffffff;
+  border: 1px solid rgba(30, 27, 75, 0.6);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: background-color 150ms ease, border-color 150ms ease;
 }
 
 .primary-button:hover {
-  transform: translateY(-2px);
-  background: #6247cc;
-  box-shadow: 0 14px 30px rgba(111, 85, 217, 0.3);
+  background-color: #312e81; /* bg-indigo-900 */
 }
 
 .secondary-button {
-  border: 1px solid #dfe4ee;
-  background: white;
-  color: #17204d;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.25rem; /* h-9 */
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem; /* rounded-md */
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: #ffffff;
+  color: #334155; /* text-slate-700 */
+  border: 1px solid #e2e8f0; /* border-slate-200 */
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
 .secondary-button:hover {
-  transform: translateY(-2px);
-  border-color: #bdb2ed;
-  box-shadow: 0 10px 25px rgba(23, 32, 77, 0.08);
+  background-color: #f8fafc; /* bg-slate-50 */
+  color: #0f172a; /* text-slate-900 */
 }
 
-.hero-orb {
-  position: absolute;
-  border-radius: 999px;
-  filter: blur(1px);
-  pointer-events: none;
+.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.25rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: transparent;
+  color: #475569;
+  transition: background-color 150ms ease, color 150ms ease;
 }
 
-.hero-orb-one {
-  top: 4%;
-  right: -10%;
-  width: 42rem;
-  height: 42rem;
-  background: rgba(211, 231, 255, 0.6);
+.ghost-button:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
 }
 
-.hero-orb-two {
-  bottom: -14rem;
-  left: -13rem;
-  width: 31rem;
-  height: 31rem;
-  background: rgba(237, 231, 255, 0.65);
-}
-
-.dot-grid {
-  background-image: radial-gradient(currentColor 1.5px, transparent 1.5px);
-  background-size: 15px 15px;
-  color: #7457d8;
-}
-
-.eyebrow {
-  color: #1da5de;
-  font-size: 0.8rem;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-}
-
-.feature-card {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid #edf0f6;
-  border-radius: 1.75rem;
-  background: #fff;
-  padding: 2rem;
-  box-shadow: 0 18px 50px rgba(37, 45, 91, 0.06);
-  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
-}
-
-.feature-card::after {
-  position: absolute;
-  right: -2rem;
-  bottom: -3rem;
-  width: 8rem;
-  height: 8rem;
-  border-radius: 999px;
-  background: #f5f2ff;
-  content: "";
-  opacity: 0;
-  transition: opacity 220ms ease;
-}
-
-.feature-card:hover {
-  transform: translateY(-7px);
-  border-color: #ded7fa;
-  box-shadow: 0 24px 60px rgba(59, 50, 121, 0.12);
-}
-
-.feature-card:hover::after {
-  opacity: 1;
-}
-
+/* Inputs & Forms */
 .form-input {
   width: 100%;
-  border: 1px solid #dde2ec;
-  border-radius: 0.9rem;
-  background: #fafbfc;
-  padding: 0.9rem 1rem;
-  color: #17204d;
+  height: 2.5rem; /* h-10 */
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem; /* rounded-md */
+  background-color: #ffffff;
+  padding: 0.5rem 0.75rem;
+  color: #0f172a;
+  font-size: 0.875rem;
   outline: none;
-  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.form-input:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 1px #4f46e5;
 }
 
 .form-label {
   display: block;
-  margin-bottom: 0.5rem;
-  color: #17204d;
+  margin-bottom: 0.375rem;
+  color: #334155;
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .auth-back-button {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  margin-top: 1.5rem;
-  color: #7657d8;
-  font-size: 0.8rem;
-  font-weight: 700;
-  transition: color 160ms ease, transform 160ms ease;
+  color: #475569;
+  font-size: 0.813rem;
+  font-weight: 500;
+  transition: color 150ms ease;
 }
 
 .auth-back-button:hover {
-  color: #5940bd;
-  transform: translateX(-2px);
+  color: #0f172a;
+}
+
+/* Cards & Containers — Crisp Border, subtle shadow */
+.academic-card {
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 0.5rem; /* rounded-lg */
+  background-color: #ffffff;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  transition: border-color 150ms ease;
+}
+
+.academic-card:hover {
+  border-color: #cbd5e1;
+}
+
+.feature-card {
+  position: relative;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem; /* rounded-lg */
+  background-color: #ffffff;
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.feature-card:hover {
+  border-color: #cbd5e1;
 }
 
 .dashboard-section {
-  border: 1px solid #edf0f6;
-  border-radius: 1.75rem;
-  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem; /* rounded-lg */
+  background-color: #ffffff;
   padding: 1.5rem;
-  box-shadow: 0 12px 35px rgba(37, 45, 91, 0.05);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
 }
 
-.form-input:focus {
-  border-color: #8067dd;
-  background: #fff;
-  box-shadow: 0 0 0 4px rgba(128, 103, 221, 0.12);
+.pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -220,4 +222,10 @@ button {
   *::after {
     transition-duration: 0.01ms !important;
   }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px) rotate(-0.8deg); }
+  40%, 80% { transform: translateX(5px) rotate(0.8deg); }
 }

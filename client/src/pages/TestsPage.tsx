@@ -8,11 +8,10 @@ import {
   SEED_HISTORY,
   BOT_NAMES,
   AI_DOCS,
-  DARK,
-  PURPLE,
   BTN,
   BTN_OUT,
   INP,
+
   ExamSet,
   ExamHistory,
   LiveExam,
@@ -233,17 +232,17 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
               },
             })
           }
-          className={BTN + " shrink-0 shadow-lg cursor-pointer transition-transform active:scale-95"}
-          style={{ background: PURPLE }}
+          className={`${BTN} shrink-0`}
         >
           + Tạo bộ câu hỏi
         </button>
+
       </div>
 
       {/* Bài đang mở + tham gia bằng mã */}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-          <h2 className="font-semibold text-slate-900">Tham gia bài kiểm tra</h2>
+        <div className="rounded-lg bg-white p-5 border border-slate-200/80 shadow-2xs">
+          <h2 className="font-semibold text-slate-900 text-sm">Tham gia bài kiểm tra</h2>
           <form
             className="mt-3 flex gap-2"
             onSubmit={(e) => {
@@ -252,7 +251,7 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
             }}
           >
             <input
-              className={INP}
+              className={`${INP} font-mono tabular-nums`}
               inputMode="numeric"
               maxLength={6}
               value={joinCode}
@@ -262,22 +261,21 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
             />
             <button
               className={BTN}
-              style={{ background: PURPLE }}
               disabled={joinCode.length !== 6}
             >
               Vào thi
             </button>
           </form>
-          {joinErr && <p className="mt-2 text-sm text-rose-600">{joinErr}</p>}
+          {joinErr && <p className="mt-2 text-xs text-rose-600 font-medium">{joinErr}</p>}
         </div>
 
-        <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-          <h2 className="font-semibold text-slate-900">Bài kiểm tra bạn đang mở</h2>
+        <div className="rounded-lg bg-white p-5 border border-slate-200/80 shadow-2xs">
+          <h2 className="font-semibold text-slate-900 text-sm">Bài kiểm tra bạn đang mở</h2>
           {live ? (
             <div className="mt-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium text-slate-900">{live.set.title}</div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-slate-500 font-mono tabular-nums">
                   Mã {live.code} · {running ? `còn ${fmt(remaining)}` : "đã kết thúc"}
                 </div>
               </div>
@@ -286,7 +284,7 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
               </button>
             </div>
           ) : (
-            <p className="mt-3 text-sm text-slate-400">Chưa có bài nào đang mở.</p>
+            <p className="mt-3 text-xs text-slate-400">Chưa có bài nào đang mở.</p>
           )}
         </div>
       </div>
@@ -300,19 +298,18 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
           <button
             key={id}
             onClick={() => setTab(id as "sets" | "history")}
-            className="rounded-full px-4 py-2 text-sm font-semibold cursor-pointer transition-colors"
-            style={
+            className={`rounded-md px-3.5 py-1.5 text-xs font-medium cursor-pointer transition-colors ${
               tab === id
-                ? { background: DARK, color: "#fff" }
-                : { background: "#fff", color: "#475569", border: "1px solid #e2e8f0" }
-            }
+                ? "bg-indigo-950 text-white shadow-xs"
+                : "bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-slate-200"
+            }`}
           >
             {l}
           </button>
         ))}
       </div>
 
-      <div className="mt-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+      <div className="mt-4 rounded-lg bg-white p-5 border border-slate-200/80 shadow-2xs">
         {tab === "sets" ? (
           sets.length === 0 ? (
             <p className="py-10 text-center text-sm text-slate-400">
@@ -322,16 +319,17 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
             <ul className="divide-y divide-slate-100">
               {sets.map((s) => (
                 <li key={s.id} className="flex flex-col sm:flex-row sm:items-center gap-4 py-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-xl text-amber-500 shadow-xs">
-                    ☑
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                    <span className="font-mono text-xs font-bold text-slate-600">QZ</span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-bold tracking-wide text-violet-600">{s.subject}</div>
-                    <div className="truncate font-semibold text-slate-900">{s.title}</div>
-                    <div className="text-sm text-slate-500">
+                    <div className="text-[10px] font-bold tracking-wider uppercase text-slate-400">{s.subject}</div>
+                    <div className="truncate font-semibold text-slate-900 text-sm">{s.title}</div>
+                    <div className="text-xs text-slate-500 font-mono tabular-nums">
                       {s.questions.length} câu hỏi · {s.minutes} phút
                     </div>
                   </div>
+
                   <div className="flex items-center gap-2">
                     <button onClick={() => setView({ name: "edit", set: s })} className={BTN_OUT}>
                       Chỉnh sửa
@@ -341,10 +339,10 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
                       disabled={running}
                       title={running ? "Đang có một bài kiểm tra mở" : ""}
                       className={BTN}
-                      style={{ background: PURPLE }}
                     >
                       Mở bài kiểm tra
                     </button>
+
                     <button
                       onClick={() =>
                         window.confirm(`Xoá "${s.title}"?`) &&

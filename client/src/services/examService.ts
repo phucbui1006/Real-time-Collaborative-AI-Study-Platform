@@ -74,11 +74,12 @@ export type LeaderboardRow = {
   score: number;
 };
 
-export const DARK = "#1e293b";
-export const PURPLE = "#7c3aed";
-export const BTN = "rounded-full px-5 py-2 text-sm font-semibold text-white disabled:opacity-40 cursor-pointer";
-export const BTN_OUT = "rounded-full border border-slate-300 bg-white px-4 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 cursor-pointer";
-export const INP = "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-violet-500";
+export const DARK = "#0f172a";
+export const PURPLE = "#1e1b4b";
+export const BTN = "inline-flex items-center justify-center gap-2 rounded-md h-9 px-4 py-2 text-sm font-medium bg-indigo-950 text-white hover:bg-indigo-900 border border-indigo-900/50 shadow-xs transition-colors duration-150 disabled:opacity-40 cursor-pointer";
+export const BTN_OUT = "inline-flex items-center justify-center gap-2 rounded-md h-9 border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs transition-colors duration-150 cursor-pointer";
+export const INP = "w-full h-9 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors duration-150";
+
 
 export const SEED_SETS: ExamSet[] = [
   {
