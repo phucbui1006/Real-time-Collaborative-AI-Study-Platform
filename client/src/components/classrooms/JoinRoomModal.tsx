@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { X, LogIn } from "lucide-react";
 import { Field, PasswordInput, ErrorBox, inputStyle } from "./JoinPanel";
 
 interface JoinRoomModalProps {
@@ -49,30 +50,30 @@ export function JoinRoomModal({ open, onClose, onSubmit, initialCode = "" }: Joi
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Tham gia phòng học"
-        className="w-full rounded-3xl p-6 shadow-2xl transition-all"
-        style={{ maxWidth: 420, background: "#141a3d", color: "#fff" }}
+        className="w-full max-w-md rounded-lg bg-white p-6 border border-slate-200/90 shadow-xl transition-all"
       >
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between pb-4 border-b border-slate-100">
           <div>
-            <h2 className="text-lg font-semibold">Tham gia phòng học</h2>
-            <p className="mt-1 text-xs text-slate-400">
-              Nhập mã phòng và mật khẩu do người tạo phòng gửi cho bạn.
+            <h2 className="text-base font-semibold text-slate-900 tracking-tight">
+              Tham gia phòng học
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Nhập mã phòng và mật khẩu do chủ phòng chia sẻ.
             </p>
           </div>
           <button
             onClick={onClose}
             aria-label="Đóng"
-            className="text-xl leading-none text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
           >
-            ✕
+            <X className="h-4 w-4" strokeWidth={1.75} />
           </button>
         </div>
 
@@ -85,7 +86,8 @@ export function JoinRoomModal({ open, onClose, onSubmit, initialCode = "" }: Joi
         >
           <Field label="Mã phòng (6 số)">
             <input
-              style={{ ...inputStyle, letterSpacing: "0.3em", fontWeight: 700, fontSize: 18 }}
+              style={{ ...inputStyle, letterSpacing: "0.25em", fontSize: 16 }}
+              className="font-mono tabular-nums text-center font-bold focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
               inputMode="numeric"
               value={form.code}
               maxLength={6}
@@ -107,14 +109,23 @@ export function JoinRoomModal({ open, onClose, onSubmit, initialCode = "" }: Joi
 
           <ErrorBox>{error}</ErrorBox>
 
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full rounded-full py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50 cursor-pointer"
-            style={{ background: "#7c3aed" }}
-          >
-            {busy ? "Đang xử lý…" : "Vào phòng"}
-          </button>
+          <div className="pt-2 flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-9 px-4 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-indigo-950 text-white hover:bg-indigo-900 text-xs font-medium transition-all cursor-pointer shadow-xs active:translate-y-[1px] disabled:opacity-50 disabled:pointer-events-none"
+            >
+              <LogIn className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {busy ? "Đang xử lý…" : "Vào phòng"}
+            </button>
+          </div>
         </form>
       </div>
     </div>

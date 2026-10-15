@@ -75,8 +75,8 @@ export type LeaderboardRow = {
 };
 
 export const DARK = "#0f172a";
-export const PURPLE = "#1e1b4b";
-export const BTN = "inline-flex items-center justify-center gap-2 rounded-md h-9 px-4 py-2 text-sm font-medium bg-indigo-950 text-white hover:bg-indigo-900 border border-indigo-900/50 shadow-xs transition-colors duration-150 disabled:opacity-40 cursor-pointer";
+export const PURPLE = "#4f46e5";
+export const BTN = "inline-flex items-center justify-center gap-2 rounded-md h-9 px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs shadow-indigo-500/20 active:translate-y-[1px] transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer";
 export const BTN_OUT = "inline-flex items-center justify-center gap-2 rounded-md h-9 border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs transition-colors duration-150 cursor-pointer";
 export const INP = "w-full h-9 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors duration-150";
 

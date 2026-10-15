@@ -1,6 +1,5 @@
-// components/common/Header.tsx — Thanh điều hướng trên cùng chuẩn Crisp Academic SaaS
+// components/common/Header.tsx — Thanh điều hướng trên cùng chuẩn UI_DESIGN_SKILL.md
 import { Bell, LogOut } from "lucide-react";
-
 import { Logo } from "./Logo";
 
 export type DashboardTab = "documents" | "classrooms" | "tests";
@@ -19,12 +18,12 @@ const navigationItems: { id: DashboardTab; label: string }[] = [
 
 export function Header({ activeTab, onSelectTab, onLogout }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-30 w-full border-b border-slate-200 bg-white">
-      <div className="mx-auto flex h-16 w-full max-w-[1500px] items-center justify-between px-5 sm:px-8">
-        {/* Cột 1 (Trái): Logo */}
+    <header className="sticky top-0 z-40 h-16 w-full bg-white border-b border-slate-200">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        {/* Cột 1 (Trái): Logo ngang PeerMind */}
         <div className="flex flex-1 items-center justify-start shrink-0">
           <Logo
-            size="sm"
+            size="md"
             onClick={() => {
               onSelectTab("documents");
               window.scrollTo({ top: 0, behavior: "smooth" });
@@ -32,18 +31,18 @@ export function Header({ activeTab, onSelectTab, onLogout }: HeaderProps) {
           />
         </div>
 
-        {/* Cột 2 (Giữa): Navigation Tabs — Chiều cao h-16 với gạch chân sát đáy header */}
-        <nav className="hidden h-16 items-center gap-8 md:flex shrink-0" aria-label="Điều hướng header">
+        {/* Cột 2 (Giữa): 3 Mục điều hướng thuần chữ — TUYỆT ĐỐI KHÔNG icon/box */}
+        <nav className="hidden h-16 items-center gap-8 md:flex shrink-0" aria-label="Điều hướng chính">
           {navigationItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => onSelectTab(item.id)}
-                className={`h-16 inline-flex items-center border-b-2 text-sm transition-colors duration-150 cursor-pointer ${
+                className={`h-16 inline-flex items-center px-1 text-sm transition-colors duration-150 cursor-pointer ${
                   isActive
-                    ? "border-indigo-600 font-semibold text-indigo-950"
-                    : "border-transparent font-medium text-slate-500 hover:border-slate-300 hover:text-slate-900"
+                    ? "border-b-2 border-indigo-600 font-semibold text-indigo-950"
+                    : "border-b-2 border-transparent font-medium text-slate-500 hover:text-slate-800 hover:border-slate-300"
                 }`}
               >
                 {item.label}
@@ -52,8 +51,8 @@ export function Header({ activeTab, onSelectTab, onLogout }: HeaderProps) {
           })}
         </nav>
 
-        {/* Cột 3 (Phải): User & Notification Controls */}
-        <div className="flex flex-1 items-center justify-end gap-2.5 shrink-0">
+        {/* Cột 3 (Phải): Khu vực thông báo & Avatar hồ sơ người dùng */}
+        <div className="flex flex-1 items-center justify-end gap-3 shrink-0">
           {/* Nút thông báo */}
           <button
             className="relative flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-900 cursor-pointer shadow-2xs"
@@ -65,7 +64,7 @@ export function Header({ activeTab, onSelectTab, onLogout }: HeaderProps) {
 
           {/* User profile & Đăng xuất */}
           <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-slate-700 shadow-2xs">
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-xs font-semibold text-slate-700 border border-slate-200">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-xs font-semibold text-slate-700 border border-slate-200">
               MA
             </span>
             <div className="hidden text-left sm:block">
@@ -86,3 +85,5 @@ export function Header({ activeTab, onSelectTab, onLogout }: HeaderProps) {
     </header>
   );
 }
+
+export default Header;

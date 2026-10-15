@@ -1,7 +1,17 @@
-// components/documents/DocumentStore.tsx — Kho tài liệu chuẩn Crisp Academic SaaS
 import { useRef, useState, useMemo, useEffect } from "react";
-
-import { Search, Upload, MoreVertical, Trash2, X, FileText, FileSpreadsheet, FileImage } from "lucide-react";
+import {
+  Search,
+  Upload,
+  MoreVertical,
+  Trash2,
+  X,
+  FileText,
+  Bot,
+  Code2,
+  Zap,
+  Languages,
+  Calculator,
+} from "lucide-react";
 import { DocumentItem } from "../../services/aiService";
 
 type DocumentStoreProps = {
@@ -12,6 +22,70 @@ type DocumentStoreProps = {
   onUpload: (files: File[], customSubject?: string) => void;
   isAIChatOpen: boolean;
 };
+
+// Helper function ánh xạ màu sắc và icon theo môn học
+export function getSubjectStyle(subject: string) {
+  const s = subject.toUpperCase();
+  if (s.includes("TRÍ TUỆ NHÂN TẠO") || s.includes("AI")) {
+    return {
+      box: "bg-violet-50 text-violet-600 border-violet-200/60",
+      text: "text-violet-600 font-semibold",
+      icon: <Bot className="h-4 w-4" strokeWidth={1.75} />,
+    };
+  }
+  if (s.includes("CÔNG NGHỆ") || s.includes("LẬP TRÌNH") || s.includes("WEB")) {
+    return {
+      box: "bg-sky-50 text-sky-600 border-sky-200/60",
+      text: "text-sky-600 font-semibold",
+      icon: <Code2 className="h-4 w-4" strokeWidth={1.75} />,
+    };
+  }
+  if (s.includes("VẬT LÝ")) {
+    return {
+      box: "bg-amber-50 text-amber-600 border-amber-200/60",
+      text: "text-amber-600 font-semibold",
+      icon: <Zap className="h-4 w-4" strokeWidth={1.75} />,
+    };
+  }
+  if (s.includes("NGOẠI NGỮ") || s.includes("TIẾNG ANH") || s.includes("ENGLISH")) {
+    return {
+      box: "bg-emerald-50 text-emerald-600 border-emerald-200/60",
+      text: "text-emerald-600 font-semibold",
+      icon: <Languages className="h-4 w-4" strokeWidth={1.75} />,
+    };
+  }
+  // Mặc định là TOÁN HỌC hoặc môn khác
+  return {
+    box: "bg-indigo-50 text-indigo-600 border-indigo-200/60",
+    text: "text-indigo-600 font-semibold",
+    icon: <Calculator className="h-4 w-4" strokeWidth={1.75} />,
+  };
+}
+
+// Helper function nhãn định dạng File
+export function getFileTypeBadgeStyle(type?: string) {
+  switch (type) {
+    case "PDF":
+      return "bg-rose-50 text-rose-600 border-rose-200/70 font-semibold";
+    case "PPTX":
+      return "bg-amber-50 text-amber-600 border-amber-200/70 font-semibold";
+    case "DOCX":
+      return "bg-sky-50 text-sky-600 border-sky-200/70 font-semibold";
+    default:
+      return "bg-slate-100 text-slate-600 border-slate-200 font-medium";
+  }
+}
+
+// Helper dynamic progress bar
+export function getProgressBarStyle(progress: number) {
+  if (progress < 50) {
+    return { bar: "bg-sky-500", text: "text-sky-600" };
+  }
+  if (progress < 80) {
+    return { bar: "bg-indigo-600", text: "text-indigo-600" };
+  }
+  return { bar: "bg-emerald-500", text: "text-emerald-600" };
+}
 
 export function DocumentStore({
   docs,
@@ -72,16 +146,6 @@ export function DocumentStore({
     }
   };
 
-  const getDocIcon = (type?: string) => {
-    if (type === "DOCX" || type === "PPTX") {
-      return <FileSpreadsheet className="h-4 w-4 text-slate-700" strokeWidth={1.75} />;
-    }
-    if (type === "IMG") {
-      return <FileImage className="h-4 w-4 text-slate-700" strokeWidth={1.75} />;
-    }
-    return <FileText className="h-4 w-4 text-slate-700" strokeWidth={1.75} />;
-  };
-
   return (
     <section className={`${isAIChatOpen ? "lg:col-span-8" : "lg:col-span-12"} min-w-0 transition-all duration-300`}>
       {/* ── 1. Top Header ────────────────────────────────────────────────────────── */}
@@ -98,7 +162,7 @@ export function DocumentStore({
         <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={() => setIsUploadModalOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 h-9 px-4 py-2 rounded-md bg-indigo-950 text-white hover:bg-indigo-900 border border-indigo-900/50 shadow-xs text-sm font-medium transition-colors duration-150 cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 h-9 px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-xs shadow-indigo-500/20 active:translate-y-[1px] transition-all cursor-pointer text-sm"
           >
             <Upload className="h-4 w-4" strokeWidth={1.75} />
             Tải tài liệu lên
@@ -114,50 +178,56 @@ export function DocumentStore({
         </div>
       </div>
 
-      {/* ── 2. Thanh Tìm Kiếm & Bộ Lọc ────────────────────────────────────────── */}
-      <div className="mt-6 flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-lg bg-white p-3 border border-slate-200/80 shadow-2xs">
-        {/* Ô tìm kiếm */}
-        <div className="relative flex-1">
-          <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
-            <Search className="h-4 w-4" strokeWidth={1.75} />
-          </span>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm kiếm tài liệu theo tên hoặc môn học…"
-            className="w-full h-9 rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors"
-          />
+      {/* ── 2. Thanh Tìm Kiếm & Bộ Lọc (Thiết kế phân tầng chuẩn mực, không bao giờ vỡ bố cục khi mở AI) ── */}
+      <div className="mt-6 space-y-3 rounded-xl bg-white p-3.5 border border-slate-200/80 shadow-2xs">
+        {/* Hàng 1: Ô tìm kiếm toàn diện + Bộ chọn sắp xếp (Thẳng hàng tuyệt đối) */}
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
+              <Search className="h-4 w-4" strokeWidth={1.75} />
+            </span>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm kiếm tài liệu theo tên hoặc môn học…"
+              className="w-full h-9 rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors"
+            />
+          </div>
+
+          {/* Sắp xếp */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="h-9 shrink-0 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 outline-none cursor-pointer focus:border-indigo-600 shadow-2xs"
+          >
+            <option value="newest">Mới nhất</option>
+            <option value="progress">Tiến độ cao nhất</option>
+            <option value="name">Tên A-Z</option>
+          </select>
         </div>
 
-        {/* Lọc danh mục */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+        {/* Hàng 2: Bộ lọc danh mục môn học (Soft Tinted Filter Pills) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2 border-t border-slate-100">
+          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
+            Môn học:
+          </span>
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
+              className={`h-7 rounded-md px-2.5 text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 activeCategory === cat
-                  ? "bg-indigo-950 text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 border border-slate-200/60"
+                  ? "bg-indigo-50 text-indigo-700 border border-indigo-300 font-semibold shadow-2xs"
+                  : "bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-slate-200 font-medium"
               }`}
             >
               {cat}
             </button>
           ))}
         </div>
-
-        {/* Sắp xếp */}
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as any)}
-          className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 outline-none cursor-pointer focus:border-indigo-600"
-        >
-          <option value="newest">Mới nhất</option>
-          <option value="progress">Tiến độ cao nhất</option>
-          <option value="name">Tên A-Z</option>
-        </select>
       </div>
+
 
       {/* ── 3. Danh sách Tài liệu Grid ────────────────────────────────────────── */}
       <div className="mt-6">
@@ -186,29 +256,33 @@ export function DocumentStore({
           >
             {filteredDocs.map((doc) => {
               const active = doc.id === selectedId;
+              const subjectStyle = getSubjectStyle(doc.subject);
+              const fileTypeBadge = getFileTypeBadgeStyle(doc.fileType);
+              const progressStyle = getProgressBarStyle(doc.progress);
+
               return (
                 <div
                   key={doc.id}
                   onClick={() => onSelect(doc.id)}
-                  className={`group relative flex flex-col justify-between rounded-lg p-5 border transition-colors duration-150 cursor-pointer shadow-2xs ${
+                  className={`group relative flex flex-col justify-between rounded-xl p-5 border transition-all duration-200 cursor-pointer shadow-2xs ${
                     active
-                      ? "bg-white border-indigo-600 ring-1 ring-indigo-600/30"
-                      : "bg-white border-slate-200/80 hover:border-slate-300 hover:bg-slate-50/50"
+                      ? "bg-white border-indigo-600 ring-2 ring-indigo-600/20 shadow-md"
+                      : "bg-white border-slate-200/80 hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5"
                   }`}
                 >
                   {/* Top Info */}
                   <div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
-                          {getDocIcon(doc.fileType)}
+                        <div className={`flex h-9 w-9 items-center justify-center rounded-lg border shrink-0 ${subjectStyle.box}`}>
+                          {subjectStyle.icon}
                         </div>
                         <div>
-                          <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                          <span className={`text-[10px] font-bold tracking-wider uppercase ${subjectStyle.text}`}>
                             {doc.subject}
                           </span>
                           {doc.fileType && (
-                            <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600 border border-slate-200">
+                            <span className={`ml-2 rounded px-1.5 py-0.5 text-[9px] uppercase ${fileTypeBadge}`}>
                               {doc.fileType}
                             </span>
                           )}
@@ -240,7 +314,7 @@ export function DocumentStore({
                       </div>
                     </div>
 
-                    <h3 className="mt-3 font-semibold text-slate-900 line-clamp-2 leading-snug text-sm group-hover:text-indigo-950 transition-colors">
+                    <h3 className="mt-3 font-semibold text-slate-900 line-clamp-2 leading-snug text-sm group-hover:text-indigo-600 transition-colors">
                       {doc.title}
                     </h3>
                   </div>
@@ -249,11 +323,13 @@ export function DocumentStore({
                   <div className="mt-5 pt-3 border-t border-slate-100">
                     <div className="flex justify-between items-center text-xs mb-1.5">
                       <span className="font-medium text-slate-500">Tiến độ</span>
-                      <span className="font-mono tabular-nums font-semibold text-slate-900">{doc.progress}%</span>
+                      <span className={`font-mono tabular-nums font-bold ${progressStyle.text}`}>
+                        {doc.progress}%
+                      </span>
                     </div>
                     <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
                       <div
-                        className="h-1.5 rounded-full bg-indigo-600 transition-all duration-300"
+                        className={`h-1.5 rounded-full transition-all duration-300 ${progressStyle.bar}`}
                         style={{ width: `${doc.progress}%` }}
                       />
                     </div>

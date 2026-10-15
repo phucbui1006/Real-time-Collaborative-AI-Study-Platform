@@ -10,37 +10,45 @@ export function Leaderboard({ rows, total, limit }: LeaderboardProps) {
   const shown = limit ? rows.slice(0, limit).concat(rows.slice(limit).filter((r) => r.me)) : rows;
   return (
     <ul className="space-y-2">
-      {shown.map((r) => (
-        <li
-          key={r.name}
-          className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all"
-          style={{
-            background: r.me ? "#ede9fe" : "#f8fafc",
-            border: r.me ? "1px solid #c4b5fd" : "1px solid #e2e8f0",
-          }}
-        >
-          <span
-            className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white shadow-xs"
-            style={{
-              background:
-                r.rank === 1
-                  ? "#f59e0b"
-                  : r.rank === 2
-                  ? "#94a3b8"
-                  : r.rank === 3
-                  ? "#b45309"
-                  : "#cbd5e1",
-            }}
+      {shown.map((r) => {
+        const isTop1 = r.rank === 1;
+        const isTop2 = r.rank === 2;
+        const isTop3 = r.rank === 3;
+
+        return (
+          <li
+            key={r.name}
+            className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-xs transition-colors border ${
+              r.me
+                ? "bg-indigo-50/70 border-indigo-200 text-slate-900"
+                : "bg-white border-slate-200/80 hover:bg-slate-50/70 text-slate-700"
+            }`}
           >
-            {r.rank}
-          </span>
-          <span className="flex-1 truncate font-medium text-slate-900">{r.name}</span>
-          <span className="text-xs text-slate-500">
-            {r.answered}/{total} câu
-          </span>
-          <span className="w-10 text-right font-bold text-slate-900">{r.score.toFixed(1)}</span>
-        </li>
-      ))}
+            <span
+              className={`flex h-6 w-6 items-center justify-center rounded text-[11px] font-mono font-bold shrink-0 tabular-nums ${
+                isTop1
+                  ? "bg-amber-100 text-amber-800 border border-amber-300"
+                  : isTop2
+                  ? "bg-slate-200 text-slate-700 border border-slate-300"
+                  : isTop3
+                  ? "bg-amber-50 text-amber-900 border border-amber-200"
+                  : "bg-slate-100 text-slate-500 border border-slate-200"
+              }`}
+            >
+              {r.rank}
+            </span>
+            <span className="flex-1 truncate font-medium text-slate-900">
+              {r.name} {r.me && <span className="text-[10px] text-indigo-600 font-semibold">(Bạn)</span>}
+            </span>
+            <span className="text-[11px] text-slate-500 font-mono tabular-nums">
+              {r.answered}/{total} câu
+            </span>
+            <span className="w-12 text-right font-mono font-bold text-slate-900 tabular-nums">
+              {r.score.toFixed(1)}
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }

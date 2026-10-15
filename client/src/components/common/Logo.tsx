@@ -1,39 +1,58 @@
 import React from "react";
-import logoCropped from "../../assets/logo/logo-cropped.png";
+import logoIcon from "../../assets/logo/logo-icon.png";
 
 type LogoProps = {
   className?: string;
   onClick?: () => void;
   size?: "sm" | "md" | "lg";
+  showText?: boolean;
 };
 
 /**
- * Component Logo chuẩn của PeerMind:
- * - Đã crop sát viền 100%, xóa bỏ toàn bộ khoảng trắng thừa.
- * - Căn giữa chuẩn mực theo chiều dọc với Navbar.
- * - Hỗ trợ onClick để điều hướng quay về trang đầu mượt mà.
+ * Component Logo chuẩn của PeerMind theo UI_DESIGN_SKILL.md (Mục 4):
+ * - Biểu tượng chữ P lớn bên trái (h-9 w-9)
+ * - Khối chữ PeerMind bên phải (text-xl font-bold tracking-tight):
+ *   chữ "Peer" màu text-sky-500, chữ "Mind" màu text-indigo-950
  */
-export const Logo: React.FC<LogoProps> = ({ className = "", onClick, size = "md" }) => {
-  const heightClass = {
-    sm: "h-8 sm:h-9",
-    md: "h-10 sm:h-11",
-    lg: "h-12 sm:h-14",
+export const Logo: React.FC<LogoProps> = ({
+  className = "",
+  onClick,
+  size = "md",
+  showText = true,
+}) => {
+  const iconSizeClass = {
+    sm: "h-8 w-8",
+    md: "h-9 w-9",
+    lg: "h-10 w-10",
+  }[size];
+
+  const textSizeClass = {
+    sm: "text-lg",
+    md: "text-xl",
+    lg: "text-2xl",
   }[size];
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group flex shrink-0 items-center transition-transform duration-150 hover:scale-[1.02] active:scale-[0.98] cursor-pointer focus:outline-hidden ${className}`}
-      aria-label="PeerMind - Về trang đầu"
-      title="PeerMind - Về trang đầu"
+      className={`group inline-flex shrink-0 items-center gap-2.5 transition-opacity duration-150 hover:opacity-90 cursor-pointer focus:outline-hidden ${className}`}
+      aria-label="PeerMind - Về trang chủ"
+      title="PeerMind - Về trang chủ"
     >
       <img
-        src={logoCropped}
-        alt="PeerMind"
-        className={`${heightClass} aspect-[782/269] w-auto shrink-0 object-contain transition-opacity duration-150 group-hover:opacity-90`}
+        src={logoIcon}
+        alt="PeerMind Icon"
+        className={`${iconSizeClass} shrink-0 object-contain`}
       />
+      {showText && (
+        <span className={`${textSizeClass} font-bold tracking-tight font-heading leading-none select-none`}>
+          <span className="text-sky-500">Peer</span>
+          <span className="text-indigo-950">Mind</span>
+        </span>
+      )}
     </button>
-
   );
 };
+
+export default Logo;

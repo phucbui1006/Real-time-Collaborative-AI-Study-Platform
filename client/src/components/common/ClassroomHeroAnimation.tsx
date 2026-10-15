@@ -203,9 +203,9 @@ export const ClassroomHeroAnimation: React.FC = () => {
           </div>
         </div>
 
-        {/* Thanh trạng thái diễn biến kịch bản ở đáy khung */}
-        <div className="mt-3 flex items-center justify-between rounded-xl bg-white/70 px-3.5 py-2 text-xs font-medium text-slate-600 shadow-xs backdrop-blur-xs">
-          <div className="flex items-center gap-2">
+        {/* Thanh trạng thái phản hồi phòng thi đấu trực quan */}
+        <div className="mt-3 flex items-center justify-between rounded-xl bg-white/90 border border-slate-200/80 px-4 py-2.5 shadow-xs backdrop-blur-xs">
+          <div className="flex items-center gap-2.5">
             <span
               className={`h-2.5 w-2.5 rounded-full ${
                 phase === 0
@@ -215,16 +215,22 @@ export const ClassroomHeroAnimation: React.FC = () => {
                   : "bg-rose-500 animate-pulse"
               }`}
             />
-            <span className="font-semibold text-slate-800">
-              {phase === 0 && "Học sinh đang vắt óc tính toán..."}
-              {phase === 1 && "Học sinh tự tin chốt đáp án: 5!"}
-              {phase === 2 && "Dấu X đỏ xuất hiện & Thầy gõ đầu BONK!"}
-            </span>
+            {phase === 2 ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200/80">
+                Trả lời sai • −0 điểm
+              </span>
+            ) : phase === 1 ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
+                Đã chốt đáp án: 5
+              </span>
+            ) : (
+              <span className="text-xs font-medium text-slate-600">
+                Đang vắt óc tính toán...
+              </span>
+            )}
           </div>
-          <span className="rounded-md bg-purple-100 px-2 py-0.5 text-[11px] font-bold text-purple-700">
-            {phase === 0 && "Pha 1/3"}
-            {phase === 1 && "Pha 2/3"}
-            {phase === 2 && "Pha 3/3"}
+          <span className="rounded-md bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs font-mono font-bold text-slate-700 tabular-nums">
+            Câu 1/10
           </span>
         </div>
 

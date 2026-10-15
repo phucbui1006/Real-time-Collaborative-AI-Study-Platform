@@ -1,5 +1,23 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { MembersModal, RoomMember } from "./MembersModal";
+import {
+  Users,
+  MessageSquare,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  Undo2,
+  Trash2,
+  Pencil,
+  Minus,
+  Circle,
+  MoveUpRight,
+  Type,
+  Eraser,
+  FileText,
+  X,
+  Send,
+} from "lucide-react";
 
 export type SlideItem = [string, string[]];
 export type DocItem = {
@@ -49,14 +67,6 @@ export const INITIAL_MEMBERS: RoomMember[] = [
   { id: 4, name: "Thu Trang", role: "member", avatarColor: "#f59e0b", isOnline: false },
 ];
 
-const TOOLS = [
-  ["pen", "✎", "Vẽ tự do"],
-  ["line", "＿", "Gạch chân"],
-  ["ellipse", "◯", "Khoanh tròn"],
-  ["arrow", "➚", "Mũi tên"],
-  ["text", "T", "Viết chữ"],
-  ["eraser", "⌫", "Xoá nét"],
-];
 
 const COLORS = ["#ef4444", "#2563eb", "#16a34a", "#f59e0b", "#111827"];
 
@@ -298,61 +308,69 @@ function DocPicker({ docs, current, onPick, onClose }: DocPickerProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(15,23,42,.6)", backdropFilter: "blur(4px)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
         role="dialog"
         aria-modal="true"
-        className="w-full rounded-3xl p-6 shadow-2xl"
-        style={{ maxWidth: 460, background: "#1e293b", color: "#fff" }}
+        className="w-full max-w-md rounded-lg bg-white p-6 border border-slate-200/90 shadow-xl"
       >
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between pb-4 border-b border-slate-100">
           <div>
-            <h2 className="text-lg font-semibold">Chọn tài liệu để trình bày</h2>
-            <p className="mt-1 text-sm" style={{ color: "#cbd5e1" }}>
-              Lấy từ kho tài liệu của bạn.
+            <h2 className="text-base font-semibold text-slate-900 tracking-tight">Chọn tài liệu để trình bày</h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Lấy từ kho bài giảng và tài liệu học tập của bạn.
             </p>
           </div>
           <button
             onClick={onClose}
             aria-label="Đóng"
-            className="text-xl leading-none cursor-pointer"
-            style={{ color: "#cbd5e1" }}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
           >
-            ✕
+            <X className="h-4 w-4" strokeWidth={1.75} />
           </button>
         </div>
-        <ul className="mt-4 space-y-2">
+        <ul className="mt-4 space-y-2 max-h-80 overflow-y-auto pr-1">
           {docs.map((d) => (
             <li key={d.id}>
               <button
                 onClick={() => onPick(d)}
-                className="flex w-full items-center gap-3 rounded-2xl p-3 text-left transition-colors cursor-pointer"
-                style={{ background: current?.id === d.id ? "rgba(124,58,237,.35)" : "rgba(255,255,255,.07)" }}
+                className={`flex w-full items-center gap-3 rounded-lg p-3 text-left border transition-all cursor-pointer ${
+                  current?.id === d.id
+                    ? "bg-indigo-50/60 border-indigo-500 ring-1 ring-indigo-500/30"
+                    : "bg-white border-slate-200/80 hover:bg-slate-50 hover:border-slate-300"
+                }`}
               >
                 <span
-                  className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold text-white shadow-xs"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white shadow-2xs"
                   style={{ background: d.color }}
                 >
                   {d.title.slice(0, 1)}
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block font-semibold truncate">{d.title}</span>
-                  <span className="text-xs" style={{ color: "#cbd5e1" }}>
+                  <span className="block font-medium text-xs text-slate-900 truncate">{d.title}</span>
+                  <span className="text-[11px] text-slate-500 font-mono tabular-nums">
                     {d.slides.length} slide
                   </span>
                 </span>
                 {current?.id === d.id && (
-                  <span className="text-xs font-medium" style={{ color: "#c4b5fd" }}>
-                    Đang trình bày
+                  <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-100/70 px-2 py-0.5 rounded border border-indigo-200">
+                    Đang chọn
                   </span>
                 )}
               </button>
             </li>
           ))}
         </ul>
+        <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end">
+          <button
+            onClick={onClose}
+            className="h-8 px-4 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
+          >
+            Đóng
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -391,58 +409,70 @@ function ChatPanel({ open, msgs, members, onSend, onOpenMembers }: ChatPanelProp
 
   return (
     <aside
-      className="shrink-0 overflow-hidden transition-all duration-300"
+      className="shrink-0 overflow-hidden transition-all duration-300 border-l border-slate-200 bg-white"
       style={{ width: open ? 320 : 0 }}
       aria-hidden={!open}
     >
-      <div className="flex h-full flex-col" style={{ width: 320, background: "#fff", borderLeft: "1px solid #e2e8f0" }}>
-        {/* Header khung chat với nút bấm số lượng người */}
-        <div
-          className="flex items-center justify-between px-4 py-3 font-semibold"
-          style={{ background: "#1e293b", color: "#fff" }}
-        >
-          <span>Trò chuyện</span>
+      <div className="flex h-full flex-col w-[320px]">
+        {/* Header khung chat */}
+        <div className="flex items-center justify-between px-4 h-14 border-b border-slate-200 bg-slate-50/70">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-slate-700" strokeWidth={1.75} />
+            <span className="text-xs font-semibold text-slate-900 tracking-tight">Trò chuyện</span>
+          </div>
           <button
             onClick={onOpenMembers}
             title="Xem danh sách người trong phòng"
-            className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-white/20 hover:text-white transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-slate-200 bg-white text-[11px] font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer shadow-2xs"
           >
-            <span>👥</span>
-            <span>{members.length} người</span>
-            <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" title={`${onlineCount} đang online`} />
+            <Users className="h-3 w-3 text-slate-500" strokeWidth={1.75} />
+            <span className="font-mono tabular-nums">{members.length}</span>
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" title={`${onlineCount} đang online`} />
           </button>
         </div>
 
         {/* Nội dung tin nhắn */}
-        <div className="flex-1 space-y-3 overflow-y-auto p-4" style={{ background: "#f8fafc" }}>
-          {msgs.map((m, i) => (
-            <div key={i} className={m.me ? "text-right" : ""}>
-              {!m.me && <div className="mb-0.5 text-xs text-slate-400">{m.who}</div>}
-              <span
-                className="inline-block max-w-[85%] rounded-2xl px-3 py-2 text-left text-sm"
-                style={m.me ? { background: "#7c3aed", color: "#fff" } : { background: "#fff", border: "1px solid #e2e8f0" }}
-              >
-                {m.text}
-              </span>
+        <div className="flex-1 space-y-3 overflow-y-auto p-4 bg-slate-50/50">
+          {msgs.length === 0 ? (
+            <div className="py-12 text-center text-xs text-slate-400">
+              Chưa có tin nhắn nào. Hãy gửi lời chào!
             </div>
-          ))}
+          ) : (
+            msgs.map((m, i) => (
+              <div key={i} className={m.me ? "text-right" : "text-left"}>
+                {!m.me && (
+                  <div className="mb-1 text-[11px] font-medium text-slate-500">{m.who}</div>
+                )}
+                <span
+                  className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
+                    m.me
+                      ? "bg-indigo-950 text-white font-normal"
+                      : "bg-white text-slate-800 border border-slate-200/90 shadow-2xs"
+                  }`}
+                >
+                  {m.text}
+                </span>
+              </div>
+            ))
+          )}
           <div ref={end} />
         </div>
 
         {/* Form gửi tin nhắn */}
-        <form onSubmit={submit} className="flex gap-2 border-t border-slate-200 bg-white p-3">
+        <form onSubmit={submit} className="flex items-center gap-2 border-t border-slate-200 bg-white p-3">
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Nhắn cho cả phòng…"
-            className="flex-1 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-violet-500"
+            placeholder="Nhắn tin trong phòng…"
+            className="flex-1 h-9 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors"
           />
           <button
             type="submit"
-            className="rounded-full px-4 py-2 text-sm font-semibold text-white cursor-pointer"
-            style={{ background: "#7c3aed" }}
+            disabled={!text.trim()}
+            className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-indigo-950 text-white hover:bg-indigo-900 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0"
+            aria-label="Gửi tin nhắn"
           >
-            Gửi
+            <Send className="h-3.5 w-3.5" strokeWidth={1.75} />
           </button>
         </form>
       </div>
@@ -534,35 +564,29 @@ export default function RoomView({
     }, 1500);
   };
 
-  const btn = { background: "rgba(255,255,255,.1)", color: "#fff" };
-
   return (
-    <div className="fixed inset-0 z-50 flex h-screen flex-col overflow-hidden" style={{ background: "#334155", color: "#fff" }}>
-      {/* Thanh tiêu đề trên */}
-      <header
-        className="flex items-center justify-between gap-3 px-5 py-3 shrink-0"
-        style={{ borderBottom: "1px solid rgba(255,255,255,.1)" }}
-      >
-        <div className="flex items-center gap-3">
-          <h1 className="font-semibold text-lg">{room.name}</h1>
-          <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-widest" style={btn}>
-            Mã {room.code}
+    <div className="fixed inset-0 z-50 flex h-screen flex-col overflow-hidden bg-slate-100 text-slate-800">
+      {/* Thanh tiêu đề trên (Header chuẩn Crisp Academic SaaS) */}
+      <header className="flex h-14 items-center justify-between gap-3 px-5 border-b border-slate-200 bg-white shrink-0 shadow-2xs">
+        <div className="flex items-center gap-3 min-w-0">
+          <h1 className="font-semibold text-sm text-slate-900 truncate">{room.name}</h1>
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-bold tracking-wider text-slate-700 bg-slate-100 border border-slate-200 tabular-nums">
+            {room.code}
           </span>
           {isHost && (
-            <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold" style={{ background: "#7c3aed" }}>
+            <span className="rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
               Chủ phòng
             </span>
           )}
 
-          {/* Nút bấm xem số lượng người ở Thanh Tiêu Đề */}
+          {/* Nút bấm xem số lượng người */}
           <button
             onClick={() => setMembersOpen(true)}
-            className="flex items-center gap-1.5 rounded-full border border-white/20 px-3 py-1 text-xs font-semibold hover:bg-white/20 transition-all cursor-pointer"
-            style={btn}
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer shadow-2xs"
             title="Xem danh sách người trong phòng"
           >
-            <span>👥</span>
-            <span>{members.length} người</span>
+            <Users className="h-3.5 w-3.5 text-slate-500" strokeWidth={1.75} />
+            <span className="font-mono tabular-nums">{members.length} thành viên</span>
           </button>
         </div>
 
@@ -570,148 +594,210 @@ export default function RoomView({
           {isHost && (
             <button
               onClick={() => setPicker(true)}
-              className="rounded-full px-4 py-2 text-sm font-semibold cursor-pointer transition-transform active:scale-95"
-              style={{ background: "#7c3aed", color: "#fff" }}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer shadow-2xs"
             >
-              {doc ? "Đổi tài liệu" : "Chọn tài liệu"}
+              <FileText className="h-3.5 w-3.5 text-slate-500" strokeWidth={1.75} />
+              <span>{doc ? "Đổi tài liệu" : "Chọn tài liệu"}</span>
             </button>
           )}
           <button
             onClick={() => setChatOpen((v) => !v)}
-            className="relative rounded-full px-4 py-2 text-sm font-semibold cursor-pointer"
-            style={btn}
+            className={`relative inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-xs font-medium transition-colors cursor-pointer shadow-2xs ${
+              chatOpen
+                ? "bg-slate-100 text-slate-900 border-slate-300"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+            }`}
           >
-            {chatOpen ? "Ẩn chat" : "Mở chat"}
+            <MessageSquare className="h-3.5 w-3.5 text-slate-500" strokeWidth={1.75} />
+            <span>{chatOpen ? "Ẩn chat" : "Trò chuyện"}</span>
             {!chatOpen && unread > 0 && (
-              <span
-                className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold"
-                style={{ background: "#ef4444" }}
-              >
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white tabular-nums">
                 {unread}
               </span>
             )}
           </button>
           <button
             onClick={onLeave}
-            className="rounded-full px-4 py-2 text-sm font-semibold hover:bg-white/20 transition-colors cursor-pointer"
-            style={{ background: "rgba(255,255,255,.15)", color: "#fff" }}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 bg-white text-xs font-medium text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer shadow-2xs"
           >
-            Rời phòng
+            <LogOut className="h-3.5 w-3.5" strokeWidth={1.75} />
+            <span>Rời phòng</span>
           </button>
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Khu trình bày */}
-        <main className="flex min-w-0 flex-1 flex-col items-center justify-center gap-4 overflow-y-auto p-4 sm:p-6">
+        <main className="relative flex min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto p-4 sm:p-6 bg-[#FAFAFA]">
           {!doc ? (
-            <div className="text-center p-8 rounded-3xl" style={{ background: "rgba(255,255,255,0.05)" }}>
-              <div className="text-6xl mb-2">📑</div>
-              <p className="mt-3 text-xl font-semibold">
-                {isHost ? "Chưa có tài liệu đang trình bày" : "Chủ phòng chưa chọn tài liệu"}
-              </p>
-              <p className="mt-2 text-sm max-w-md mx-auto" style={{ color: "#cbd5e1" }}>
+            <div className="w-full max-w-md rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center shadow-2xs">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-slate-100 text-slate-500 border border-slate-200">
+                <FileText className="h-6 w-6 text-slate-600" strokeWidth={1.75} />
+              </div>
+              <h2 className="mt-4 text-sm font-semibold text-slate-900 tracking-tight">
+                {isHost ? "Chưa chọn tài liệu trình bày" : "Chủ phòng chưa chọn tài liệu"}
+              </h2>
+              <p className="mt-1 text-xs text-slate-500 leading-relaxed">
                 {isHost
-                  ? "Chọn một tài liệu từ kho để bắt đầu trình bày cho cả phòng."
-                  : "Slide sẽ hiện ở đây khi chủ phòng bắt đầu."}
+                  ? "Chọn một tài liệu từ kho để bắt đầu trình chiếu và cùng thảo luận với các thành viên."
+                  : "Slide trình bày sẽ hiển thị tại đây khi chủ phòng bắt đầu."}
               </p>
               {isHost && (
                 <button
                   onClick={() => setPicker(true)}
-                  className="mt-6 rounded-full px-6 py-3 text-sm font-semibold cursor-pointer transition-transform active:scale-95 shadow-lg"
-                  style={{ background: "#7c3aed", color: "#fff" }}
+                  className="mt-5 inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-indigo-950 text-white hover:bg-indigo-900 text-xs font-medium transition-all cursor-pointer shadow-xs active:translate-y-[1px]"
                 >
-                  Chọn tài liệu để trình bày
+                  <FileText className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  <span>Chọn tài liệu trình bày</span>
                 </button>
               )}
             </div>
           ) : (
-            <div className="w-full" style={{ maxWidth: "min(100%, calc((100vh - 220px) * 16 / 9))" }}>
-              <SlideStage
-                doc={doc}
-                index={index}
-                objs={objs}
-                onChange={setObjs}
-                canEdit={isHost}
-                tool={tool}
-                color={color}
-              />
+            <div className="flex flex-col items-center justify-center w-full h-full">
+              <div className="w-full flex-1 flex items-center justify-center max-h-[calc(100vh-140px)]" style={{ maxWidth: "min(100%, calc((100vh - 160px) * 16 / 9))" }}>
+                <SlideStage
+                  doc={doc}
+                  index={index}
+                  objs={objs}
+                  onChange={setObjs}
+                  canEdit={isHost}
+                  tool={tool}
+                  color={color}
+                />
+              </div>
 
-              {/* Thanh công cụ + điều hướng */}
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+              {/* Floating Bottom Toolbar chuẩn UI_DESIGN_SKILL.md Mục 6 */}
+              <div className="mt-3 flex items-center gap-2 bg-white border border-slate-200/90 shadow-md rounded-lg p-1.5 shrink-0">
                 {isHost && (
-                  <div className="flex items-center gap-1.5 rounded-full p-1.5 shadow-md" style={btn}>
-                    {TOOLS.map(([id, icon, label]) => (
+                  <>
+                    <div className="flex items-center gap-0.5">
                       <button
-                        key={id}
-                        onClick={() => setTool(id)}
-                        title={label}
-                        aria-label={label}
-                        aria-pressed={tool === id}
-                        className="flex h-9 w-9 items-center justify-center rounded-full text-base font-bold cursor-pointer transition-colors"
-                        style={{ background: tool === id ? "#7c3aed" : "transparent", color: "#fff" }}
+                        onClick={() => setTool("pen")}
+                        title="Vẽ tự do"
+                        className={`flex h-8 w-8 items-center justify-center rounded-md text-xs cursor-pointer transition-colors ${
+                          tool === "pen" ? "bg-indigo-950 text-white" : "text-slate-600 hover:bg-slate-100"
+                        }`}
                       >
-                        {icon}
+                        <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} />
                       </button>
-                    ))}
-                    <span className="mx-1 h-5 w-px" style={{ background: "rgba(255,255,255,.2)" }} />
-                    {COLORS.map((c) => (
                       <button
-                        key={c}
-                        onClick={() => setColor(c)}
-                        aria-label={`Màu ${c}`}
-                        className="h-6 w-6 rounded-full cursor-pointer transition-transform hover:scale-110"
-                        style={{
-                          background: c,
-                          outline: color === c ? "2px solid #fff" : "2px solid transparent",
-                          outlineOffset: 2,
-                        }}
-                      />
-                    ))}
-                    <span className="mx-1 h-5 w-px" style={{ background: "rgba(255,255,255,.2)" }} />
+                        onClick={() => setTool("line")}
+                        title="Gạch chân"
+                        className={`flex h-8 w-8 items-center justify-center rounded-md text-xs cursor-pointer transition-colors ${
+                          tool === "line" ? "bg-indigo-950 text-white" : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        <Minus className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      </button>
+                      <button
+                        onClick={() => setTool("ellipse")}
+                        title="Khoanh tròn"
+                        className={`flex h-8 w-8 items-center justify-center rounded-md text-xs cursor-pointer transition-colors ${
+                          tool === "ellipse" ? "bg-indigo-950 text-white" : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        <Circle className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      </button>
+                      <button
+                        onClick={() => setTool("arrow")}
+                        title="Mũi tên"
+                        className={`flex h-8 w-8 items-center justify-center rounded-md text-xs cursor-pointer transition-colors ${
+                          tool === "arrow" ? "bg-indigo-950 text-white" : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        <MoveUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      </button>
+                      <button
+                        onClick={() => setTool("text")}
+                        title="Viết chữ"
+                        className={`flex h-8 w-8 items-center justify-center rounded-md text-xs cursor-pointer transition-colors ${
+                          tool === "text" ? "bg-indigo-950 text-white" : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        <Type className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      </button>
+                      <button
+                        onClick={() => setTool("eraser")}
+                        title="Xóa nét"
+                        className={`flex h-8 w-8 items-center justify-center rounded-md text-xs cursor-pointer transition-colors ${
+                          tool === "eraser" ? "bg-indigo-950 text-white" : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        <Eraser className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      </button>
+                    </div>
+
+                    <div className="h-4 w-px bg-slate-200 mx-1" />
+
+                    {/* Color picker */}
+                    <div className="flex items-center gap-1.5 px-1">
+                      {COLORS.map((c) => (
+                        <button
+                          key={c}
+                          onClick={() => setColor(c)}
+                          aria-label={`Màu ${c}`}
+                          className="h-4 w-4 rounded-full cursor-pointer transition-transform hover:scale-115"
+                          style={{
+                            background: c,
+                            outline: color === c ? "2px solid #0f172a" : "1px solid rgba(0,0,0,0.15)",
+                            outlineOffset: 1.5,
+                          }}
+                        />
+                      ))}
+                    </div>
+
+                    <div className="h-4 w-px bg-slate-200 mx-1" />
+
                     <button
                       onClick={() => setObjs(objs.slice(0, -1))}
                       disabled={!objs.length}
-                      className="rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40 cursor-pointer"
-                      style={{ color: "#fff" }}
+                      title="Hoàn tác"
+                      className="inline-flex items-center gap-1 h-8 px-2 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
                     >
-                      ↶ Hoàn tác
+                      <Undo2 className="h-3.5 w-3.5 text-slate-500" strokeWidth={1.75} />
+                      <span className="hidden sm:inline">Hoàn tác</span>
                     </button>
                     <button
                       onClick={() => setObjs([])}
                       disabled={!objs.length}
-                      className="rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40 cursor-pointer"
-                      style={{ color: "#fff" }}
+                      title="Xóa tất cả nét vẽ"
+                      className="inline-flex items-center gap-1 h-8 px-2 rounded-md text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
                     >
-                      Xoá hết
+                      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      <span className="hidden sm:inline">Xóa hết</span>
                     </button>
-                  </div>
+
+                    <div className="h-4 w-px bg-slate-200 mx-1" />
+                  </>
                 )}
-                <div className="flex items-center gap-2 rounded-full p-1.5 shadow-md" style={btn}>
+
+                {/* Điều hướng slide */}
+                <div className="flex items-center gap-1">
                   <button
                     onClick={() => go(index - 1)}
                     disabled={!isHost || index === 0}
-                    className="rounded-full px-3 py-1.5 text-sm font-semibold disabled:opacity-40 cursor-pointer"
-                    style={{ color: "#fff" }}
+                    className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                    title="Slide trước"
                   >
-                    ‹ Trước
+                    <ChevronLeft className="h-4 w-4" strokeWidth={1.75} />
                   </button>
-                  <span className="px-2 text-sm font-semibold">
+                  <span className="px-2 text-xs font-medium font-mono tabular-nums text-slate-700">
                     {index + 1} / {doc.slides.length}
                   </span>
                   <button
                     onClick={() => go(index + 1)}
                     disabled={!isHost || index === doc.slides.length - 1}
-                    className="rounded-full px-3 py-1.5 text-sm font-semibold disabled:opacity-40 cursor-pointer"
-                    style={{ color: "#fff" }}
+                    className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                    title="Slide sau"
                   >
-                    Sau ›
+                    <ChevronRight className="h-4 w-4" strokeWidth={1.75} />
                   </button>
                 </div>
               </div>
+
               {!isHost && (
-                <p className="mt-2 text-center text-xs" style={{ color: "#cbd5e1" }}>
-                  Bạn đang xem chủ phòng trình bày – slide và nét vẽ cập nhật theo thời gian thực.
+                <p className="mt-2 text-center text-xs text-slate-500">
+                  Bạn đang theo dõi bài trình bày của chủ phòng — slide và ghi chú vẽ đồng bộ theo thời gian thực.
                 </p>
               )}
             </div>

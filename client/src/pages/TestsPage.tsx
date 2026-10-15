@@ -8,10 +8,7 @@ import {
   SEED_HISTORY,
   BOT_NAMES,
   AI_DOCS,
-  BTN,
   BTN_OUT,
-  INP,
-
   ExamSet,
   ExamHistory,
   LiveExam,
@@ -24,6 +21,8 @@ import { OpenModal } from "../components/quiz/OpenModal";
 import { HostView } from "../components/quiz/HostView";
 import { TakeView } from "../components/quiz/TakeView";
 import { ResultView } from "../components/quiz/ResultView";
+import { getSubjectStyle } from "../components/documents/DocumentStore";
+import { Radio, ArrowRight, PlayCircle, Plus } from "lucide-react";
 
 function useNow(ms = 1000) {
   const [n, setN] = useState(Date.now());
@@ -211,7 +210,7 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
           <p className="text-xs font-semibold tracking-widest text-sky-600 uppercase">
             XIN CHÀO, {userName.toUpperCase()}
           </p>
-          <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+          <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
             Bài kiểm tra trực tuyến
           </h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -232,36 +231,38 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
               },
             })
           }
-          className={`${BTN} shrink-0`}
+          className="inline-flex items-center justify-center gap-2 rounded-md h-9 px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs shadow-indigo-500/20 active:translate-y-[1px] transition-all cursor-pointer shrink-0"
         >
-          + Tạo bộ câu hỏi
+          <Plus className="h-4 w-4" strokeWidth={1.75} />
+          <span>Tạo bộ câu hỏi</span>
         </button>
-
       </div>
 
       {/* Bài đang mở + tham gia bằng mã */}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-lg bg-white p-5 border border-slate-200/80 shadow-2xs">
+        {/* Thẻ tham gia bài kiểm tra (Mục 6A) */}
+        <div className="rounded-xl p-5 border border-indigo-200/90 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50/50 shadow-2xs">
           <h2 className="font-semibold text-slate-900 text-sm">Tham gia bài kiểm tra</h2>
+          <p className="mt-1 text-xs text-slate-500">Nhập mã phòng 6 số do bạn bè hoặc người tạo phòng gửi cho bạn.</p>
           <form
-            className="mt-3 flex gap-2"
+            className="mt-3.5 flex gap-2.5 items-center"
             onSubmit={(e) => {
               e.preventDefault();
               joinExam(joinCode);
             }}
           >
             <input
-              className={`${INP} font-mono tabular-nums`}
+              className="flex-1 h-11 rounded-lg border border-slate-200 bg-white px-3.5 text-base font-mono font-bold tracking-widest uppercase text-slate-900 placeholder:font-sans placeholder:tracking-normal placeholder:font-normal placeholder:text-slate-400 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors shadow-2xs"
               inputMode="numeric"
               maxLength={6}
               value={joinCode}
               placeholder="Nhập mã 6 số"
               onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              style={{ letterSpacing: ".2em", fontWeight: 700 }}
             />
             <button
-              className={BTN}
+              type="submit"
               disabled={joinCode.length !== 6}
+              className="whitespace-nowrap shrink-0 px-6 h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none active:translate-y-[1px]"
             >
               Vào thi
             </button>
@@ -269,27 +270,42 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
           {joinErr && <p className="mt-2 text-xs text-rose-600 font-medium">{joinErr}</p>}
         </div>
 
-        <div className="rounded-lg bg-white p-5 border border-slate-200/80 shadow-2xs">
-          <h2 className="font-semibold text-slate-900 text-sm">Bài kiểm tra bạn đang mở</h2>
-          {live ? (
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-slate-900">{live.set.title}</div>
-                <div className="text-xs text-slate-500 font-mono tabular-nums">
-                  Mã {live.code} · {running ? `còn ${fmt(remaining)}` : "đã kết thúc"}
+        {/* Khung bài kiểm tra đang mở (Mục 6A Empty State) */}
+        <div className="rounded-xl bg-white p-5 border border-slate-200/80 shadow-2xs flex flex-col justify-between">
+          <div>
+            <h2 className="font-semibold text-slate-900 text-sm">Bài kiểm tra bạn đang mở</h2>
+            {live ? (
+              <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-lg bg-indigo-50/50 border border-indigo-200/70">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-slate-900">{live.set.title}</div>
+                  <div className="text-xs text-slate-600 font-mono tabular-nums mt-0.5">
+                    Mã <strong className="text-indigo-700 font-bold">{live.code}</strong> · {running ? `còn ${fmt(remaining)}` : "đã kết thúc"}
+                  </div>
                 </div>
+                <button
+                  onClick={() => setView({ name: "host" })}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                >
+                  <span>Xem bảng điểm</span>
+                  <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+                </button>
               </div>
-              <button onClick={() => setView({ name: "host" })} className={BTN_OUT}>
-                Xem bảng điểm
-              </button>
-            </div>
-          ) : (
-            <p className="mt-3 text-xs text-slate-400">Chưa có bài nào đang mở.</p>
-          )}
+            ) : (
+              <div className="py-5 flex flex-col items-center justify-center text-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400 border border-slate-200 mb-2">
+                  <Radio className="h-5 w-5" strokeWidth={1.75} />
+                </div>
+                <p className="text-xs font-semibold text-slate-700">Chưa có phòng thi nào đang hoạt động</p>
+                <p className="text-[11px] text-slate-400 mt-0.5 max-w-xs">
+                  Chọn "Mở bài kiểm tra" ở danh sách bên dưới để lấy mã phòng cho bạn bè.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Tab */}
+      {/* Tabs */}
       <div className="mt-8 flex gap-2">
         {[
           ["sets", "Bộ câu hỏi của tôi"],
@@ -298,10 +314,10 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
           <button
             key={id}
             onClick={() => setTab(id as "sets" | "history")}
-            className={`rounded-md px-3.5 py-1.5 text-xs font-medium cursor-pointer transition-colors ${
+            className={`rounded-md px-3.5 py-1.5 text-xs transition-colors cursor-pointer ${
               tab === id
-                ? "bg-indigo-950 text-white shadow-xs"
-                : "bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-slate-200"
+                ? "bg-indigo-50 text-indigo-700 border border-indigo-300 font-semibold shadow-2xs"
+                : "bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-slate-200 font-medium"
             }`}
           >
             {l}
@@ -309,7 +325,7 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
         ))}
       </div>
 
-      <div className="mt-4 rounded-lg bg-white p-5 border border-slate-200/80 shadow-2xs">
+      <div className="mt-4 rounded-xl bg-white p-5 border border-slate-200/80 shadow-2xs">
         {tab === "sets" ? (
           sets.length === 0 ? (
             <p className="py-10 text-center text-sm text-slate-400">
@@ -317,66 +333,73 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
             </p>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {sets.map((s) => (
-                <li key={s.id} className="flex flex-col sm:flex-row sm:items-center gap-4 py-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-                    <span className="font-mono text-xs font-bold text-slate-600">QZ</span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-bold tracking-wider uppercase text-slate-400">{s.subject}</div>
-                    <div className="truncate font-semibold text-slate-900 text-sm">{s.title}</div>
-                    <div className="text-xs text-slate-500 font-mono tabular-nums">
-                      {s.questions.length} câu hỏi · {s.minutes} phút
+              {sets.map((s) => {
+                const subStyle = getSubjectStyle(s.subject);
+                return (
+                  <li key={s.id} className="flex flex-col sm:flex-row sm:items-center gap-4 py-4 first:pt-0 last:pb-0">
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${subStyle.box}`}>
+                      {subStyle.icon}
                     </div>
-                  </div>
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-[10px] font-bold tracking-wider uppercase ${subStyle.text}`}>{s.subject}</div>
+                      <div className="truncate font-semibold text-slate-900 text-sm mt-0.5">{s.title}</div>
+                      <div className="text-xs text-slate-500 font-mono tabular-nums mt-0.5">
+                        {s.questions.length} câu hỏi · {s.minutes} phút
+                      </div>
+                    </div>
 
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setView({ name: "edit", set: s })} className={BTN_OUT}>
-                      Chỉnh sửa
-                    </button>
-                    <button
-                      onClick={() => setOpenFor(s)}
-                      disabled={running}
-                      title={running ? "Đang có một bài kiểm tra mở" : ""}
-                      className={BTN}
-                    >
-                      Mở bài kiểm tra
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setView({ name: "edit", set: s })} className={BTN_OUT}>
+                        Chỉnh sửa
+                      </button>
+                      <button
+                        onClick={() => setOpenFor(s)}
+                        disabled={running}
+                        title={running ? "Đang có một bài kiểm tra mở" : ""}
+                        className="inline-flex items-center gap-1.5 rounded-md h-9 px-3.5 text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-600 hover:text-white transition-colors cursor-pointer disabled:opacity-40"
+                      >
+                        <PlayCircle className="h-4 w-4" strokeWidth={1.75} />
+                        Mở bài kiểm tra
+                      </button>
 
-                    <button
-                      onClick={() =>
-                        window.confirm(`Xoá "${s.title}"?`) &&
-                        setSets((a) => a.filter((x) => x.id !== s.id))
-                      }
-                      aria-label={`Xoá ${s.title}`}
-                      className="px-2 text-slate-300 hover:text-rose-500 transition-colors text-lg cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </li>
-              ))}
+                      <button
+                        onClick={() =>
+                          window.confirm(`Xoá "${s.title}"?`) &&
+                          setSets((a) => a.filter((x) => x.id !== s.id))
+                        }
+                        aria-label={`Xoá ${s.title}`}
+                        className="px-2 text-slate-300 hover:text-rose-500 transition-colors text-lg cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )
         ) : (
           <ul className="divide-y divide-slate-100">
-            {history.map((h) => (
-              <li key={h.id} className="flex items-center gap-4 py-4">
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold tracking-wide text-violet-600">{h.subject}</div>
-                  <div className="truncate font-semibold text-slate-900">{h.title}</div>
-                  <div className="text-sm text-slate-500">
-                    {h.date} · Hạng {h.rank}/{h.of}
+            {history.map((h) => {
+              const subStyle = getSubjectStyle(h.subject);
+              return (
+                <li key={h.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${subStyle.box}`}>
+                    {subStyle.icon}
                   </div>
-                </div>
-                <span
-                  className="rounded-full px-4 py-1.5 text-sm font-bold"
-                  style={{ background: "#dcfce7", color: "#166534" }}
-                >
-                  Đã đạt {h.score.toFixed(1)}
-                </span>
-              </li>
-            ))}
+                  <div className="min-w-0 flex-1">
+                    <div className={`text-xs font-bold tracking-wide uppercase ${subStyle.text}`}>{h.subject}</div>
+                    <div className="truncate font-semibold text-slate-900 text-sm">{h.title}</div>
+                    <div className="text-xs text-slate-500 font-mono tabular-nums mt-0.5">
+                      {h.date} · Hạng {h.rank}/{h.of}
+                    </div>
+                  </div>
+                  <span className="rounded-md px-3 py-1 text-xs font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 tabular-nums">
+                    Đã đạt {h.score.toFixed(1)}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

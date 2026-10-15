@@ -142,15 +142,18 @@ export default function App() {
                 <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" />
                 Nền tảng học tập thông minh
               </span>
-              <h1 className="mt-5 text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 leading-tight">
-                Học tập cùng bạn bè &amp; Trí tuệ nhân tạo
+              <h1 className="mt-5 text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-slate-950 leading-tight">
+                Học tập cùng bạn bè <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-sky-500">&amp; Trí tuệ nhân tạo</span>
               </h1>
               <p className="mt-5 max-w-2xl text-base sm:text-lg leading-relaxed text-slate-600">
                 Không gian học nhóm kết hợp AI giúp biến tài liệu phức tạp thành trải nghiệm học tập sinh động và hiệu
                 quả.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button onClick={openLogin} className="primary-button justify-center h-10 px-5 text-sm cursor-pointer">
+                <button
+                  onClick={openLogin}
+                  className="inline-flex items-center justify-center gap-2 rounded-md h-10 px-5 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs shadow-indigo-500/20 active:translate-y-[1px] transition-all cursor-pointer"
+                >
                   Bắt đầu học ngay
                   <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
                 </button>
@@ -371,7 +374,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("documents");
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-slate-700">
+    <div className="min-h-screen bg-[#F4F6FB] text-slate-700">
       <Header activeTab={activeTab} onSelectTab={setActiveTab} onLogout={onLogout} />
 
       {/* Mobile navigation fallback */}
@@ -395,11 +398,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         </nav>
       </div>
 
-      <div className="mx-auto max-w-[1500px] px-5 py-6 sm:px-8 lg:py-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         {activeTab === "documents" && <LibraryPage />}
         {activeTab === "classrooms" && <ClassroomsPage />}
         {activeTab === "tests" && <TestsPage />}
       </div>
+
     </div>
   );
 }

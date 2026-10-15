@@ -229,3 +229,13 @@ button {
   20%, 60% { transform: translateX(-5px) rotate(-0.8deg); }
   40%, 80% { transform: translateX(5px) rotate(0.8deg); }
 }
+
+/* Ẩn thanh cuộn thô nhưng vẫn cuộn ngang mượt mà */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
