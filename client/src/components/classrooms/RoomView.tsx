@@ -17,6 +17,14 @@ import {
   FileText,
   X,
   Send,
+  ArrowLeft,
+  Copy,
+  Check,
+  Presentation,
+  Highlighter,
+  StickyNote,
+  Hand,
+  Maximize2,
 } from "lucide-react";
 
 export type SlideItem = [string, string[]];
@@ -379,7 +387,7 @@ function DocPicker({ docs, current, onPick, onClose }: DocPickerProps) {
 /* ------------------------------------------------------------------ */
 /* Khung chat trong phòng                                               */
 /* ------------------------------------------------------------------ */
-export type ChatMsg = { who?: string; text: string; me?: boolean };
+export type ChatMsg = { who?: string; text: string; me?: boolean; time?: string };
 
 interface ChatPanelProps {
   open: boolean;
@@ -405,74 +413,97 @@ function ChatPanel({ open, msgs, members, onSend, onOpenMembers }: ChatPanelProp
     }
   };
 
-  const onlineCount = members.filter((m) => m.isOnline).length;
-
   return (
     <aside
       className="shrink-0 overflow-hidden transition-all duration-300 border-l border-slate-200 bg-white"
-      style={{ width: open ? 320 : 0 }}
+      style={{ width: open ? 340 : 0 }}
       aria-hidden={!open}
     >
-      <div className="flex h-full flex-col w-[320px]">
+      <div className="flex h-full flex-col w-[340px]">
         {/* Header khung chat */}
-        <div className="flex items-center justify-between px-4 h-14 border-b border-slate-200 bg-slate-50/70">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-slate-700" strokeWidth={1.75} />
-            <span className="text-xs font-semibold text-slate-900 tracking-tight">Trò chuyện</span>
+        <div className="flex items-center justify-between px-4 h-14 border-b border-slate-200 bg-white shrink-0">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-indigo-600" strokeWidth={2} />
+              Trò chuyện nhóm
+            </h3>
+            <p className="text-xs text-slate-400">Tin nhắn đồng bộ thời gian thực</p>
           </div>
           <button
             onClick={onOpenMembers}
-            title="Xem danh sách người trong phòng"
-            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-slate-200 bg-white text-[11px] font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer shadow-2xs"
+            title={`Xem danh sách thành viên (${members.length})`}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
           >
-            <Users className="h-3 w-3 text-slate-500" strokeWidth={1.75} />
-            <span className="font-mono tabular-nums">{members.length}</span>
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" title={`${onlineCount} đang online`} />
+            <Users className="h-4 w-4" strokeWidth={1.75} />
           </button>
         </div>
 
         {/* Nội dung tin nhắn */}
-        <div className="flex-1 space-y-3 overflow-y-auto p-4 bg-slate-50/50">
+        <div className="flex-1 space-y-3.5 overflow-y-auto p-4 bg-slate-50/50">
           {msgs.length === 0 ? (
             <div className="py-12 text-center text-xs text-slate-400">
               Chưa có tin nhắn nào. Hãy gửi lời chào!
             </div>
           ) : (
-            msgs.map((m, i) => (
-              <div key={i} className={m.me ? "text-right" : "text-left"}>
-                {!m.me && (
-                  <div className="mb-1 text-[11px] font-medium text-slate-500">{m.who}</div>
-                )}
-                <span
-                  className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
-                    m.me
-                      ? "bg-indigo-950 text-white font-normal"
-                      : "bg-white text-slate-800 border border-slate-200/90 shadow-2xs"
-                  }`}
+            msgs.map((m, i) => {
+              const isMe = !!m.me;
+              const senderName = isMe ? "Bạn" : m.who || "Thành viên";
+              const initial = senderName.charAt(0).toUpperCase();
+              const timeDisplay = m.time || "10:30";
+
+              return (
+                <div
+                  key={i}
+                  className={`flex items-start gap-2.5 ${isMe ? "flex-row-reverse" : "flex-row"}`}
                 >
-                  {m.text}
-                </span>
-              </div>
-            ))
+                  {/* Avatar tròn */}
+                  <div
+                    className={`w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs ${
+                      isMe ? "bg-indigo-600 text-white" : "bg-indigo-100 text-indigo-700"
+                    }`}
+                  >
+                    {initial}
+                  </div>
+
+                  {/* Message content block */}
+                  <div className={`flex flex-col max-w-[78%] ${isMe ? "items-end" : "items-start"}`}>
+                    <div className="flex items-center text-xs text-slate-500 px-1 mb-0.5">
+                      <span className="font-semibold text-slate-700">{senderName}</span>
+                      <span className="text-[11px] font-mono text-slate-400 ml-2">{timeDisplay}</span>
+                    </div>
+
+                    <div
+                      className={`px-3.5 py-2 text-sm leading-relaxed shadow-2xs ${
+                        isMe
+                          ? "bg-indigo-600 text-white rounded-2xl rounded-tr-xs"
+                          : "bg-slate-50 border border-slate-200/80 text-slate-800 rounded-2xl rounded-tl-xs mt-1"
+                      }`}
+                    >
+                      {m.text}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           )}
           <div ref={end} />
         </div>
 
         {/* Form gửi tin nhắn */}
-        <form onSubmit={submit} className="flex items-center gap-2 border-t border-slate-200 bg-white p-3">
+        <form onSubmit={submit} className="flex items-center gap-2 border-t border-slate-200 bg-white p-3 shrink-0">
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Nhắn tin trong phòng…"
-            className="flex-1 h-9 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors"
+            className="flex-1 h-10 rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 focus-visible:ring-indigo-600 transition-colors"
           />
           <button
             type="submit"
             disabled={!text.trim()}
-            className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-indigo-950 text-white hover:bg-indigo-900 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 w-10 rounded-xl flex items-center justify-center shadow-xs transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             aria-label="Gửi tin nhắn"
           >
-            <Send className="h-3.5 w-3.5" strokeWidth={1.75} />
+            <Send className="h-4 w-4" strokeWidth={2} />
           </button>
         </form>
       </div>
@@ -513,8 +544,19 @@ export default function RoomView({
   const [picker, setPicker] = useState(false);
   const [chatOpen, setChatOpen] = useState(true);
   const [unread, setUnread] = useState(0);
-  const [msgs, setMsgs] = useState<ChatMsg[]>([{ who: "Hà My", text: "Chào cả nhóm, mình vào rồi nhé!" }]);
+  const [msgs, setMsgs] = useState<ChatMsg[]>([
+    { who: "Hà My", text: "Chào cả nhóm, mình vào rồi nhé!", time: "10:30" },
+  ]);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const copyRoomCode = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(room.code);
+    }
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
 
   const key = doc ? `${doc.id}-${index}` : "";
   const objs = notes[key] || [];
@@ -557,104 +599,239 @@ export default function RoomView({
   };
 
   const send = (text: string) => {
-    setMsgs((m) => [...m, { me: true, text }]);
+    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    setMsgs((m) => [...m, { me: true, text, time }]);
     setTimeout(() => {
-      setMsgs((m) => [...m, { who: "Hà My", text: "Mình đã nhận được 👍" }]);
+      setMsgs((m) => [
+        ...m,
+        {
+          who: "Hà My",
+          text: "Mình đã nhận được 👍",
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
       setUnread((u) => (chatOpen ? 0 : u + 1));
     }, 1500);
   };
 
+  const onlineMembersCount = members.filter((m) => m.isOnline).length || members.length;
+
   return (
     <div className="fixed inset-0 z-50 flex h-screen flex-col overflow-hidden bg-slate-100 text-slate-800">
-      {/* Thanh tiêu đề trên (Header chuẩn Crisp Academic SaaS) */}
-      <header className="flex h-14 items-center justify-between gap-3 px-5 border-b border-slate-200 bg-white shrink-0 shadow-2xs">
-        <div className="flex items-center gap-3 min-w-0">
-          <h1 className="font-semibold text-sm text-slate-900 truncate">{room.name}</h1>
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-bold tracking-wider text-slate-700 bg-slate-100 border border-slate-200 tabular-nums">
-            {room.code}
-          </span>
+      {/* 1. Thanh tiêu đề trên (Header chuẩn Miro / Figma Workspace) */}
+      <header className="flex h-14 items-center justify-between gap-3 px-4 sm:px-5 border-b border-slate-200 bg-white shrink-0 shadow-2xs">
+        {/* Cụm bên trái */}
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <button
+            onClick={onLeave}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer shrink-0"
+            title="Quay lại"
+          >
+            <ArrowLeft className="h-4 w-4" strokeWidth={2} />
+          </button>
+
+          <h1 className="font-bold text-slate-900 text-base truncate">
+            {room.name && !room.name.toLowerCase().startsWith("phòng ") ? room.name : "Phòng học nhóm"}
+          </h1>
+
+          {/* Badge Mã phòng tương tác: Click để Copy */}
+          <button
+            onClick={copyRoomCode}
+            className="font-mono tabular-nums font-semibold text-xs bg-indigo-50 text-indigo-700 border border-indigo-200/80 px-2.5 py-1 rounded-md hover:bg-indigo-100 flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
+            title="Nhấn để sao chép mã phòng"
+          >
+            {copiedCode ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2} />
+                <span className="text-emerald-700">Đã sao chép</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5 text-indigo-600" strokeWidth={1.75} />
+                <span>Mã: {room.code}</span>
+              </>
+            )}
+          </button>
+
           {isHost && (
-            <span className="rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <span className="hidden md:inline-flex rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
               Chủ phòng
             </span>
           )}
 
-          {/* Nút bấm xem số lượng người */}
+          {/* Cụm Avatar Stack & Đang học */}
           <button
             onClick={() => setMembersOpen(true)}
-            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer shadow-2xs"
+            className="hidden sm:flex items-center gap-2 hover:opacity-85 transition-opacity cursor-pointer ml-1 pl-1"
             title="Xem danh sách người trong phòng"
           >
-            <Users className="h-3.5 w-3.5 text-slate-500" strokeWidth={1.75} />
-            <span className="font-mono tabular-nums">{members.length} thành viên</span>
+            <div className="flex items-center">
+              {members.slice(0, 3).map((m, idx) => {
+                const initial = m.name ? m.name.charAt(0).toUpperCase() : "U";
+                const bgColors = ["bg-sky-500", "bg-indigo-600", "bg-emerald-500", "bg-amber-500"];
+                const bg = bgColors[idx % bgColors.length];
+                return (
+                  <div
+                    key={m.id || idx}
+                    className={`w-7 h-7 rounded-full border-2 border-white -ml-2 first:ml-0 ${bg} text-white font-bold text-[11px] flex items-center justify-center shrink-0 shadow-2xs`}
+                  >
+                    {initial}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-slate-600">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+              <span className="font-medium text-slate-700">{onlineMembersCount} đang học</span>
+            </div>
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Cụm bên phải */}
+        <div className="flex items-center gap-2 shrink-0">
           {isHost && (
             <button
               onClick={() => setPicker(true)}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer shadow-2xs"
+              className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer shadow-2xs"
             >
               <FileText className="h-3.5 w-3.5 text-slate-500" strokeWidth={1.75} />
               <span>{doc ? "Đổi tài liệu" : "Chọn tài liệu"}</span>
             </button>
           )}
+
+          {/* Nút Ẩn/Mở chat */}
           <button
             onClick={() => setChatOpen((v) => !v)}
-            className={`relative inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-xs font-medium transition-colors cursor-pointer shadow-2xs ${
-              chatOpen
-                ? "bg-slate-100 text-slate-900 border-slate-300"
-                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+            className={`relative bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 h-9 px-3 rounded-lg text-sm font-medium flex items-center gap-2 cursor-pointer transition-colors shadow-2xs ${
+              chatOpen ? "bg-slate-100 text-slate-900 border-slate-300" : ""
             }`}
           >
-            <MessageSquare className="h-3.5 w-3.5 text-slate-500" strokeWidth={1.75} />
-            <span>{chatOpen ? "Ẩn chat" : "Trò chuyện"}</span>
+            <MessageSquare className="h-4 w-4 text-slate-500" strokeWidth={1.75} />
+            <span className="hidden sm:inline">{chatOpen ? "Ẩn chat" : "Mở chat"}</span>
             {!chatOpen && unread > 0 && (
               <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white tabular-nums">
                 {unread}
               </span>
             )}
           </button>
+
+          {/* Nút Rời phòng */}
           <button
             onClick={onLeave}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 bg-white text-xs font-medium text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer shadow-2xs"
+            className="bg-rose-50 text-rose-600 border border-rose-200/80 hover:bg-rose-600 hover:text-white h-9 px-3 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
           >
-            <LogOut className="h-3.5 w-3.5" strokeWidth={1.75} />
+            <LogOut className="h-4 w-4" strokeWidth={1.75} />
             <span>Rời phòng</span>
           </button>
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Khu trình bày */}
-        <main className="relative flex min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto p-4 sm:p-6 bg-[#FAFAFA]">
+        {/* 2 & 3. Vùng Trình chiếu Trung tâm (Main Canvas & Floating Toolbar) */}
+        <main className="bg-[#F8FAFC] bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:20px_20px] relative flex-1 flex flex-col items-center justify-center p-6 overflow-hidden">
           {!doc ? (
-            <div className="w-full max-w-md rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center shadow-2xs">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-slate-100 text-slate-500 border border-slate-200">
-                <FileText className="h-6 w-6 text-slate-600" strokeWidth={1.75} />
+            <>
+              {/* Thẻ Empty State làm mới */}
+              <div className="bg-white/95 backdrop-blur-xs border border-slate-200/90 shadow-sm rounded-2xl p-8 max-w-md w-full text-center relative z-1">
+                <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center relative">
+                  <Presentation className="w-7 h-7 text-indigo-600" strokeWidth={1.75} />
+                  <span className="w-3 h-3 bg-sky-500 rounded-full animate-ping absolute -top-1 -right-1" />
+                  <span className="w-3 h-3 bg-sky-500 rounded-full absolute -top-1 -right-1" />
+                </div>
+
+                <h2 className="text-lg font-bold text-slate-900 mb-1">
+                  Chủ phòng chưa chọn tài liệu
+                </h2>
+                <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+                  Slide bài giảng và ghi chú nhóm sẽ tự động đồng bộ tại đây ngay khi buổi học bắt đầu.
+                </p>
+
+                <div className="flex flex-col items-center justify-center gap-2.5">
+                  {isHost && (
+                    <button
+                      onClick={() => setPicker(true)}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2.5 rounded-lg text-sm inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+                    >
+                      <FileText className="w-4 h-4" strokeWidth={2} />
+                      <span>+ Chọn tài liệu trình chiếu</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={copyRoomCode}
+                    className="bg-slate-100 hover:bg-slate-200/70 text-slate-700 font-medium px-4 py-2 rounded-lg text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {copiedCode ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2} />
+                        <span>Đã sao chép mã {room.code}!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-slate-500" strokeWidth={1.75} />
+                        <span>Sao chép mã phòng {room.code} để mời bạn</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-              <h2 className="mt-4 text-sm font-semibold text-slate-900 tracking-tight">
-                {isHost ? "Chưa chọn tài liệu trình bày" : "Chủ phòng chưa chọn tài liệu"}
-              </h2>
-              <p className="mt-1 text-xs text-slate-500 leading-relaxed">
-                {isHost
-                  ? "Chọn một tài liệu từ kho để bắt đầu trình chiếu và cùng thảo luận với các thành viên."
-                  : "Slide trình bày sẽ hiển thị tại đây khi chủ phòng bắt đầu."}
-              </p>
-              {isHost && (
+
+              {/* 3. Thanh công cụ nổi (Floating Workspace Toolbar) khi chưa có tài liệu */}
+              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-white border border-slate-200/90 shadow-md rounded-xl px-2 py-1.5 flex items-center gap-1 z-10">
                 <button
-                  onClick={() => setPicker(true)}
-                  className="mt-5 inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-indigo-950 text-white hover:bg-indigo-900 text-xs font-medium transition-all cursor-pointer shadow-xs active:translate-y-[1px]"
+                  disabled
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 opacity-50 cursor-not-allowed"
+                  title="Sẽ mở khóa khi có Slide"
                 >
-                  <FileText className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  <span>Chọn tài liệu trình bày</span>
+                  <ChevronLeft className="w-4 h-4" strokeWidth={1.75} />
                 </button>
-              )}
-            </div>
+                <span className="font-mono text-xs px-2 text-slate-500 tabular-nums">-- / --</span>
+                <button
+                  disabled
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 opacity-50 cursor-not-allowed"
+                  title="Sẽ mở khóa khi có Slide"
+                >
+                  <ChevronRight className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+
+                <div className="h-4 w-[1px] bg-slate-200 mx-1" />
+
+                <button
+                  disabled
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 opacity-50 cursor-not-allowed"
+                  title="Sẽ mở khóa khi có Slide"
+                >
+                  <Highlighter className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+                <button
+                  disabled
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 opacity-50 cursor-not-allowed"
+                  title="Sẽ mở khóa khi có Slide"
+                >
+                  <StickyNote className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+                <button
+                  disabled
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 opacity-50 cursor-not-allowed"
+                  title="Sẽ mở khóa khi có Slide"
+                >
+                  <Hand className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+                <button
+                  disabled
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 opacity-50 cursor-not-allowed"
+                  title="Sẽ mở khóa khi có Slide"
+                >
+                  <Maximize2 className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+              </div>
+            </>
           ) : (
-            <div className="flex flex-col items-center justify-center w-full h-full">
-              <div className="w-full flex-1 flex items-center justify-center max-h-[calc(100vh-140px)]" style={{ maxWidth: "min(100%, calc((100vh - 160px) * 16 / 9))" }}>
+            <div className="flex flex-col items-center justify-center w-full h-full relative">
+              <div
+                className="w-full flex-1 flex items-center justify-center max-h-[calc(100vh-140px)]"
+                style={{ maxWidth: "min(100%, calc((100vh - 160px) * 16 / 9))" }}
+              >
                 <SlideStage
                   doc={doc}
                   index={index}
@@ -666,68 +843,68 @@ export default function RoomView({
                 />
               </div>
 
-              {/* Floating Bottom Toolbar chuẩn UI_DESIGN_SKILL.md Mục 6 */}
-              <div className="mt-3 flex items-center gap-2 bg-white border border-slate-200/90 shadow-md rounded-lg p-1.5 shrink-0">
+              {/* Floating Workspace Toolbar khi đã có Slide */}
+              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-white border border-slate-200/90 shadow-md rounded-xl px-2 py-1.5 flex items-center gap-1 z-10 max-w-[95vw] overflow-x-auto">
                 {isHost && (
                   <>
                     <div className="flex items-center gap-0.5">
                       <button
                         onClick={() => setTool("pen")}
                         title="Vẽ tự do"
-                        className={`flex h-8 w-8 items-center justify-center rounded-md text-xs cursor-pointer transition-colors ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs cursor-pointer transition-colors ${
                           tool === "pen" ? "bg-indigo-950 text-white" : "text-slate-600 hover:bg-slate-100"
                         }`}
                       >
-                        <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        <Pencil className="w-4 h-4" strokeWidth={1.75} />
                       </button>
                       <button
                         onClick={() => setTool("line")}
                         title="Gạch chân"
-                        className={`flex h-8 w-8 items-center justify-center rounded-md text-xs cursor-pointer transition-colors ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs cursor-pointer transition-colors ${
                           tool === "line" ? "bg-indigo-950 text-white" : "text-slate-600 hover:bg-slate-100"
                         }`}
                       >
-                        <Minus className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        <Minus className="w-4 h-4" strokeWidth={1.75} />
                       </button>
                       <button
                         onClick={() => setTool("ellipse")}
                         title="Khoanh tròn"
-                        className={`flex h-8 w-8 items-center justify-center rounded-md text-xs cursor-pointer transition-colors ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs cursor-pointer transition-colors ${
                           tool === "ellipse" ? "bg-indigo-950 text-white" : "text-slate-600 hover:bg-slate-100"
                         }`}
                       >
-                        <Circle className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        <Circle className="w-4 h-4" strokeWidth={1.75} />
                       </button>
                       <button
                         onClick={() => setTool("arrow")}
                         title="Mũi tên"
-                        className={`flex h-8 w-8 items-center justify-center rounded-md text-xs cursor-pointer transition-colors ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs cursor-pointer transition-colors ${
                           tool === "arrow" ? "bg-indigo-950 text-white" : "text-slate-600 hover:bg-slate-100"
                         }`}
                       >
-                        <MoveUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        <MoveUpRight className="w-4 h-4" strokeWidth={1.75} />
                       </button>
                       <button
                         onClick={() => setTool("text")}
                         title="Viết chữ"
-                        className={`flex h-8 w-8 items-center justify-center rounded-md text-xs cursor-pointer transition-colors ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs cursor-pointer transition-colors ${
                           tool === "text" ? "bg-indigo-950 text-white" : "text-slate-600 hover:bg-slate-100"
                         }`}
                       >
-                        <Type className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        <Type className="w-4 h-4" strokeWidth={1.75} />
                       </button>
                       <button
                         onClick={() => setTool("eraser")}
                         title="Xóa nét"
-                        className={`flex h-8 w-8 items-center justify-center rounded-md text-xs cursor-pointer transition-colors ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs cursor-pointer transition-colors ${
                           tool === "eraser" ? "bg-indigo-950 text-white" : "text-slate-600 hover:bg-slate-100"
                         }`}
                       >
-                        <Eraser className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        <Eraser className="w-4 h-4" strokeWidth={1.75} />
                       </button>
                     </div>
 
-                    <div className="h-4 w-px bg-slate-200 mx-1" />
+                    <div className="h-4 w-[1px] bg-slate-200 mx-1" />
 
                     {/* Color picker */}
                     <div className="flex items-center gap-1.5 px-1">
@@ -746,28 +923,28 @@ export default function RoomView({
                       ))}
                     </div>
 
-                    <div className="h-4 w-px bg-slate-200 mx-1" />
+                    <div className="h-4 w-[1px] bg-slate-200 mx-1" />
 
                     <button
                       onClick={() => setObjs(objs.slice(0, -1))}
                       disabled={!objs.length}
                       title="Hoàn tác"
-                      className="inline-flex items-center gap-1 h-8 px-2 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                      className="inline-flex items-center gap-1 h-8 px-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
                     >
-                      <Undo2 className="h-3.5 w-3.5 text-slate-500" strokeWidth={1.75} />
+                      <Undo2 className="w-3.5 h-3.5 text-slate-500" strokeWidth={1.75} />
                       <span className="hidden sm:inline">Hoàn tác</span>
                     </button>
                     <button
                       onClick={() => setObjs([])}
                       disabled={!objs.length}
                       title="Xóa tất cả nét vẽ"
-                      className="inline-flex items-center gap-1 h-8 px-2 rounded-md text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                      className="inline-flex items-center gap-1 h-8 px-2 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
                     >
-                      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
                       <span className="hidden sm:inline">Xóa hết</span>
                     </button>
 
-                    <div className="h-4 w-px bg-slate-200 mx-1" />
+                    <div className="h-4 w-[1px] bg-slate-200 mx-1" />
                   </>
                 )}
 
@@ -776,10 +953,10 @@ export default function RoomView({
                   <button
                     onClick={() => go(index - 1)}
                     disabled={!isHost || index === 0}
-                    className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
                     title="Slide trước"
                   >
-                    <ChevronLeft className="h-4 w-4" strokeWidth={1.75} />
+                    <ChevronLeft className="w-4 h-4" strokeWidth={1.75} />
                   </button>
                   <span className="px-2 text-xs font-medium font-mono tabular-nums text-slate-700">
                     {index + 1} / {doc.slides.length}
@@ -787,16 +964,54 @@ export default function RoomView({
                   <button
                     onClick={() => go(index + 1)}
                     disabled={!isHost || index === doc.slides.length - 1}
-                    className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
                     title="Slide sau"
                   >
-                    <ChevronRight className="h-4 w-4" strokeWidth={1.75} />
+                    <ChevronRight className="w-4 h-4" strokeWidth={1.75} />
                   </button>
                 </div>
+
+                <div className="h-4 w-[1px] bg-slate-200 mx-1" />
+
+                {/* Các nút tương tác thêm của PeerMind */}
+                <button
+                  onClick={() => setTool("pen")}
+                  title="Bút dạ quang (Highlighter)"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <Highlighter className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+                <button
+                  onClick={() => setTool("text")}
+                  title="Ghi chú (StickyNote)"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <StickyNote className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+                <button
+                  onClick={() => send("✋ [Giơ tay] Xin phát biểu!")}
+                  title="Giơ tay phát biểu"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
+                >
+                  <Hand className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+                <button
+                  onClick={() => {
+                    if (!document.fullscreenElement) {
+                      document.documentElement.requestFullscreen?.();
+                    } else {
+                      document.exitFullscreen?.();
+                    }
+                  }}
+                  title="Toàn màn hình"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <Maximize2 className="w-4 h-4" strokeWidth={1.75} />
+                </button>
               </div>
 
               {!isHost && (
-                <p className="mt-2 text-center text-xs text-slate-500">
+                <p className="absolute bottom-16 text-center text-xs text-slate-500 bg-white/80 backdrop-blur-xs px-3 py-1 rounded-full border border-slate-200 shadow-2xs pointer-events-none">
                   Bạn đang theo dõi bài trình bày của chủ phòng — slide và ghi chú vẽ đồng bộ theo thời gian thực.
                 </p>
               )}
@@ -804,6 +1019,7 @@ export default function RoomView({
           )}
         </main>
 
+        {/* 4. Khung chat bên phải */}
         <ChatPanel
           open={chatOpen}
           msgs={msgs}
