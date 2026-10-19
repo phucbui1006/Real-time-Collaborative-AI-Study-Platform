@@ -17,7 +17,17 @@ const PORT = process.env.PORT || 3001
 
 // ── Express App ──────────────────────────────────────────────────────────────
 const app = express()
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }))
+
+// Cấu hình CORS linh hoạt: chấp nhận localhost, tên miền Vercel và CLIENT_URL
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Cho phép tất cả các nguồn truy cập (đặc biệt là Vercel và localhost)
+      callback(null, true)
+    },
+    credentials: true,
+  })
+)
 app.use(express.json())
 
 // ── Routes REST API ───────────────────────────────────────────────────────────
@@ -34,7 +44,10 @@ app.use(errorHandler)
 // ── HTTP + Socket.io Server ───────────────────────────────────────────────────
 const server = http.createServer(app)
 const io = new Server(server, {
-  cors: { origin: process.env.CLIENT_URL || 'http://localhost:5173' },
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST'],
+  },
 })
 
 initSockets(io)

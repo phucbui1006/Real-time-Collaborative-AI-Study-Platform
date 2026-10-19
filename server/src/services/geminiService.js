@@ -1,5 +1,4 @@
-// services/geminiService.js — Gọi Gemini API với JSON Structured Output
-
+// services/geminiService.js — Gọi Gemini API với JSON Structured Output & Fallback
 const { geminiModel } = require('../config/gemini')
 
 /**
@@ -10,6 +9,25 @@ const { geminiModel } = require('../config/gemini')
  * @returns {Promise<Array>} - Mảng câu hỏi trắc nghiệm
  */
 async function generateQuizFromText(text) {
+  if (!geminiModel) {
+    return [
+      {
+        id: 1,
+        question: "Dự án PeerMind sử dụng công nghệ nào để đồng bộ thời gian thực?",
+        options: { A: "Socket.io", B: "FTP", C: "Email", D: "SMS" },
+        correctAnswer: "A",
+        explanation: "PeerMind sử dụng Socket.io và WebSockets để đồng bộ lật slide và làm bài thi thời gian thực."
+      },
+      {
+        id: 2,
+        question: "Cơ sở dữ liệu đám mây nào đang được PeerMind tích hợp?",
+        options: { A: "Supabase (PostgreSQL)", B: "Access", C: "SQLite cục bộ", D: "Excel" },
+        correctAnswer: "A",
+        explanation: "Dự án lưu trữ tài khoản, phòng học và tài liệu qua hệ thống Supabase Cloud."
+      }
+    ]
+  }
+
   const prompt = `
 Bạn là một giáo viên chuyên nghiệp. Dựa vào nội dung slide học tập dưới đây,
 hãy tạo ra 10 câu hỏi trắc nghiệm 4 đáp án (A, B, C, D).
@@ -44,6 +62,20 @@ ${text.slice(0, 8000)}
  * @returns {Promise<{nodes: Array, edges: Array}>}
  */
 async function generateMindmapFromText(text) {
+  if (!geminiModel) {
+    return {
+      nodes: [
+        { id: "1", data: { label: "Nội dung ôn tập" }, position: { x: 250, y: 50 } },
+        { id: "2", data: { label: "Khái niệm chính" }, position: { x: 100, y: 150 } },
+        { id: "3", data: { label: "Bài tập vận dụng" }, position: { x: 400, y: 150 } }
+      ],
+      edges: [
+        { id: "e1-2", source: "1", target: "2" },
+        { id: "e1-3", source: "1", target: "3" }
+      ]
+    }
+  }
+
   const prompt = `
 Bạn là chuyên gia tóm tắt kiến thức. Từ nội dung slide dưới đây,
 hãy tạo cấu trúc sơ đồ tư duy (mindmap) phân cấp.
@@ -51,7 +83,7 @@ hãy tạo cấu trúc sơ đồ tư duy (mindmap) phân cấp.
 Trả về JSON theo schema sau:
 {
   "nodes": [
-    { "id": "1", "data": { "label": "Chủ đề chính" }, "position": { "x": 0, "y": 0 } }
+    { "id": "1", data: { "label": "Chủ đề chính" }, "position": { "x": 0, "y": 0 } }
   ],
   "edges": [
     { "id": "e1-2", "source": "1", "target": "2" }
