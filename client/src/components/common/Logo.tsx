@@ -1,5 +1,5 @@
 import React from "react";
-import logoIcon from "../../assets/logo/logo-icon.png";
+import logoIcon from "../../assets/logo/per-transparent.png";
 
 type LogoProps = {
   className?: string;
@@ -36,7 +36,7 @@ export const Logo: React.FC<LogoProps> = ({
     <button
       type="button"
       onClick={onClick}
-      className={`group inline-flex shrink-0 items-center gap-2.5 transition-opacity duration-150 hover:opacity-90 cursor-pointer focus:outline-hidden ${className}`}
+      className={`group inline-flex shrink-0 items-center gap-3 transition-opacity duration-150 hover:opacity-90 cursor-pointer focus:outline-hidden ${className}`}
       aria-label="PeerMind - Về trang chủ"
       title="PeerMind - Về trang chủ"
     >

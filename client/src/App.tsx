@@ -105,7 +105,7 @@ export default function App() {
       {/* Top Header Landing Page */}
       <header className="sticky top-0 z-30 w-full border-b border-slate-200 bg-white/95 backdrop-blur-xs">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-10">
-          <Logo size="sm" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
+          <Logo size="md" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
 
           <nav className="hidden items-center gap-8 md:flex" aria-label="Điều hướng chính">
             <a className="h-16 inline-flex items-center text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors" href="#gioi-thieu">
