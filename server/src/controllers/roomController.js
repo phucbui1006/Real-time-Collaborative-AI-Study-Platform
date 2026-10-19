@@ -50,4 +50,20 @@ async function verifyRoom(req, res, next) {
   }
 }
 
-module.exports = { createRoom, verifyRoom }
+/** GET /api/rooms — Lấy danh sách phòng học */
+async function getRooms(_req, res, next) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('rooms')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    if (error) throw error
+    res.json({ success: true, rooms: data })
+  } catch (err) {
+    next(err)
+  }
+}
+
+module.exports = { createRoom, verifyRoom, getRooms }

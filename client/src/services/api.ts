@@ -22,9 +22,12 @@ export const api = axios.create({
 // ─── Documents ────────────────────────────────────────────────────────────────
 
 /** Upload slide PDF lên server (multipart/form-data) */
-export async function uploadDocument(file: File) {
+export async function uploadDocument(file: File, subject?: string) {
   const form = new FormData()
   form.append('file', file)
+  if (subject) {
+    form.append('subject', subject)
+  }
   return api.post('/documents/upload', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
@@ -33,6 +36,11 @@ export async function uploadDocument(file: File) {
 /** Lấy danh sách tài liệu của user */
 export async function getDocuments() {
   return api.get('/documents')
+}
+
+/** Xóa tài liệu theo ID */
+export async function deleteDocument(id: number) {
+  return api.delete(`/documents/${id}`)
 }
 
 // ─── AI ───────────────────────────────────────────────────────────────────────
@@ -53,6 +61,11 @@ export async function chatRAG(roomCode: string, question: string) {
 }
 
 // ─── Rooms ────────────────────────────────────────────────────────────────────
+
+/** Lấy danh sách phòng học gần đây */
+export async function getRooms() {
+  return api.get('/rooms')
+}
 
 /** Tạo phòng học mới, nhận mã 6 số */
 export async function createRoom(name: string) {

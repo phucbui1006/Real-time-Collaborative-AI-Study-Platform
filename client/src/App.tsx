@@ -27,6 +27,7 @@ import LibraryPage from "./pages/LibraryPage";
 import ClassroomsPage from "./pages/ClassroomsPage";
 import TestsPage from "./pages/TestsPage";
 import { ClassroomHeroAnimation } from "./components/common/ClassroomHeroAnimation";
+import { loginWithEmail, registerWithEmail, logoutUser, getCurrentUser } from "./services/authService";
 
 type AuthView = "login" | "register" | "forgot";
 
@@ -66,6 +67,15 @@ export default function App() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [authView, setAuthView] = useState<AuthView>("login");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ email?: string; user_metadata?: { full_name?: string } } | null>(null);
+
+  // Form input states
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
 
   useEffect(() => {
     document.body.style.overflow = isLoginOpen ? "hidden" : "";
@@ -74,8 +84,22 @@ export default function App() {
     };
   }, [isLoginOpen]);
 
+  // Kiểm tra phiên đăng nhập đã có sẵn
+  useEffect(() => {
+    async function checkAuth() {
+      const user = await getCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+        setIsLoggedIn(true);
+      }
+    }
+    checkAuth();
+  }, []);
+
   const openLogin = () => {
     setIsSubmitted(false);
+    setAuthError(null);
+    setAuthNotice(null);
     setAuthView("login");
     setIsLoginOpen(true);
     setIsMenuOpen(false);
@@ -83,22 +107,70 @@ export default function App() {
 
   const changeAuthView = (view: AuthView) => {
     setAuthView(view);
+    setAuthError(null);
+    setAuthNotice(null);
     setIsSubmitted(false);
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleLoginSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setIsSubmitted(true);
+    setAuthError(null);
+    setAuthNotice(null);
+    setAuthLoading(true);
+    try {
+      const user = await loginWithEmail(email, password);
+      setCurrentUser(user);
+      setIsLoginOpen(false);
+      setIsLoggedIn(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err: unknown) {
+      const e = err as Error;
+      setAuthError(e.message || "Email hoặc mật khẩu không chính xác.");
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
-  const enterDashboard = () => {
+  const handleRegisterSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setAuthError(null);
+    setAuthNotice(null);
+    setAuthLoading(true);
+    try {
+      const res = await registerWithEmail(email, password, fullName);
+      if (res.user) {
+        setAuthNotice("Tạo tài khoản thành công! Bạn có thể đăng nhập ngay.");
+        setAuthView("login");
+      }
+    } catch (err: unknown) {
+      const e = err as Error;
+      setAuthError(e.message || "Đăng ký thất bại.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleGuestLogin = () => {
+    setCurrentUser({ email: "guest@peermind.demo", user_metadata: { full_name: "Khách trải nghiệm" } });
     setIsLoginOpen(false);
     setIsLoggedIn(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const handleLogout = async () => {
+    await logoutUser();
+    setCurrentUser(null);
+    setIsLoggedIn(false);
+  };
+
   if (isLoggedIn) {
-    return <Dashboard onLogout={() => setIsLoggedIn(false)} />;
+    return (
+      <Dashboard
+        onLogout={handleLogout}
+        userName={currentUser?.user_metadata?.full_name}
+        userEmail={currentUser?.email}
+      />
+    );
   }
 
   return (
@@ -198,7 +270,7 @@ export default function App() {
                   Bắt đầu học ngay
                   <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
                 </button>
-                <button onClick={enterDashboard} className="secondary-button justify-center h-10 px-5 text-sm cursor-pointer">
+                <button onClick={handleGuestLogin} className="secondary-button justify-center h-10 px-5 text-sm cursor-pointer">
                   Xem bản trải nghiệm (Demo)
                 </button>
               </div>
@@ -782,11 +854,31 @@ export default function App() {
                 <h2 id="login-title" className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
                   Chào mừng trở lại!
                 </h2>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Đăng nhập để tiếp tục hành trình học tập của bạn.</p>
-                <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Đăng nhập bằng tài khoản Supabase của bạn.</p>
+
+                <form onSubmit={handleLoginSubmit} className="mt-6 space-y-4">
+                  {authNotice && (
+                    <div className="p-3 text-xs rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300">
+                      {authNotice}
+                    </div>
+                  )}
+                  {authError && (
+                    <div className="p-3 text-xs rounded-md bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">
+                      {authError}
+                    </div>
+                  )}
+
                   <label className="block">
                     <span className="form-label">Email</span>
-                    <input required type="email" placeholder="ban@example.com" className="form-input" />
+                    <input
+                      required
+                      type="email"
+                      placeholder="ban@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="form-input"
+                      disabled={authLoading}
+                    />
                   </label>
                   <label className="block">
                     <div className="flex items-center justify-between">
@@ -799,12 +891,43 @@ export default function App() {
                         Quên mật khẩu?
                       </button>
                     </div>
-                    <input required type="password" placeholder="••••••••" className="form-input" />
+                    <input
+                      required
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="form-input"
+                      disabled={authLoading}
+                    />
                   </label>
-                  <button type="button" onClick={enterDashboard} className="primary-button w-full h-10 justify-center cursor-pointer">
-                    Đăng nhập
+
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className="primary-button w-full h-10 justify-center cursor-pointer disabled:opacity-60"
+                  >
+                    {authLoading ? "Đang xác thực..." : "Đăng nhập"}
                   </button>
-                  <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+
+                  <div className="relative my-2">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+                    </div>
+                    <div className="relative flex justify-center text-xs">
+                      <span className="bg-white dark:bg-slate-900 px-2 text-slate-400">Hoặc</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGuestLogin}
+                    className="secondary-button w-full h-10 justify-center cursor-pointer text-xs"
+                  >
+                    Tiếp tục bằng tài khoản Khách
+                  </button>
+
+                  <p className="text-center text-xs text-slate-500 dark:text-slate-400 pt-1">
                     Chưa có tài khoản?{" "}
                     <button
                       type="button"
@@ -823,23 +946,61 @@ export default function App() {
                 <h2 id="login-title" className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
                   Tạo tài khoản mới
                 </h2>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Miễn phí 100% và luôn luôn như vậy.</p>
-                <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Tạo tài khoản Supabase an toàn và bảo mật.</p>
+
+                <form onSubmit={handleRegisterSubmit} className="mt-6 space-y-4">
+                  {authError && (
+                    <div className="p-3 text-xs rounded-md bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">
+                      {authError}
+                    </div>
+                  )}
+
                   <label className="block">
                     <span className="form-label">Họ và tên</span>
-                    <input required type="text" placeholder="Nguyễn Văn A" className="form-input" />
+                    <input
+                      required
+                      type="text"
+                      placeholder="Nguyễn Văn A"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="form-input"
+                      disabled={authLoading}
+                    />
                   </label>
                   <label className="block">
                     <span className="form-label">Email</span>
-                    <input required type="email" placeholder="ban@example.com" className="form-input" />
+                    <input
+                      required
+                      type="email"
+                      placeholder="ban@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="form-input"
+                      disabled={authLoading}
+                    />
                   </label>
                   <label className="block">
-                    <span className="form-label">Mật khẩu</span>
-                    <input required type="password" placeholder="••••••••" className="form-input" />
+                    <span className="form-label">Mật khẩu (tối thiểu 6 ký tự)</span>
+                    <input
+                      required
+                      minLength={6}
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="form-input"
+                      disabled={authLoading}
+                    />
                   </label>
-                  <button type="button" onClick={enterDashboard} className="primary-button w-full h-10 justify-center cursor-pointer">
-                    Tạo tài khoản
+
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className="primary-button w-full h-10 justify-center cursor-pointer disabled:opacity-60"
+                  >
+                    {authLoading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
                   </button>
+
                   <p className="text-center text-xs text-slate-500 dark:text-slate-400">
                     Đã có tài khoản?{" "}
                     <button
@@ -875,10 +1036,23 @@ export default function App() {
                     onContinue={() => changeAuthView("login")}
                   />
                 ) : (
-                  <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      setIsSubmitted(true);
+                    }}
+                    className="mt-6 space-y-4"
+                  >
                     <label className="block">
                       <span className="form-label">Email</span>
-                      <input required type="email" placeholder="ban@example.com" className="form-input" />
+                      <input
+                        required
+                        type="email"
+                        placeholder="ban@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="form-input"
+                      />
                     </label>
                     <button type="submit" className="primary-button w-full h-10 justify-center cursor-pointer">
                       Gửi liên kết khôi phục
@@ -899,12 +1073,26 @@ export default function App() {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
-function Dashboard({ onLogout }: { onLogout: () => void }) {
+function Dashboard({
+  onLogout,
+  userName,
+  userEmail,
+}: {
+  onLogout: () => void;
+  userName?: string;
+  userEmail?: string;
+}) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("documents");
 
   return (
     <div className="min-h-screen bg-[#F4F6FB] dark:bg-[#090D16] text-slate-700 dark:text-slate-300 transition-colors duration-150">
-      <Header activeTab={activeTab} onSelectTab={setActiveTab} onLogout={onLogout} />
+      <Header
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        onLogout={onLogout}
+        userName={userName}
+        userEmail={userEmail}
+      />
 
       {/* Mobile navigation fallback */}
       <div className="mb-2 overflow-x-auto md:hidden px-5 pt-3">
@@ -930,7 +1118,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         {activeTab === "documents" && <LibraryPage />}
         {activeTab === "classrooms" && <ClassroomsPage />}
-        {activeTab === "tests" && <TestsPage />}
+        {activeTab === "tests" && <TestsPage userName={userName} />}
       </div>
 
     </div>

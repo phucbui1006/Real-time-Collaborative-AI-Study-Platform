@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RoomHistory } from "../components/classrooms/RoomHistory";
 import { JoinRoomModal } from "../components/classrooms/JoinRoomModal";
 import { CreateRoomModal } from "../components/classrooms/CreateRoomModal";
@@ -8,6 +8,7 @@ import {
   COLORS,
   joinRoomApi,
   createRoomApi,
+  fetchRoomsApi,
   RoomItem,
 } from "../services/roomService";
 
@@ -22,6 +23,16 @@ export default function ClassroomsPage({
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      const data = await fetchRoomsApi();
+      if (data && data.length > 0) {
+        setRooms(data);
+      }
+    }
+    load();
+  }, []);
 
   // Trạng thái phòng hiện tại đang vào (nếu có)
   const [activeRoom, setActiveRoom] = useState<{

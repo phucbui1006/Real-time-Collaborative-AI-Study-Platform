@@ -8,6 +8,8 @@ type HeaderProps = {
   activeTab: DashboardTab;
   onSelectTab: (tab: DashboardTab) => void;
   onLogout: () => void;
+  userName?: string;
+  userEmail?: string;
 };
 
 const navigationItems: { id: DashboardTab; label: string }[] = [
@@ -16,7 +18,9 @@ const navigationItems: { id: DashboardTab; label: string }[] = [
   { id: "tests", label: "Bài kiểm tra" },
 ];
 
-export function Header({ activeTab, onSelectTab, onLogout }: HeaderProps) {
+export function Header({ activeTab, onSelectTab, onLogout, userName, userEmail }: HeaderProps) {
+  const displayName = userName || (userEmail ? userEmail.split("@")[0] : "Minh Anh");
+  const initials = displayName.slice(0, 2).toUpperCase();
   return (
     <header className="sticky top-0 z-40 h-16 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 transition-colors duration-150">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -68,10 +72,10 @@ export function Header({ activeTab, onSelectTab, onLogout }: HeaderProps) {
           {/* User profile & Đăng xuất */}
           <div className="flex items-center gap-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1 text-slate-700 dark:text-slate-200 shadow-2xs">
             <span className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 dark:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600">
-              MA
+              {initials}
             </span>
             <div className="hidden text-left sm:block">
-              <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 leading-none">Minh Anh</p>
+              <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 leading-none truncate max-w-[120px]" title={displayName}>{displayName}</p>
               <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400 leading-none">Học viên</p>
             </div>
             <button
