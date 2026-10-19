@@ -14,25 +14,24 @@ export function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
         {label}
       </span>
       {children}
       {error ? (
-        <span className="mt-1.5 block text-xs font-medium text-rose-600">{error}</span>
+        <span className="mt-1.5 block text-xs font-medium text-rose-600 dark:text-rose-400">{error}</span>
       ) : hint ? (
-        <span className="mt-1.5 block text-xs text-slate-500">{hint}</span>
+        <span className="mt-1.5 block text-xs text-slate-500 dark:text-slate-400">{hint}</span>
       ) : null}
     </label>
   );
 }
 
+export const inputClassName = "w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 px-3 py-2 text-sm outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors";
+
 export const inputStyle: React.CSSProperties = {
   width: "100%",
   borderRadius: 6,
-  border: "1px solid #e2e8f0",
-  background: "#ffffff",
-  color: "#0f172a",
   padding: "8px 12px",
   fontSize: 14,
   outline: "none",
@@ -52,17 +51,16 @@ export function PasswordInput({
   return (
     <div className="relative flex items-center">
       <input
-        style={{ ...inputStyle, paddingRight: 40 }}
         type={show ? "text" : "password"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
+        className={`${inputClassName} pr-10`}
       />
       <button
         type="button"
         onClick={() => setShow((v) => !v)}
-        className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-700 cursor-pointer transition-colors"
+        className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer transition-colors"
         aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
       >
         {show ? (
@@ -78,7 +76,7 @@ export function PasswordInput({
 export function ErrorBox({ children }: { children?: React.ReactNode }) {
   if (!children) return null;
   return (
-    <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">
+    <div className="rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-xs font-medium text-rose-600 dark:text-rose-400">
       {children}
     </div>
   );

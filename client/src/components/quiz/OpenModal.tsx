@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ExamSet, DARK, PURPLE, BTN, INP } from "../../services/examService";
+import { ExamSet, PURPLE, BTN, INP } from "../../services/examService";
 
 interface OpenModalProps {
   set: ExamSet;
@@ -26,8 +26,8 @@ export function OpenModal({ set, onStart, onClose }: OpenModalProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Mở bài kiểm tra trực tuyến"
-        className="w-full rounded-3xl p-6 shadow-2xl transition-all"
-        style={{ maxWidth: 420, background: DARK, color: "#fff" }}
+        className="w-full rounded-3xl p-6 shadow-2xl transition-all border border-slate-800 bg-slate-900 text-white"
+        style={{ maxWidth: 420 }}
       >
         <div className="flex items-start justify-between">
           <h2 className="text-lg font-semibold">Mở bài kiểm tra trực tuyến</h2>

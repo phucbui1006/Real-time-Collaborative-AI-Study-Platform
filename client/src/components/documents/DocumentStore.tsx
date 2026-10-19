@@ -28,36 +28,36 @@ export function getSubjectStyle(subject: string) {
   const s = subject.toUpperCase();
   if (s.includes("TRÍ TUỆ NHÂN TẠO") || s.includes("AI")) {
     return {
-      box: "bg-violet-50 text-violet-600 border-violet-200/60",
-      text: "text-violet-600 font-semibold",
+      box: "bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-300 border-violet-200/60 dark:border-violet-500/30",
+      text: "text-violet-600 dark:text-violet-400 font-semibold",
       icon: <Bot className="h-4 w-4" strokeWidth={1.75} />,
     };
   }
   if (s.includes("CÔNG NGHỆ") || s.includes("LẬP TRÌNH") || s.includes("WEB")) {
     return {
-      box: "bg-sky-50 text-sky-600 border-sky-200/60",
-      text: "text-sky-600 font-semibold",
+      box: "bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300 border-sky-200/60 dark:border-sky-500/30",
+      text: "text-sky-600 dark:text-sky-400 font-semibold",
       icon: <Code2 className="h-4 w-4" strokeWidth={1.75} />,
     };
   }
   if (s.includes("VẬT LÝ")) {
     return {
-      box: "bg-amber-50 text-amber-600 border-amber-200/60",
-      text: "text-amber-600 font-semibold",
+      box: "bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-200/60 dark:border-amber-500/30",
+      text: "text-amber-600 dark:text-amber-400 font-semibold",
       icon: <Zap className="h-4 w-4" strokeWidth={1.75} />,
     };
   }
   if (s.includes("NGOẠI NGỮ") || s.includes("TIẾNG ANH") || s.includes("ENGLISH")) {
     return {
-      box: "bg-emerald-50 text-emerald-600 border-emerald-200/60",
-      text: "text-emerald-600 font-semibold",
+      box: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-500/30",
+      text: "text-emerald-600 dark:text-emerald-400 font-semibold",
       icon: <Languages className="h-4 w-4" strokeWidth={1.75} />,
     };
   }
   // Mặc định là TOÁN HỌC hoặc môn khác
   return {
-    box: "bg-indigo-50 text-indigo-600 border-indigo-200/60",
-    text: "text-indigo-600 font-semibold",
+    box: "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border-indigo-200/60 dark:border-indigo-500/30",
+    text: "text-indigo-600 dark:text-indigo-400 font-semibold",
     icon: <Calculator className="h-4 w-4" strokeWidth={1.75} />,
   };
 }
@@ -66,25 +66,25 @@ export function getSubjectStyle(subject: string) {
 export function getFileTypeBadgeStyle(type?: string) {
   switch (type) {
     case "PDF":
-      return "bg-rose-50 text-rose-600 border-rose-200/70 font-semibold";
+      return "bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-200/70 dark:border-rose-500/30 font-semibold";
     case "PPTX":
-      return "bg-amber-50 text-amber-600 border-amber-200/70 font-semibold";
+      return "bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-200/70 dark:border-amber-500/30 font-semibold";
     case "DOCX":
-      return "bg-sky-50 text-sky-600 border-sky-200/70 font-semibold";
+      return "bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300 border-sky-200/70 dark:border-sky-500/30 font-semibold";
     default:
-      return "bg-slate-100 text-slate-600 border-slate-200 font-medium";
+      return "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 font-medium";
   }
 }
 
 // Helper dynamic progress bar
 export function getProgressBarStyle(progress: number) {
   if (progress < 50) {
-    return { bar: "bg-sky-500", text: "text-sky-600" };
+    return { bar: "bg-sky-500", text: "text-sky-600 dark:text-sky-400" };
   }
   if (progress < 80) {
-    return { bar: "bg-indigo-600", text: "text-indigo-600" };
+    return { bar: "bg-indigo-600 dark:bg-indigo-500", text: "text-indigo-600 dark:text-indigo-400" };
   }
-  return { bar: "bg-emerald-500", text: "text-emerald-600" };
+  return { bar: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" };
 }
 
 export function DocumentStore({
@@ -152,11 +152,11 @@ export function DocumentStore({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" />
+            <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400" />
             <span className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Thư viện cá nhân</span>
           </div>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900 tracking-tight sm:text-3xl">Kho tài liệu học tập</h1>
-          <p className="mt-1 text-sm text-slate-500">Quản lý, học tập và tương tác AI trực tiếp trên tài liệu của bạn.</p>
+          <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight sm:text-3xl">Kho tài liệu học tập</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Quản lý, học tập và tương tác AI trực tiếp trên tài liệu của bạn.</p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
@@ -179,11 +179,11 @@ export function DocumentStore({
       </div>
 
       {/* ── 2. Thanh Tìm Kiếm & Bộ Lọc (Thiết kế phân tầng chuẩn mực, không bao giờ vỡ bố cục khi mở AI) ── */}
-      <div className="mt-6 space-y-3 rounded-xl bg-white p-3.5 border border-slate-200/80 shadow-2xs">
+      <div className="mt-6 space-y-3 rounded-2xl bg-white dark:bg-slate-900 p-3.5 border border-slate-200/80 dark:border-slate-800 shadow-2xs">
         {/* Hàng 1: Ô tìm kiếm toàn diện + Bộ chọn sắp xếp (Thẳng hàng tuyệt đối) */}
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
-            <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
+            <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
               <Search className="h-4 w-4" strokeWidth={1.75} />
             </span>
             <input
@@ -191,7 +191,7 @@ export function DocumentStore({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm tài liệu theo tên hoặc môn học…"
-              className="w-full h-9 rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors"
+              className="w-full h-9 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 pl-9 pr-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors"
             />
           </div>
 
@@ -199,7 +199,7 @@ export function DocumentStore({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="h-9 shrink-0 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 outline-none cursor-pointer focus:border-indigo-600 shadow-2xs"
+            className="h-9 shrink-0 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none cursor-pointer focus:border-indigo-600 shadow-2xs"
           >
             <option value="newest">Mới nhất</option>
             <option value="progress">Tiến độ cao nhất</option>
@@ -208,7 +208,7 @@ export function DocumentStore({
         </div>
 
         {/* Hàng 2: Bộ lọc danh mục môn học (Soft Tinted Filter Pills) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2 border-t border-slate-100">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800">
           <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
             Môn học:
           </span>
@@ -218,8 +218,8 @@ export function DocumentStore({
               onClick={() => setActiveCategory(cat)}
               className={`h-7 rounded-md px-2.5 text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 activeCategory === cat
-                  ? "bg-indigo-50 text-indigo-700 border border-indigo-300 font-semibold shadow-2xs"
-                  : "bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-slate-200 font-medium"
+                  ? "bg-indigo-600 text-white border border-indigo-500 font-semibold shadow-2xs"
+                  : "bg-white dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 font-medium"
               }`}
             >
               {cat}
@@ -232,16 +232,16 @@ export function DocumentStore({
       {/* ── 3. Danh sách Tài liệu Grid ────────────────────────────────────────── */}
       <div className="mt-6">
         {filteredDocs.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-200 bg-white p-12 text-center">
+          <div className="rounded-lg border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center">
             <FileText className="mx-auto h-8 w-8 text-slate-400" strokeWidth={1.75} />
-            <h3 className="mt-3 font-semibold text-slate-900 text-sm">Không tìm thấy tài liệu nào</h3>
-            <p className="mt-1 text-xs text-slate-500">Thử thay đổi từ khóa tìm kiếm hoặc lọc danh mục khác.</p>
+            <h3 className="mt-3 font-semibold text-slate-900 dark:text-slate-50 text-sm">Không tìm thấy tài liệu nào</h3>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Thử thay đổi từ khóa tìm kiếm hoặc lọc danh mục khác.</p>
             <button
               onClick={() => {
                 setSearchQuery("");
                 setActiveCategory("TẤT CẢ");
               }}
-              className="mt-4 inline-flex items-center h-8 px-3 rounded-md bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-2xs transition-colors cursor-pointer"
+              className="mt-4 inline-flex items-center h-8 px-3 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-2xs transition-colors cursor-pointer"
             >
               Xóa bộ lọc
             </button>
@@ -266,8 +266,8 @@ export function DocumentStore({
                   onClick={() => onSelect(doc.id)}
                   className={`group relative flex flex-col justify-between rounded-xl p-5 border transition-all duration-200 cursor-pointer shadow-2xs ${
                     active
-                      ? "bg-white border-indigo-600 ring-2 ring-indigo-600/20 shadow-md"
-                      : "bg-white border-slate-200/80 hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5"
+                      ? "bg-white dark:bg-slate-900 border-indigo-600 dark:border-indigo-500 ring-2 ring-indigo-600/20 shadow-md"
+                      : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-500/60 hover:shadow-lg hover:-translate-y-0.5"
                   }`}
                 >
                   {/* Top Info */}
@@ -293,18 +293,18 @@ export function DocumentStore({
                       <div className="relative doc-menu-container" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => setActiveMenuId(activeMenuId === doc.id ? null : doc.id)}
-                          className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer transition-colors"
+                          className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
                         >
                           <MoreVertical className="h-4 w-4" strokeWidth={1.75} />
                         </button>
                         {activeMenuId === doc.id && (
-                          <div className="absolute right-0 top-9 z-20 w-36 rounded-md border border-slate-200 bg-white p-1 shadow-md">
+                          <div className="absolute right-0 top-9 z-20 w-36 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 shadow-md">
                             <button
                               onClick={() => {
                                 onDelete(doc.id);
                                 setActiveMenuId(null);
                               }}
-                              className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors"
+                              className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors"
                             >
                               <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
                               Xóa tài liệu
@@ -314,20 +314,20 @@ export function DocumentStore({
                       </div>
                     </div>
 
-                    <h3 className="mt-3 font-semibold text-slate-900 line-clamp-2 leading-snug text-sm group-hover:text-indigo-600 transition-colors">
+                    <h3 className="mt-3 font-semibold text-slate-900 dark:text-slate-50 text-base sm:text-lg line-clamp-2 leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                       {doc.title}
                     </h3>
                   </div>
 
                   {/* Progress & Bottom Metadata */}
-                  <div className="mt-5 pt-3 border-t border-slate-100">
+                  <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800">
                     <div className="flex justify-between items-center text-xs mb-1.5">
-                      <span className="font-medium text-slate-500">Tiến độ</span>
+                      <span className="font-medium text-slate-500 dark:text-slate-400">Tiến độ</span>
                       <span className={`font-mono tabular-nums font-bold ${progressStyle.text}`}>
                         {doc.progress}%
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                       <div
                         className={`h-1.5 rounded-full transition-all duration-300 ${progressStyle.bar}`}
                         style={{ width: `${doc.progress}%` }}
@@ -353,28 +353,28 @@ export function DocumentStore({
           onClick={() => setIsUploadModalOpen(false)}
         >
           <div
-            className="relative w-full max-w-lg rounded-lg border border-slate-200/80 bg-white p-6 shadow-lg"
+            className="relative w-full max-w-lg rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setIsUploadModalOpen(false)}
-              className="absolute top-5 right-5 flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer transition-colors"
+              className="absolute top-5 right-5 flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
             >
               <X className="h-4 w-4" strokeWidth={1.75} />
             </button>
 
-            <h2 className="text-lg font-bold text-slate-900">Tải tài liệu mới lên</h2>
-            <p className="mt-1 text-xs text-slate-500">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">Tải tài liệu mới lên</h2>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Hỗ trợ định dạng PDF, DOCX, PPTX. AI sẽ tự động phân tích và sinh câu hỏi.
             </p>
 
             <div className="mt-5 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1.5">Chọn môn học</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1.5">Chọn môn học</label>
                 <select
                   value={selectedSubject}
                   onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-indigo-600"
+                  className="w-full h-9 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm font-medium text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-600"
                 >
                   <option value="TOÁN HỌC">Toán học</option>
                   <option value="NGOẠI NGỮ">Ngoại ngữ</option>
@@ -399,13 +399,13 @@ export function DocumentStore({
                 onClick={() => modalFileInputRef.current?.click()}
                 className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors cursor-pointer ${
                   dragging
-                    ? "border-indigo-600 bg-indigo-50/50"
-                    : "border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300"
+                    ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40"
+                    : "border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-950/50 hover:bg-slate-50 dark:hover:bg-slate-950 hover:border-slate-300 dark:hover:border-slate-600"
                 }`}
               >
                 <Upload className="h-6 w-6 text-slate-400" strokeWidth={1.75} />
-                <span className="mt-2.5 font-medium text-slate-900 text-sm">Nhấp để chọn file hoặc kéo thả vào đây</span>
-                <span className="mt-1 text-xs text-slate-500">PDF, DOCX, PPTX hoặc hình ảnh</span>
+                <span className="mt-2.5 font-medium text-slate-900 dark:text-slate-100 text-sm">Nhấp để chọn file hoặc kéo thả vào đây</span>
+                <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">PDF, DOCX, PPTX hoặc hình ảnh</span>
               </div>
 
               <input

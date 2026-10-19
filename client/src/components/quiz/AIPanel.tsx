@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   Question,
   LEVELS,
-  PURPLE,
   BTN,
   BTN_OUT,
   INP,
@@ -60,20 +59,20 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
   };
 
   return (
-    <div className="rounded-3xl bg-white p-5 shadow-sm" style={{ border: `2px solid ${PURPLE}` }}>
+    <div className="rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-sm border-2 border-indigo-600 dark:border-indigo-500">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-slate-900">✨ Tạo câu hỏi bằng AI</h3>
+        <h3 className="font-semibold text-slate-900 dark:text-slate-50">✨ Tạo câu hỏi bằng AI</h3>
         <button
           onClick={onClose}
           aria-label="Đóng"
-          className="text-xl leading-none text-slate-400 hover:text-slate-700 cursor-pointer"
+          className="text-xl leading-none text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
         >
           ✕
         </button>
       </div>
 
       <div className="mt-4 grid grid-cols-6 gap-3">
-        <label className="col-span-6 text-sm font-medium text-slate-700">
+        <label className="col-span-6 text-sm font-medium text-slate-700 dark:text-slate-300">
           Chủ đề / nội dung muốn ra đề
           <textarea
             className={INP + " mt-1"}
@@ -83,7 +82,7 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
             placeholder="VD: Phương trình bậc hai, mức độ lớp 10"
           />
         </label>
-        <label className="col-span-6 sm:col-span-3 text-sm font-medium text-slate-700">
+        <label className="col-span-6 sm:col-span-3 text-sm font-medium text-slate-700 dark:text-slate-300">
           Hoặc dựa trên tài liệu
           <select
             className={INP + " mt-1"}
@@ -98,7 +97,7 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
             ))}
           </select>
         </label>
-        <label className="col-span-3 sm:col-span-1 text-sm font-medium text-slate-700">
+        <label className="col-span-3 sm:col-span-1 text-sm font-medium text-slate-700 dark:text-slate-300">
           Số câu
           <input
             type="number"
@@ -109,7 +108,7 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
             onChange={(e) => setCount(e.target.value)}
           />
         </label>
-        <div className="col-span-3 sm:col-span-2 text-sm font-medium text-slate-700">
+        <div className="col-span-3 sm:col-span-2 text-sm font-medium text-slate-700 dark:text-slate-300">
           Độ khó
           <div className="mt-1 flex gap-1">
             {LEVELS.map((l) => (
@@ -118,12 +117,11 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
                 type="button"
                 onClick={() => setLevel(l)}
                 aria-pressed={level === l}
-                className="flex-1 rounded-xl py-2 text-sm font-semibold cursor-pointer transition-colors"
-                style={
+                className={`flex-1 rounded-xl py-2 text-sm font-semibold cursor-pointer transition-colors ${
                   level === l
-                    ? { background: PURPLE, color: "#fff" }
-                    : { background: "#fff", color: "#334155", border: "1px solid #cbd5e1" }
-                }
+                    ? "bg-indigo-600 text-white"
+                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+                }`}
               >
                 {l}
               </button>
@@ -136,32 +134,31 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
         onClick={gen}
         disabled={loading}
         className={BTN + " mt-4"}
-        style={{ background: PURPLE }}
       >
         {loading ? "AI đang tạo câu hỏi…" : drafts.length ? "Tạo lại" : "Tạo câu hỏi"}
       </button>
 
-      {err && <div className="mt-3 rounded-xl bg-rose-50 px-4 py-2 text-sm text-rose-700">{err}</div>}
+      {err && <div className="mt-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 px-4 py-2 text-sm text-rose-700 dark:text-rose-300">{err}</div>}
 
       {drafts.length > 0 && !loading && (
         <div className="mt-5">
-          <h4 className="text-sm font-semibold text-slate-900">Câu hỏi AI vừa tạo ({drafts.length})</h4>
-          <p className="mt-1 text-xs text-slate-500">
+          <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Câu hỏi AI vừa tạo ({drafts.length})</h4>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Sửa trực tiếp nội dung và đáp án bên dưới, bỏ chọn những câu không muốn dùng. AI có thể sai, hãy kiểm tra đáp án đúng trước khi thêm.
           </p>
           <div className="mt-3 space-y-3">
             {drafts.map((d, i) => (
               <div
                 key={d.id}
-                className="rounded-2xl p-4"
-                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", opacity: d.keep ? 1 : 0.5 }}
+                className="rounded-2xl p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700"
+                style={{ opacity: d.keep ? 1 : 0.5 }}
               >
-                <label className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-900 cursor-pointer">
+                <label className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={d.keep}
                     onChange={(e) => patch(d.id, { keep: e.target.checked })}
-                    className="accent-violet-600 cursor-pointer"
+                    className="accent-indigo-600 cursor-pointer"
                   />{" "}
                   Câu AI {i + 1}
                 </label>
@@ -177,7 +174,6 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
               onClick={add}
               disabled={!chosen.length}
               className={BTN}
-              style={{ background: PURPLE }}
             >
               Thêm {chosen.length} câu vào bộ câu hỏi
             </button>

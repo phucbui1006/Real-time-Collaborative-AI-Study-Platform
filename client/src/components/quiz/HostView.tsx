@@ -1,7 +1,6 @@
 import {
   LiveExam,
   LeaderboardRow,
-  DARK,
   PURPLE,
   BTN,
   BTN_OUT,
@@ -29,13 +28,12 @@ export function HostView({ live, rows, remaining, onBack, onEnd, onClose, onTry 
     <div className="mx-auto max-w-5xl px-4 sm:px-8 py-8">
       <button
         onClick={onBack}
-        className="text-sm font-medium text-slate-500 hover:text-slate-900 cursor-pointer"
+        className="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
       >
         ← Về trang bài kiểm tra
       </button>
       <div
-        className="mt-3 flex flex-wrap items-center justify-between gap-4 rounded-3xl p-6 shadow-lg"
-        style={{ background: DARK, color: "#fff" }}
+        className="mt-3 flex flex-wrap items-center justify-between gap-4 rounded-3xl p-6 shadow-lg bg-slate-900 border border-slate-800 text-white"
       >
         <div>
           <span
@@ -44,7 +42,7 @@ export function HostView({ live, rows, remaining, onBack, onEnd, onClose, onTry 
           >
             {running ? "Đang diễn ra" : "Đã kết thúc"}
           </span>
-          <h1 className="mt-2 text-2xl font-bold">{live.set.title}</h1>
+          <h1 className="mt-2 text-2xl font-bold text-slate-50">{live.set.title}</h1>
           <p className="mt-1 text-sm text-slate-300">
             Mã tham gia: <b className="tracking-widest text-white text-base">{live.code}</b>
             <button
@@ -57,7 +55,7 @@ export function HostView({ live, rows, remaining, onBack, onEnd, onClose, onTry 
         </div>
         <div className="text-right">
           <div className="text-xs text-slate-300">Thời gian còn lại</div>
-          <div className="text-4xl font-bold tabular-nums">{fmt(remaining)}</div>
+          <div className="text-4xl font-bold tabular-nums text-slate-50">{fmt(remaining)}</div>
         </div>
       </div>
 
@@ -67,15 +65,15 @@ export function HostView({ live, rows, remaining, onBack, onEnd, onClose, onTry 
           ["Đã làm xong", `${done}/${rows.length}`],
           ["Điểm trung bình", avg.toFixed(1)],
         ].map(([l, v]) => (
-          <div key={l as string} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
-            <div className="text-2xl font-bold text-slate-900">{v}</div>
-            <div className="mt-1 text-sm text-slate-500">{l}</div>
+          <div key={l as string} className="rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm ring-1 ring-slate-100 dark:ring-slate-800">
+            <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">{v}</div>
+            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{l}</div>
           </div>
         ))}
       </div>
 
-      <div className="mt-6 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">Bảng điểm trực tiếp</h2>
+      <div className="mt-6 rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-100 dark:ring-slate-800">
+        <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-50">Bảng điểm trực tiếp</h2>
         <Leaderboard rows={rows} total={total} />
       </div>
 

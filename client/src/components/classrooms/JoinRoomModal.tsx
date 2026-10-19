@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, LogIn } from "lucide-react";
-import { Field, PasswordInput, ErrorBox, inputStyle } from "./JoinPanel";
+import { Field, PasswordInput, ErrorBox } from "./JoinPanel";
 
 interface JoinRoomModalProps {
   open: boolean;
@@ -57,21 +57,21 @@ export function JoinRoomModal({ open, onClose, onSubmit, initialCode = "" }: Joi
         role="dialog"
         aria-modal="true"
         aria-label="Tham gia phòng học"
-        className="w-full max-w-md rounded-lg bg-white p-6 border border-slate-200/90 shadow-xl transition-all"
+        className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-6 border border-slate-200/90 dark:border-slate-800 shadow-xl transition-all"
       >
-        <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+        <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h2 className="text-base font-semibold text-slate-900 tracking-tight">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50 tracking-tight">
               Tham gia phòng học
             </h2>
-            <p className="mt-0.5 text-xs text-slate-500">
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
               Nhập mã phòng và mật khẩu do chủ phòng chia sẻ.
             </p>
           </div>
           <button
             onClick={onClose}
             aria-label="Đóng"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="h-4 w-4" strokeWidth={1.75} />
           </button>
@@ -86,8 +86,8 @@ export function JoinRoomModal({ open, onClose, onSubmit, initialCode = "" }: Joi
         >
           <Field label="Mã phòng (6 số)">
             <input
-              style={{ ...inputStyle, letterSpacing: "0.25em", fontSize: 16 }}
-              className="font-mono tabular-nums text-center font-bold focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
+              style={{ letterSpacing: "0.25em" }}
+              className="w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono tabular-nums text-center font-bold px-3 py-2 text-base outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
               inputMode="numeric"
               value={form.code}
               maxLength={6}
@@ -113,14 +113,14 @@ export function JoinRoomModal({ open, onClose, onSubmit, initialCode = "" }: Joi
             <button
               type="button"
               onClick={onClose}
-              className="h-9 px-4 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
+              className="h-9 px-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer shadow-2xs"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={busy}
-              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-indigo-950 text-white hover:bg-indigo-900 text-xs font-medium transition-all cursor-pointer shadow-xs active:translate-y-[1px] disabled:opacity-50 disabled:pointer-events-none"
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium transition-all cursor-pointer shadow-xs active:translate-y-[1px] disabled:opacity-50 disabled:pointer-events-none"
             >
               <LogIn className="h-3.5 w-3.5" strokeWidth={1.75} />
               {busy ? "Đang xử lý…" : "Vào phòng"}
