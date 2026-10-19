@@ -17,14 +17,18 @@ async function createUniqueCode() {
 /** POST /api/rooms/create — Tạo phòng học mới */
 async function createRoom(req, res, next) {
   try {
-    const { name } = req.body
+    const { name, password } = req.body
     if (!name) return res.status(400).json({ error: 'Thiếu tên phòng.' })
 
     const code = await createUniqueCode()
 
     const { data, error } = await supabaseAdmin
       .from('rooms')
-      .insert({ name, code })
+      .insert({
+        name,
+        code,
+        password_hash: password ? String(password) : null,
+      })
       .select()
       .single()
 
@@ -36,13 +40,30 @@ async function createRoom(req, res, next) {
   }
 }
 
-/** GET /api/rooms/verify/:code — Kiểm tra mã phòng */
+/** POST /api/rooms/verify hoặc GET /api/rooms/verify/:code — Kiểm tra mã phòng & mật khẩu */
 async function verifyRoom(req, res, next) {
   try {
-    const { code } = req.params
-    const { data } = await supabaseAdmin.from('rooms').select('*').eq('code', code).single()
+    const code = req.params.code || req.body.code || req.query.code
+    const password = req.body.password || req.query.password
 
-    if (!data) return res.status(404).json({ success: false, error: 'Mã phòng không tồn tại.' })
+    if (!code) return res.status(400).json({ success: false, error: 'Thiếu mã phòng.' })
+
+    const { data, error } = await supabaseAdmin
+      .from('rooms')
+      .select('*')
+      .eq('code', code)
+      .single()
+
+    if (error || !data) {
+      return res.status(404).json({ success: false, error: 'Mã phòng không tồn tại trên hệ thống.' })
+    }
+
+    // Nếu phòng có đặt mật khẩu, kiểm tra mật khẩu
+    if (data.password_hash) {
+      if (!password || String(password).trim() !== String(data.password_hash).trim()) {
+        return res.status(401).json({ success: false, error: 'Mật khẩu phòng không chính xác.' })
+      }
+    }
 
     res.json({ success: true, room: data })
   } catch (err) {

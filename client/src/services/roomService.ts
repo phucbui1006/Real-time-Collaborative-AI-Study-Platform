@@ -53,30 +53,35 @@ export async function fetchRoomsApi(): Promise<RoomItem[]> {
 
 export async function joinRoomApi({ code, password }: { code: string; password: string }): Promise<{ name: string; code: string }> {
   try {
-    const res = await verifyRoom(code);
+    const res = await verifyRoom(code, password);
     if (res.data?.success && res.data?.room) {
       return { name: res.data.room.name, code: res.data.room.code };
     }
+    throw new Error(res.data?.error || "Không thể vào phòng.");
   } catch (err: unknown) {
-    const axiosError = err as { response?: { status?: number; data?: { error?: string } } };
+    const axiosError = err as { response?: { status?: number; data?: { error?: string } }; message?: string };
+    if (axiosError.response?.data?.error) {
+      throw new Error(axiosError.response.data.error);
+    }
     if (axiosError.response?.status === 404) {
       throw new Error("Mã phòng không tồn tại trên hệ thống.");
     }
+    if (axiosError.response?.status === 401) {
+      throw new Error("Mật khẩu phòng không chính xác.");
+    }
+    throw new Error(axiosError.message || "Có lỗi xảy ra khi xác thực phòng.");
   }
-  if (password && password.length < 4) throw new Error("Mật khẩu không đúng.");
-  return { name: `Phòng ${code}`, code };
 }
 
 export async function createRoomApi({ name, code, password }: { name: string; code: string; password: string }): Promise<{ name: string; code: string }> {
   try {
-    const res = await createRoom(name);
+    const res = await createRoom(name, password);
     if (res.data?.success && res.data?.room) {
       return { name: res.data.room.name, code: res.data.room.code };
     }
   } catch (err) {
-    console.warn("Dùng mã dự phòng:", err);
+    console.warn("Lỗi tạo phòng trên server:", err);
   }
-  void password;
   return { name, code };
 }
 

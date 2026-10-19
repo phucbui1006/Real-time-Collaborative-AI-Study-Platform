@@ -68,11 +68,11 @@ export async function getRooms() {
 }
 
 /** Tạo phòng học mới, nhận mã 6 số */
-export async function createRoom(name: string) {
-  return api.post('/rooms/create', { name })
+export async function createRoom(name: string, password?: string) {
+  return api.post('/rooms/create', { name, password })
 }
 
-/** Kiểm tra mã phòng có hợp lệ không */
-export async function verifyRoom(roomCode: string) {
-  return api.get(`/rooms/verify/${roomCode}`)
+/** Kiểm tra mã phòng và mật khẩu phòng */
+export async function verifyRoom(roomCode: string, password?: string) {
+  return api.post('/rooms/verify', { code: roomCode, password })
 }
