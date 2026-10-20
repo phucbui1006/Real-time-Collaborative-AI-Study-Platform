@@ -43,6 +43,20 @@ html.dark :where(h1, h2, h3, h4, h5, h6) {
   color: #f1f5f9;
 }
 
+/* KaTeX Math Styling & Dark Mode support */
+.katex {
+  font-size: 1.05em;
+}
+html.dark .katex {
+  color: #e2e8f0;
+}
+.katex-display {
+  margin: 0.6em 0 !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.2em 0;
+}
+
 button,
 a {
   -webkit-tap-highlight-color: transparent;

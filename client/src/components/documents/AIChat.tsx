@@ -1,6 +1,9 @@
-// components/documents/AIChat.tsx — Khung chat với AI chuẩn Crisp Academic SaaS & Typography hoàn hảo
+// components/documents/AIChat.tsx — Khung chat với AI chuẩn Crisp Academic SaaS & KaTeX Math Typography
 import { useRef, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import { MessageSquare, X, Send, Bot, FileText, HelpCircle, Sparkles, Network, Compass } from "lucide-react";
 import { DocumentItem, ChatMessage, askAI } from "../../services/aiService";
 import { hasGeminiApiKey } from "../../services/geminiClient";
@@ -14,77 +17,50 @@ type AIChatProps = {
 };
 
 /**
- * Hàm tự động dọn dẹp các ký hiệu toán học LaTeX / Markdown thô
- * Biến đổi các ký hiệu rườm rà thành Unicode tự nhiên, chuẩn font và dễ đọc
+ * Component hiển thị tin nhắn AI chuẩn định dạng Markdown & Công thức toán học KaTeX / LaTeX
  */
-function cleanMathText(text: string): string {
-  if (!text) return "";
-  return text
-    // 1. Phân số LaTeX \frac{a}{b} -> (a / b)
-    .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1 / $2)")
-    // 2. Ký hiệu toán học thông dụng
-    .replace(/\\times/g, "×")
-    .replace(/\\cdot/g, "·")
-    .replace(/\\pi/g, "π")
-    .replace(/\\approx/g, "≈")
-    .replace(/\\neq/g, "≠")
-    .replace(/\\pm/g, "±")
-    .replace(/\\sqrt\{([^}]+)\}/g, "√($1)")
-    .replace(/\\Delta/g, "Δ")
-    .replace(/\\le/g, "≤")
-    .replace(/\\ge/g, "≥")
-    .replace(/\\infty/g, "∞")
-    // 3. Số mũ thường gặp
-    .replace(/\^2\b/g, "²")
-    .replace(/\^3\b/g, "³")
-    .replace(/r\^2/g, "r²")
-    .replace(/r\^3/g, "r³")
-    .replace(/a\^2/g, "a²")
-    .replace(/b\^2/g, "b²")
-    .replace(/c\^2/g, "c²")
-    .replace(/x\^2/g, "x²")
-    // 4. Các đơn vị LaTeX \text{cm}^2 -> cm²
+function FormattedAIMessage({ text }: { text: string }) {
+  // Tiền xử lý nhẹ để làm sạch các ký hiệu LaTeX thường bị rách hoặc nằm ngoài thẻ toán học
+  const normalized = text
     .replace(/\\text\{cm\}\^2/g, "cm²")
     .replace(/\\text\{m\}\^2/g, "m²")
     .replace(/\\text\{([a-zA-Z0-9\s]+)\}/g, "$1")
-    .replace(/\\mathbf\{([^}]+)\}/g, "**$1**")
-    // 5. Chuẩn hóa khối công thức $$ ... $$ thành blockquote đẹp mắt
-    .replace(/\$\$([\s\S]*?)\$\$/g, (_, formula) => {
-      const clean = formula.trim();
-      return `\n\n> **\`${clean}\`**\n\n`;
-    })
-    // 6. Xóa các dấu $ nội dòng đơn độc bao quanh chữ cái
-    .replace(/\$([a-zA-Z0-9_+\-×/·π≈≠±√²³\s]+)\$/g, "$1")
-    .replace(/\$/g, "");
-}
+    .replace(/\\div/g, "÷")
+    .replace(/\\neq/g, "≠")
+    .replace(/\\leq/g, "≤")
+    .replace(/\\geq/g, "≥")
+    .replace(/\\infty/g, "∞")
+    .replace(/(\\rightarrow|\\to)/g, "→");
 
-/**
- * Component hiển thị tin nhắn AI chuẩn định dạng Markdown & Typography
- */
-function FormattedMessage({ text }: { text: string }) {
-  const cleaned = cleanMathText(text);
   return (
     <div className="text-xs leading-relaxed text-slate-800 dark:text-slate-200">
       <ReactMarkdown
+        remarkPlugins={[remarkMath]}
+        rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false }]]}
         components={{
           h1: ({ children }) => (
-            <h3 className="font-bold text-sm text-indigo-700 dark:text-indigo-400 mt-2.5 mb-1">
+            <h4 className="font-bold text-xs sm:text-sm text-indigo-600 dark:text-indigo-300 mt-3 mb-1">
               {children}
-            </h3>
+            </h4>
           ),
           h2: ({ children }) => (
-            <h4 className="font-semibold text-xs text-indigo-700 dark:text-indigo-400 mt-2 mb-1">
+            <h4 className="font-bold text-xs sm:text-sm text-indigo-600 dark:text-indigo-300 mt-3 mb-1">
               {children}
             </h4>
           ),
           h3: ({ children }) => (
-            <h5 className="font-semibold text-xs text-indigo-600 dark:text-indigo-300 mt-2 mb-1">
+            <h4 className="font-bold text-xs sm:text-sm text-indigo-600 dark:text-indigo-300 mt-3 mb-1">
               {children}
-            </h5>
+            </h4>
+          ),
+          h4: ({ children }) => (
+            <h4 className="font-bold text-xs sm:text-sm text-indigo-600 dark:text-indigo-300 mt-3 mb-1">
+              {children}
+            </h4>
           ),
           p: ({ children }) => <p className="my-1.5 leading-relaxed">{children}</p>,
           strong: ({ children }) => (
-            <strong className="font-semibold text-slate-900 dark:text-slate-100">
+            <strong className="font-semibold text-slate-900 dark:text-white">
               {children}
             </strong>
           ),
@@ -96,7 +72,7 @@ function FormattedMessage({ text }: { text: string }) {
           ),
           li: ({ children }) => <li className="my-0.5 leading-relaxed">{children}</li>,
           blockquote: ({ children }) => (
-            <div className="my-2 rounded-xl border border-indigo-200/80 dark:border-indigo-800/80 bg-gradient-to-r from-indigo-50/80 via-sky-50/40 to-white dark:from-indigo-950/40 dark:via-slate-900/60 dark:to-slate-900 p-2.5 text-indigo-950 dark:text-indigo-200 font-mono text-xs shadow-2xs">
+            <div className="my-2.5 rounded-xl border border-indigo-200/80 dark:border-indigo-800/80 bg-gradient-to-r from-indigo-50/80 via-sky-50/40 to-white dark:from-indigo-950/40 dark:via-slate-900/60 dark:to-slate-900 p-2.5 text-indigo-950 dark:text-indigo-200 font-mono text-xs shadow-2xs">
               {children}
             </div>
           ),
@@ -112,7 +88,7 @@ function FormattedMessage({ text }: { text: string }) {
           ),
         }}
       >
-        {cleaned}
+        {normalized}
       </ReactMarkdown>
     </div>
   );
@@ -238,7 +214,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                 {m.role === "user" ? (
                   <div>{m.text}</div>
                 ) : (
-                  <FormattedMessage text={m.text} />
+                  <FormattedAIMessage text={m.text} />
                 )}
 
                 {m.chart && <MiniBarChart data={m.chart} />}

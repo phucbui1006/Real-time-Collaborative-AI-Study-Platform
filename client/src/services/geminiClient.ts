@@ -118,6 +118,13 @@ async function callGemini(prompt: string, jsonMode = false): Promise<string> {
             parts: [{ text: prompt }],
           },
         ],
+        systemInstruction: {
+          parts: [
+            {
+              text: "Bạn là Trợ lý AI PeerMind — bạn học cùng bàn thân thiện, thông minh. Khi viết công thức toán học, ưu tiên sử dụng ký hiệu Unicode trực quan dễ đọc (như π, ×, ÷, ², ³, ≈, √, ∫) thay vì lạm dụng mã LaTeX phức tạp như \\text{} hay \\times. Xưng hô 'mình' và 'bạn', giải thích cặn kẽ, dễ hiểu, trình bày danh sách gạch đầu dòng rõ ràng.",
+            },
+          ],
+        },
         generationConfig: {
           temperature: 0.7, // Giúp phản hồi tự nhiên, sinh động, thông minh
           maxOutputTokens: 2500,
@@ -211,7 +218,7 @@ VAI TRÒ VÀ NĂNG LỰC TOÀN DIỆN CỦA BẠN:
 3. PHONG CÁCH GIAO TIẾP & ĐỊNH DẠNG CÔNG THỨC (BẮT BUỘC):
    - Xưng hô "mình" và "bạn". Giao tiếp gần gũi, tự nhiên, ấm áp như hai bạn học thân thiết đang ngồi học cùng nhau.
    - QUY TẮC CÔNG THỨC TOÁN HỌC & KÝ HIỆU:
-     + TUYỆT ĐỐI KHÔNG dùng cú pháp LaTeX thô như $$ \times \pi \approx \text{} $$.
+     + Khi viết công thức toán học, ưu tiên sử dụng ký hiệu Unicode trực quan dễ đọc (như π, ×, ÷, ², ³, ≈, √, ∫) thay vì lạm dụng mã LaTeX phức tạp như \text{} hay \times.
      + Hãy viết công thức bằng ký tự Unicode tự nhiên dễ đọc trên mọi thiết bị:
        * Dấu nhân: × (thay vì * hay \times)
        * Số Pi: π (thay vì \pi)
