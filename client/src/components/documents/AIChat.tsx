@@ -19,6 +19,7 @@ import {
   Minimize2,
   ChevronUp,
   ChevronDown,
+  Square,
 } from "lucide-react";
 import { DocumentItem, ChatMessage, askAI } from "../../services/aiService";
 import { hasGeminiApiKey } from "../../services/geminiClient";
@@ -140,12 +141,14 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
   const [loading, setLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [thinkingStatus, setThinkingStatus] = useState("Đang phân tích ý định...");
-  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isAbortedRef = useRef(false);
   const isGeminiReady = hasGeminiApiKey();
   const endRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const [showScrollBottom, setShowScrollBottom] = useState(false);
-  const userScrolledUpRef = useRef(false);
+  const shouldAutoScrollRef = useRef(true);
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
+  const touchStartYRef = useRef(0);
 
   // 3 Chế độ kích thước: 'normal' | 'expanded' | 'minimized'
   const [chatSizeMode, setChatSizeMode] = useState<ChatSizeMode>("normal");
@@ -180,27 +183,52 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
     return () => clearInterval(timer);
   }, [loading]);
 
-  // Lắng nghe thao tác cuộn để nhận diện người dùng muốn tự do đọc văn bản phía trên
+  // 1. PHÁT HIỆN NGƯỜI DÙNG CUỘN LÊN ĐỂ NHẢ KHÓA AUTO-SCROLL (SMART SCROLL LOCK)
   const handleScroll = () => {
     const el = messagesContainerRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    // Nếu cách đáy hơn 70px: người dùng đang chủ động cuộn lên xem lịch sử hoặc đọc từ trên xuống
-    const isUp = distanceFromBottom > 70;
-    userScrolledUpRef.current = isUp;
-    setShowScrollBottom(isUp);
+    // Nếu cách đáy hơn 60px: người dùng đã chủ động cuộn lên trên
+    if (distanceFromBottom > 60) {
+      shouldAutoScrollRef.current = false;
+      setShowScrollBottomBtn(true);
+    } else if (distanceFromBottom <= 40) {
+      // Nếu đã cuộn trở lại sát đáy (<= 40px)
+      shouldAutoScrollRef.current = true;
+      setShowScrollBottomBtn(false);
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    // Khi người dùng lăn chuột lên (deltaY < 0), ngắt tức thì auto-scroll
+    if (e.deltaY < 0) {
+      shouldAutoScrollRef.current = false;
+      setShowScrollBottomBtn(true);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // Khi vuốt kéo xuống xem tin nhắn cũ phía trên
+    if (e.touches[0].clientY > touchStartYRef.current + 5) {
+      shouldAutoScrollRef.current = false;
+      setShowScrollBottomBtn(true);
+    }
   };
 
   // Cuộn xuống đáy có kiểm soát
   const scrollToBottom = (force = false) => {
     if (force) {
-      userScrolledUpRef.current = false;
-      setShowScrollBottom(false);
+      shouldAutoScrollRef.current = true;
+      setShowScrollBottomBtn(false);
       endRef.current?.scrollIntoView({ behavior: "smooth" });
       return;
     }
     // Nếu người dùng đang cuộn lên đọc bài, TUYỆT ĐỐI KHÔNG can thiệp kéo xuống
-    if (userScrolledUpRef.current) return;
+    if (!shouldAutoScrollRef.current) return;
 
     const el = messagesContainerRef.current;
     if (el) {
@@ -208,11 +236,23 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
     }
   };
 
+  // Chỉ cuộn khi mở khung chat hoặc thêm tin nhắn mới (không re-trigger liên tục khi đang gõ từng ký tự)
   useEffect(() => {
-    if (isOpen && chatSizeMode !== "minimized") {
+    if (isOpen && chatSizeMode !== "minimized" && !isTyping) {
       scrollToBottom(false);
     }
-  }, [messages, loading, isOpen, chatSizeMode]);
+  }, [messages.length, loading, isOpen, chatSizeMode]);
+
+  // 4. DỪNG TẠO CÂU TRẢ LỜI (STOP GENERATING)
+  const handleStopGenerating = () => {
+    isAbortedRef.current = true;
+    if (typingTimerRef.current) {
+      clearInterval(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+    setIsTyping(false);
+    setLoading(false);
+  };
 
   // Logic kéo mép trái để tùy chỉnh chiều rộng
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -247,17 +287,21 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
     setMessages(newHistory);
     setInput("");
     setLoading(true);
+    isAbortedRef.current = false;
 
-    // Reset cờ cuộn khi người dùng gửi tin nhắn mới và cuộn xuống đáy
-    userScrolledUpRef.current = false;
-    setShowScrollBottom(false);
+    // Reset cờ cuộn khi người dùng gửi tin nhắn mới và cuộn xuống đáy 1 lần
+    shouldAutoScrollRef.current = true;
+    setShowScrollBottomBtn(false);
     setTimeout(() => {
-      endRef.current?.scrollIntoView({ behavior: "smooth" });
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
     }, 50);
 
     const startTime = Date.now();
     try {
       const reply = await askAI(prompt, doc, newHistory);
+      if (isAbortedRef.current) return;
 
       // 1. HIỆU ỨNG ĐANG SUY NGHĨ: giữ tối thiểu 1.6 giây
       const elapsed = Date.now() - startTime;
@@ -265,6 +309,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
       if (elapsed < minWait) {
         await new Promise((r) => setTimeout(r, minWait - elapsed));
       }
+      if (isAbortedRef.current) return;
 
       setLoading(false);
       setIsTyping(true);
@@ -290,6 +335,13 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
 
       await new Promise<void>((resolve) => {
         const timer = setInterval(() => {
+          if (isAbortedRef.current) {
+            clearInterval(timer);
+            typingTimerRef.current = null;
+            resolve();
+            return;
+          }
+
           currentIndex = Math.min(totalLength, currentIndex + step);
           const currentSlice = fullText.slice(0, currentIndex);
 
@@ -304,12 +356,10 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
             return updated;
           });
 
-          // Chỉ tự động bám theo đáy nếu người dùng KHÔNG chủ động cuộn lên
-          if (!userScrolledUpRef.current) {
-            const el = messagesContainerRef.current;
-            if (el) {
-              el.scrollTop = el.scrollHeight;
-            }
+          // Chỉ tự động cập nhật vị trí cuộn khi shouldAutoScrollRef.current === true
+          // KHÔNG dùng scrollIntoView smooth trong vòng lặp typewriter
+          if (shouldAutoScrollRef.current && messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
           }
 
           if (currentIndex >= totalLength) {
@@ -322,8 +372,10 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
         typingTimerRef.current = timer;
       });
     } catch {
-      setLoading(false);
-      setMessages((m) => [...m, { role: "ai", text: "Mình đang bị nghẽn mạng xíu, bạn nhắn lại với mình nha! 😊" }]);
+      if (!isAbortedRef.current) {
+        setLoading(false);
+        setMessages((m) => [...m, { role: "ai", text: "Mình đang bị nghẽn mạng xíu, bạn nhắn lại với mình nha! 😊" }]);
+      }
     } finally {
       setLoading(false);
       setIsTyping(false);
@@ -509,6 +561,9 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
             <div
               ref={messagesContainerRef}
               onScroll={handleScroll}
+              onWheel={handleWheel}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
               className="flex-1 space-y-3.5 overflow-y-auto bg-slate-50/40 dark:bg-slate-950/60 p-4 min-h-0"
             >
               {messages.map((m, i) => (
@@ -647,19 +702,20 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
               )}
               <div ref={endRef} />
             </div>
-
-            {/* Nút nổi 'Xuống tin mới nhất' khi người dùng đã cuộn lên trên */}
-            {showScrollBottom && (
-              <button
-                onClick={() => scrollToBottom(true)}
-                className="absolute bottom-3 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-medium shadow-lg hover:shadow-xl transition-all cursor-pointer animate-fade-in group border border-indigo-400/30"
-                title="Cuộn xuống tin nhắn mới nhất"
-              >
-                <span>Xuống tin mới nhất</span>
-                <ChevronDown className="w-3.5 h-3.5 group-hover:translate-y-0.5 transition-transform" />
-              </button>
-            )}
           </div>
+
+          {/* 3. NÚT NỔI "CUỘN XUỐNG CUỐI" (FLOATING JUMP-TO-BOTTOM BUTTON) */}
+          {showScrollBottomBtn && (
+            <button
+              type="button"
+              onClick={() => scrollToBottom(true)}
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 z-20 bg-slate-800/95 hover:bg-indigo-600 text-white border border-slate-700 shadow-lg rounded-full px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer animate-fade-in group whitespace-nowrap"
+              title="Cuộn xuống tin nhắn mới nhất"
+            >
+              <ChevronDown className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" />
+              <span>{isTyping ? "↓ Đang viết tiếp..." : "Cuộn xuống cuối"}</span>
+            </button>
+          )}
 
           {/* Ô nhập liệu tin nhắn */}
           <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shrink-0">
@@ -678,14 +734,26 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                 }
                 className="flex-1 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors disabled:opacity-60"
               />
-              <button
-                onClick={() => send(input)}
-                disabled={!input.trim() || loading || isTyping}
-                className="inline-flex items-center justify-center h-9 px-3.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-xs text-xs font-medium transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0"
-                title="Gửi câu hỏi"
-              >
-                <Send className="h-3.5 w-3.5" strokeWidth={1.75} />
-              </button>
+              {loading || isTyping ? (
+                <button
+                  type="button"
+                  onClick={handleStopGenerating}
+                  className="inline-flex items-center justify-center h-9 px-3.5 rounded-xl bg-rose-500/20 text-rose-400 hover:bg-rose-600 hover:text-white border border-rose-500/30 shadow-xs text-xs font-medium transition-all cursor-pointer shrink-0"
+                  title="Dừng tạo câu trả lời"
+                >
+                  <Square className="h-3.5 w-3.5 fill-current" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => send(input)}
+                  disabled={!input.trim()}
+                  className="inline-flex items-center justify-center h-9 px-3.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-xs text-xs font-medium transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0"
+                  title="Gửi câu hỏi"
+                >
+                  <Send className="h-3.5 w-3.5" strokeWidth={1.75} />
+                </button>
+              )}
             </div>
           </div>
         </>
