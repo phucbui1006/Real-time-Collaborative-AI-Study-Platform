@@ -61,7 +61,10 @@ export async function testGeminiApiKey(keyToTest?: string): Promise<{ success: b
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${DEFAULT_MODEL}:generateContent?key=${apiKey}`;
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
       body: JSON.stringify({
         contents: [{ parts: [{ text: "Hello, reply with 'OK' only." }] }],
         generationConfig: { maxOutputTokens: 10 },
@@ -111,7 +114,10 @@ async function callGemini(prompt: string, jsonMode = false, model = DEFAULT_MODE
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
       body: JSON.stringify(bodyPayload),
     });
 
