@@ -15,12 +15,13 @@ if (typeof window !== "undefined") {
   }
 }
 
-// Danh sách các mô hình Flash thế hệ mới nhất của Google (tự động thử dự phòng nếu một mô hình bị nghẽn tải)
+// Danh sách các mô hình Flash theo thứ tự ưu tiên (Tự động thử dự phòng nếu mô hình chưa hỗ trợ hoặc nghẽn tải)
 const ACTIVE_MODELS = [
-  "gemini-flash-lite-latest", // Gemini 3.5 Flash Lite siêu nhanh & ổn định
-  "gemini-flash-latest",
-  "gemini-3-flash-preview",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-flash-lite-latest",
   "gemini-3.8-flash",
+  "gemini-flash-latest",
 ];
 
 /**
@@ -130,14 +131,38 @@ export async function testGeminiApiKey(keyToTest?: string): Promise<{ success: b
   }
 }
 
+export type GeminiContentPart = {
+  text: string;
+};
+
+export type GeminiContent = {
+  role: "user" | "model";
+  parts: GeminiContentPart[];
+};
+
 /**
  * Gọi Gemini REST API sinh văn bản với cơ chế tự động chuyển đổi mô hình (Failover)
  */
-async function callGemini(prompt: string, jsonMode = false): Promise<string> {
+async function callGemini(
+  contentsInput: string | GeminiContent[],
+  systemInstructionOrJson?: string | boolean,
+  jsonMode = false
+): Promise<string> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
     throw new Error("Chưa cấu hình Google Gemini API Key.");
   }
+
+  const systemInstructionText =
+    typeof systemInstructionOrJson === "string" ? systemInstructionOrJson : undefined;
+  const isJson =
+    typeof systemInstructionOrJson === "boolean" ? systemInstructionOrJson : jsonMode;
+
+  // Chuẩn hóa contents thành mảng GeminiContent hợp lệ
+  const contents: GeminiContent[] =
+    typeof contentsInput === "string"
+      ? [{ role: "user", parts: [{ text: contentsInput }] }]
+      : contentsInput;
 
   let lastError: Error | null = null;
 
@@ -146,25 +171,20 @@ async function callGemini(prompt: string, jsonMode = false): Promise<string> {
       const url = buildGeminiUrl(model, apiKey);
 
       const bodyPayload: Record<string, unknown> = {
-        contents: [
-          {
-            parts: [{ text: prompt }],
-          },
-        ],
-        systemInstruction: {
-          parts: [
-            {
-              text: "Bạn là Trợ lý AI PeerMind — bạn học cùng bàn thân thiện, thông minh. Khi viết công thức toán học, ưu tiên sử dụng ký hiệu Unicode trực quan dễ đọc (như π, ×, ÷, ², ³, ≈, √, ∫) thay vì lạm dụng mã LaTeX phức tạp như \\text{} hay \\times. Xưng hô 'mình' và 'bạn', giải thích cặn kẽ, dễ hiểu, trình bày danh sách gạch đầu dòng rõ ràng.",
-            },
-          ],
-        },
+        contents,
         generationConfig: {
           temperature: 0.7, // Giúp phản hồi tự nhiên, sinh động, thông minh
           maxOutputTokens: 2500,
         },
       };
 
-      if (jsonMode) {
+      if (systemInstructionText && systemInstructionText.trim().length > 0) {
+        bodyPayload.systemInstruction = {
+          parts: [{ text: systemInstructionText.trim() }],
+        };
+      }
+
+      if (isJson) {
         (bodyPayload.generationConfig as Record<string, unknown>).responseMimeType = "application/json";
         (bodyPayload.generationConfig as Record<string, unknown>).temperature = 0.2;
       }
@@ -224,7 +244,7 @@ async function callGemini(prompt: string, jsonMode = false): Promise<string> {
 }
 
 /**
- * 1. AI RAG & Universal Chatbot: Trò chuyện tự do, giải đáp kiến thức đa ngành và theo tài liệu
+ * 1. AI RAG & Universal Chatbot: Trò chuyện tự do, giải đáp kiến thức đa ngành và theo tài liệu (Hybrid Mode)
  */
 export async function askGeminiRAG({
   question,
@@ -239,74 +259,67 @@ export async function askGeminiRAG({
   pagesContent?: string[];
   history?: { role: "user" | "ai"; text: string }[];
 }): Promise<string> {
-  let context = "";
-  const hasDoc = !!docTitle && pagesContent && pagesContent.length > 0;
+  const documentTitle = docTitle ? `${docTitle}${docSubject ? ` (${docSubject})` : ""}` : "Chưa chọn tài liệu nào";
+  const documentContent =
+    pagesContent && pagesContent.length > 0
+      ? pagesContent.join("\n\n")
+      : docTitle
+      ? docTitle
+      : "Không có tài liệu nào đang mở";
 
-  if (hasDoc) {
-    const keywords = question
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((w) => w.length > 3 && !["này", "trong", "bài", "cho", "biết", "được", "không"].includes(w));
+  const systemInstruction = `Bạn là Trợ lý AI thông minh và thân thiện trên nền tảng học tập PeerMind.
+Người dùng hiện đang mở tài liệu: "${documentTitle}"
+Nội dung/Tóm tắt tài liệu hiện tại: "${documentContent}"
 
-    const relevantPages = pagesContent
-      .map((text, idx) => ({ text, page: idx + 1 }))
-      .filter(({ text }) => keywords.some((kw) => text.toLowerCase().includes(kw)))
-      .slice(0, 3);
+NGUYÊN TẮC TRẢ LỜI:
+1. Nếu câu hỏi của người dùng liên quan đến tài liệu đang mở: Hãy giải thích chi tiết dựa trên nội dung tài liệu đó.
+2. Nếu người dùng hỏi kiến thức bên ngoài phạm vi tài liệu (công thức toán học cơ bản, định nghĩa ngoài lề, câu hỏi mở rộng) hoặc trò chuyện thông thường: Hãy trả lời một cách tự nhiên, chính xác và linh hoạt bằng toàn bộ kiến thức của một AI thông thái. Tuyệt đối KHÔNG từ chối trả lời và KHÔNG ép người dùng quay lại tài liệu một cách máy móc.
+3. Giữ giọng văn gần gũi, hỗ trợ người học nhiệt tình.
 
-    if (relevantPages.length > 0) {
-      context = relevantPages.map((p) => `[Trang ${p.page}]:\n${p.text}`).join("\n\n---\n\n");
-    }
-  }
+HƯỚNG DẪN ĐỊNH DẠNG CÔNG THỨC TOÁN HỌC & TRÌNH BÀY:
+- Khi viết công thức toán học, hãy sử dụng ký hiệu Unicode trực quan (như π, ×, ÷, ², ³, ≈, √, ∫, Â, B̂, Ĉ) hoặc LaTeX KaTeX ($...$ cho inline math, $$...$$ cho display block) để công thức hiển thị sắc nét, đẹp mắt.
+- Xưng hô 'mình' và 'bạn', giải thích cặn kẽ, dễ hiểu, trình bày danh sách gạch đầu dòng rõ ràng.`;
 
-  // Thu thập các tin nhắn trao đổi gần nhất để AI nắm bắt chuẩn ngữ cảnh hội thoại
-  let conversationHistory = "";
+  // Xây dựng mảng contents lịch sử trò chuyện chuẩn của Gemini API
+  const contents: GeminiContent[] = [];
+
   if (history && history.length > 0) {
-    const recent = history
-      .filter((m) => m.text && !m.text.startsWith("Chào bạn nha! Mình là Trợ lý AI PeerMind"))
-      .slice(-6);
-
-    if (recent.length > 0) {
-      conversationHistory = recent
-        .map((m) => `${m.role === "user" ? "👤 Bạn học" : "🤖 Trợ lý AI PeerMind"}: ${m.text}`)
-        .join("\n\n");
+    for (const msg of history) {
+      if (!msg.text || !msg.text.trim()) continue;
+      // Bỏ qua tin nhắn chào mừng mặc định ban đầu
+      if (msg.role === "ai" && msg.text.startsWith("Chào bạn nha! Mình là Trợ lý AI PeerMind")) continue;
+      contents.push({
+        role: msg.role === "user" ? "user" : "model",
+        parts: [{ text: msg.text.trim() }],
+      });
     }
   }
 
-  const prompt = `
-Bạn là Trợ lý AI PeerMind — một AI Chatbot thông minh, uyên bác và thân thiện như một người bạn học cùng bàn 24/7.
+  // Đảm bảo tin nhắn câu hỏi hiện tại nằm ở cuối cùng với role 'user'
+  if (
+    contents.length === 0 ||
+    contents[contents.length - 1].role !== "user" ||
+    contents[contents.length - 1].parts[0].text !== question.trim()
+  ) {
+    contents.push({
+      role: "user",
+      parts: [{ text: question.trim() }],
+    });
+  }
 
-VAI TRÒ VÀ NĂNG LỰC TOÀN DIỆN CỦA BẠN:
-1. Bạn là một trợ lý chatbot đa năng (như ChatGPT / Gemini):
-   - Bạn có thể trả lời BẤT KỲ câu hỏi nào về: Toán học, Hình học, Vật lý, Hóa học, Lập trình & CNTT (React, TypeScript, Python...), Ngữ pháp tiếng Anh, Khoa học tự nhiên, Kỹ năng học tập, cho đến những câu hỏi giao tiếp, đời sống hàng ngày.
-2. NGUYÊN TẮC QUAN TRỌNG VỀ TÀI LIỆU ĐANG MỞ:
-   ${hasDoc ? `- Hiện tại người dùng đang mở tài liệu: "${docTitle}" (${docSubject || "Chung"}).
-   - QUY TẮC: Bạn CHỈ nhắc đến tài liệu này khi câu hỏi của người dùng THỰC SỰ LIÊN QUAN đến tài liệu đó (hoặc người dùng yêu cầu tóm tắt, giải thích tài liệu).
-   - NẾU người dùng hỏi các câu hỏi kiến thức ngoài (ví dụ: công thức chu vi hình tròn, góc trong tam giác, hỏi về lập trình, giải toán phổ thông, hỏi thăm đời sống...): Hãy TRẢ LỜI ĐẦY ĐỦ, CHÍNH XÁC VÀ TỰ NHIÊN câu hỏi đó! TUYỆT ĐỐI KHÔNG gượng ép lôi tài liệu vào nếu không liên quan.` : "- Hiện tại không có tài liệu nào được chỉ định. Hãy giải đáp tự do mọi câu hỏi của người dùng như một AI Chatbot thông minh và hữu ích."}
-3. PHONG CÁCH GIAO TIẾP & ĐỊNH DẠNG CÔNG THỨC (BẮT BUỘC):
-   - Xưng hô "mình" và "bạn". Giao tiếp gần gũi, tự nhiên, ấm áp như hai bạn học thân thiết đang ngồi học cùng nhau.
-   - QUY TẮC CÔNG THỨC TOÁN HỌC & KÝ HIỆU:
-     + Khi viết công thức toán học, ưu tiên sử dụng ký hiệu Unicode trực quan dễ đọc (như π, ×, ÷, ², ³, ≈, √, ∫, Â, B̂, Ĉ) hoặc LaTeX KaTeX chuẩn để hiển thị đẹp mắt.
-     + Hãy viết công thức bằng ký tự Unicode tự nhiên dễ đọc trên mọi thiết bị:
-       * Dấu nhân: × (thay vì * hay \\times)
-       * Số Pi: π (thay vì \\pi)
-       * Số mũ: ², ³ (ví dụ: r², cm², m³)
-       * Dấu xấp xỉ: ≈ (thay vì \\approx)
-       * Căn bậc hai: √ (ví dụ: √(a² + b²))
-       * Đặt công thức trọng tâm trong khối mã hoặc in đậm để nổi bật: ví dụ \`C = 2 × π × r\` hoặc \`S = π × r²\`.
-   - Trình bày Markdown sạch sẽ, font tiếng Việt chuẩn xác, danh sách gạch đầu dòng rõ ràng, emoji tươi vui (💡, 📌, ✨, 🚀, 📐, 💻).
-   - Nếu người dùng chào hỏi, hỏi thăm hoặc trò chuyện phiếm: Hãy vui vẻ trò chuyện tự nhiên, đừng tuôn ra lý thuyết sách vở khô khan.
-4. QUY TẮC BÁM SÁT NGỮ CẢNH CÂU HỎI:
-   - Hãy tập trung trả lời CHÍNH XÁC VÀ ĐẦY ĐỦ theo chủ đề của câu hỏi mới nhất.
-   - Nếu câu hỏi mới nhất chuyển sang một chủ đề khác (ví dụ: đang nói về hình tròn chuyển sang hỏi về góc trong tam giác), hãy lập tức trả lời đúng chủ đề góc trong tam giác, KHÔNG nhầm lẫn hoặc lặp lại chủ đề cũ.
-   - Nếu câu hỏi mới là dạng tiếp nối (ví dụ: "còn trường hợp...", "tại sao?", "ví dụ minh họa?"), hãy đối chiếu với lịch sử hội thoại bên dưới để trả lời liền mạch.
+  // Đảm bảo tin nhắn đầu tiên không mang role 'model' để tuân thủ chuẩn Gemini API
+  while (contents.length > 0 && contents[0].role === "model") {
+    contents.shift();
+  }
 
-${context ? `=== NỘI DUNG TÀI LIỆU THAM KHẢO (CHỈ DÙNG KHI LIÊN QUAN) ===\n${context}\n` : ""}
-${conversationHistory ? `=== LỊCH SỬ HỘI THOẠI GẦN ĐÂY (ĐỂ BẮT ĐÚNG NGỮ CẢNH) ===\n${conversationHistory}\n` : ""}
-=== CÂU HỎI MỚI NHẤT CỦA BẠN HỌC ===
-"${question}"
-`;
+  if (contents.length === 0) {
+    contents.push({
+      role: "user",
+      parts: [{ text: question.trim() }],
+    });
+  }
 
-  return callGemini(prompt, false);
+  return callGemini(contents, systemInstruction, false);
 }
 
 /**
