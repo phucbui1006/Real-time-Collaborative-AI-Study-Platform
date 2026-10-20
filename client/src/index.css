@@ -56,6 +56,9 @@ html.dark .katex {
   overflow-y: hidden;
   padding: 0.2em 0;
 }
+.katex .katex-error {
+  color: inherit !important;
+}
 
 button,
 a {

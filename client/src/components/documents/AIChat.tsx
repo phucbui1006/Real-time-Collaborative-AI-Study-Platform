@@ -36,32 +36,34 @@ export type ChatSizeMode = "normal" | "expanded" | "minimized";
  * Component hiển thị tin nhắn AI chuẩn định dạng Markdown & Công thức toán học KaTeX / LaTeX
  */
 function FormattedAIMessage({ text }: { text: string }) {
-  // Tiền xử lý:
-  // 1. Chuyển đổi các chữ cái viết tắt của góc toán học (như phi, theta) thành ký hiệu Hy Lạp chuẩn (φ, θ)
+  // Tiền xử lý văn bản:
+  // 1. Chuyển đổi toàn diện các ký hiệu chữ Hy Lạp (kể cả có backslash hoặc không có backslash) sang ký hiệu Unicode chuẩn (α, β, γ, θ, φ, π...)
+  //    QUAN TRỌNG: Khớp cả dấu gạch chéo ngược "\" nếu có (\\?alpha) để tránh để lại "\" biến thành "\α", "\θ", "\φ" khiến KaTeX báo lỗi đỏ
   // 2. Chuyển đổi dấu nhân sao (*) giữa các biến số lượng giác thành dấu nhân toán học (·) để tránh bị Markdown hiểu lầm thành chữ in nghiêng
-  // 3. Làm sạch các ký hiệu LaTeX thường bị rách hoặc nằm ngoài thẻ toán học
+  // 3. Chuẩn hóa các ký hiệu toán học phổ thông
   const normalized = text
     .replace(/([a-zA-Z0-9])\s*\*\s*cos/g, "$1 · cos")
     .replace(/([a-zA-Z0-9])\s*\*\s*sin/g, "$1 · sin")
-    .replace(/cos\s*\(\s*phi\s*\)/gi, "cos(φ)")
-    .replace(/sin\s*\(\s*phi\s*\)/gi, "sin(φ)")
-    .replace(/\\cos\s*\(\s*phi\s*\)/gi, "\\cos(\\varphi)")
-    .replace(/\\sin\s*\(\s*phi\s*\)/gi, "\\sin(\\varphi)")
-    .replace(/\(phi\)/gi, "(φ)")
-    .replace(/\bphi\b/g, "φ")
-    .replace(/\(theta\)/gi, "(θ)")
-    .replace(/\btheta\b/g, "θ")
-    .replace(/\balpha\b/g, "α")
-    .replace(/\bbeta\b/g, "β")
+    .replace(/\\?alpha\b/gi, "α")
+    .replace(/\\?beta\b/gi, "β")
+    .replace(/\\?gamma\b/gi, "γ")
+    .replace(/\\?theta\b/gi, "θ")
+    .replace(/\\?(?:phi|varphi)\b/gi, "φ")
+    .replace(/(?:\\pi|\bpi\b)/gi, "π")
+    .replace(/\\?lambda\b/gi, "λ")
+    .replace(/\\?omega\b/gi, "ω")
+    .replace(/\\?Delta\b/g, "Δ")
+    .replace(/\\?delta\b/g, "δ")
+    .replace(/\\?sigma\b/gi, "σ")
     .replace(/\\text\{cm\}\^2/g, "cm²")
     .replace(/\\text\{m\}\^2/g, "m²")
-    .replace(/\\text\{([a-zA-Z0-9\s]+)\}/g, "$1")
-    .replace(/\\div/g, "÷")
-    .replace(/\\neq/g, "≠")
-    .replace(/\\leq/g, "≤")
-    .replace(/\\geq/g, "≥")
-    .replace(/\\infty/g, "∞")
-    .replace(/(\\rightarrow|\\to)/g, "→");
+    .replace(/\\div\b/g, "÷")
+    .replace(/\\neq\b/g, "≠")
+    .replace(/\\leq\b/g, "≤")
+    .replace(/\\geq\b/g, "≥")
+    .replace(/\\infty\b/g, "∞")
+    .replace(/\\pm\b/g, "±")
+    .replace(/(\\rightarrow|\\to)\b/g, "→");
 
   return (
     <div className="text-xs leading-relaxed text-slate-800 dark:text-slate-200">
