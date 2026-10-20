@@ -1,4 +1,10 @@
 // services/aiService.ts — Tương tác AI & Dữ liệu mẫu tài liệu
+import {
+  hasGeminiApiKey,
+  askGeminiRAG,
+  summarizeDocumentWithGemini,
+  generateQuizWithGemini,
+} from "./geminiClient";
 
 export type DocumentItem = {
   id: number;
@@ -24,6 +30,7 @@ export type ChatMessage = {
   role: "user" | "ai";
   text: string;
   chart?: ChartItem[];
+  isGemini?: boolean;
 };
 
 export const INITIAL_DOCS: DocumentItem[] = [
@@ -120,17 +127,15 @@ export const SUGGESTIONS = [
 ];
 
 /**
- * Hàm tương tác AI thông minh hỗ trợ RAG từ nội dung tài liệu
+ * Hàm tương tác AI thông minh hỗ trợ kết nối Google Gemini 2.0 Flash
  */
 export async function askAI(
   prompt: string,
   doc: DocumentItem | null
-): Promise<{ text: string; chart?: ChartItem[] }> {
-  await new Promise((r) => setTimeout(r, 650));
-
+): Promise<{ text: string; chart?: ChartItem[]; isGemini?: boolean }> {
   const lower = prompt.toLowerCase();
 
-  // Yêu cầu vẽ biểu đồ
+  // Yêu cầu vẽ biểu đồ tiến độ
   if (lower.includes("biểu đồ") || lower.includes("tiến độ")) {
     return {
       text: "Đây là biểu đồ tiến độ học tập và mức độ hoàn thành các tài liệu của bạn:",
@@ -139,16 +144,99 @@ export async function askAI(
         value: d.progress,
         color: d.color,
       })),
+      isGemini: false,
     };
   }
 
   if (!doc) {
     return {
       text: "Bạn hãy chọn một tài liệu ở danh sách bên trái để mình có thể giải đáp chi tiết theo nội dung bài học nhé!",
+      isGemini: false,
     };
   }
 
   const pages = doc.pagesContent || [];
+
+  // NẾU ĐÃ CÓ GOOGLE GEMINI API KEY -> GỌI MÔ HÌNH TRỰC TIẾP
+  if (hasGeminiApiKey()) {
+    try {
+      // 1. Tóm tắt tài liệu
+      if (
+        lower.includes("tóm tắt") ||
+        lower.includes("khái quát") ||
+        lower.includes("nội dung chính") ||
+        lower.includes("ý chính")
+      ) {
+        const summary = await summarizeDocumentWithGemini({
+          docTitle: doc.title,
+          docSubject: doc.subject,
+          pagesContent: pages,
+        });
+        return { text: summary, isGemini: true };
+      }
+
+      // 2. Tạo câu hỏi ôn tập
+      if (
+        lower.includes("câu hỏi") ||
+        lower.includes("trắc nghiệm") ||
+        lower.includes("ôn tập") ||
+        lower.includes("đề thi")
+      ) {
+        const questions = await generateQuizWithGemini({
+          docTitle: doc.title,
+          pagesContent: pages,
+          count: 3,
+        });
+        const formatted = questions
+          .map(
+            (q, idx) =>
+              `**Câu ${idx + 1}:** ${q.question}\n` +
+              `*A.* ${q.options.A}  \n` +
+              `*B.* ${q.options.B}  \n` +
+              `*C.* ${q.options.C}  \n` +
+              `*D.* ${q.options.D}  \n\n` +
+              `👉 **Đáp án đúng:** ${q.correctAnswer} — *${q.explanation}*`
+          )
+          .join("\n\n---\n\n");
+
+        return {
+          text: `Bộ câu hỏi ôn tập do **Google Gemini AI** vừa khởi tạo từ tài liệu **"${doc.title}"**:\n\n${formatted}\n\n💡 *Gợi ý: Bạn có thể sao chép câu hỏi này hoặc chuyển sang tab "Bài kiểm tra" để thi đấu trực tiếp.*`,
+          isGemini: true,
+        };
+      }
+
+      // 3. Hỏi đáp RAG thông thường
+      const response = await askGeminiRAG({
+        question: prompt,
+        docTitle: doc.title,
+        docSubject: doc.subject,
+        pagesContent: pages,
+      });
+      return { text: response, isGemini: true };
+    } catch (err: unknown) {
+      const e = err as Error;
+      console.warn("Lỗi gọi Gemini AI:", e.message);
+      // Khi gặp lỗi từ Gemini (ví dụ Quota 429 hoặc Key sai), thông báo và fallback
+      const errorNotice = `⚠️ *[Google Gemini AI: ${e.message}]*\n\nHệ thống tạm thời chuyển sang chế độ phân tích dự phòng cho tài liệu:\n\n`;
+      const fallbackResult = await getFallbackResponse(prompt, doc, pages);
+      return { text: errorNotice + fallbackResult.text, isGemini: false };
+    }
+  }
+
+  // NẾU CHƯA CÓ KEY -> SỬ DỤNG CHẾ ĐỘ PHÂN TÍCH NỘI DUNG TÀI LIỆU DỰ PHÒNG
+  return getFallbackResponse(prompt, doc, pages);
+}
+
+/**
+ * Chế độ phản hồi thông minh dự phòng khi chưa cấu hình Gemini API Key
+ */
+async function getFallbackResponse(
+  prompt: string,
+  doc: DocumentItem,
+  pages: string[]
+): Promise<{ text: string; isGemini: boolean }> {
+  await new Promise((r) => setTimeout(r, 650));
+  const lower = prompt.toLowerCase();
 
   // Yêu cầu tóm tắt
   if (
@@ -162,11 +250,13 @@ export async function askAI(
         .map((p, i) => `• **Phần ${i + 1}:** ${p}`)
         .join("\n\n");
       return {
-        text: `Dưới đây là tóm tắt các điểm trọng tâm của tài liệu **"${doc.title}"**:\n\n${summaryList}\n\n💡 *Gợi ý: Bạn có thể yêu cầu mình tạo câu hỏi trắc nghiệm hoặc giải thích sâu hơn từng phần nhé!*`,
+        text: `Dưới đây là tóm tắt các điểm trọng tâm của tài liệu **"${doc.title}"**:\n\n${summaryList}\n\n💡 *Mẹo: Bạn có thể bấm biểu tượng ⚙️ góc trên khung chat để nhập Google Gemini API Key và mở khóa phản hồi AI trực tiếp!*`,
+        isGemini: false,
       };
     }
     return {
       text: `Tóm tắt nhanh tài liệu **"${doc.title}"** (${doc.subject}):\n\n• Tài liệu bao gồm ${doc.pagesCount || 15} trang kiến thức trọng tâm.\n• Tập trung vào lý thuyết nền tảng, các công thức cốt lõi và ví dụ minh họa trực quan.\n• Tiến độ ôn tập hiện tại của bạn là **${doc.progress}%**.`,
+      isGemini: false,
     };
   }
 
@@ -186,7 +276,8 @@ export async function askAI(
         `*A. Biến đổi công thức chuẩn* | *B. Tra cứu thủ công* | *C. Ước lượng ngẫu nhiên* | *D. Loại trừ giả thuyết*\n\n` +
         `**Câu 3:** Ý nghĩa thực tiễn quan trọng nhất sau khi học xong phần này là gì?\n` +
         `*A. Nắm vững phương pháp luận và vận dụng vào bài thi thực tế*\n\n` +
-        `👉 *Đáp án gợi ý: 1-A, 2-A, 3-A. Bạn muốn thi đấu trắc nghiệm thì chuyển sang tab "Bài kiểm tra" nhé!*`,
+        `👉 *Đáp án gợi ý: 1-A, 2-A, 3-A. Nhập Gemini API Key để AI sinh câu hỏi bám sát 100% nội dung từng trang nhé!*`,
+      isGemini: false,
     };
   }
 
@@ -199,14 +290,17 @@ export async function askAI(
     if (matched) {
       return {
         text: `Dựa vào tài liệu **"${doc.title}"**, nội dung liên quan trực tiếp đến câu hỏi của bạn:\n\n> "${matched}"\n\nNếu cần làm rõ công thức hoặc bài tập vận dụng, bạn cứ nhắn mình nhé!`,
+        isGemini: false,
       };
     }
     return {
       text: `Đối với tài liệu **"${doc.title}"**, nội dung chính bao gồm:\n\n"${pages[0]}"\n\nBạn có thể hỏi cụ thể hơn về công thức, bài tập hoặc yêu cầu tóm tắt nhé!`,
+      isGemini: false,
     };
   }
 
   return {
-    text: `Trợ lý AI đã ghi nhận câu hỏi của bạn về tài liệu **"${doc.title}"**. Đây là kiến thức thuộc phân môn **${doc.subject}**. Bạn có thể yêu cầu: "Tóm tắt tài liệu", "Tạo câu hỏi trắc nghiệm" hoặc "Vẽ biểu đồ tiến độ".`,
+    text: `Trợ lý AI đã ghi nhận câu hỏi của bạn về tài liệu **"${doc.title}"** (${doc.subject}). Để nhận câu trả lời phân tích chuyên sâu bằng mô hình Gemini 2.0 Flash, bạn hãy bấm nút ⚙️ trên thanh tiêu đề để cài đặt API Key nhé!`,
+    isGemini: false,
   };
 }
