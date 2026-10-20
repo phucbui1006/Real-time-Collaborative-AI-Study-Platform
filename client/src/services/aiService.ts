@@ -251,19 +251,18 @@ export async function askAI(
 
 /**
  * BỘ NÃO AI DỰ PHÒNG THÔNG MINH (Offline Knowledge Base & Chatbot):
- * Trả lời tự nhiên, chính xác các câu hỏi Toán học, Hình học, Lập trình, Tiếng Anh, Đời sống
- * mà KHÔNG bị bó buộc vô lý vào nội dung tài liệu.
+ * Định dạng công thức bằng ký tự Unicode tự nhiên, chuẩn font tiếng Việt, không dùng LaTeX thô.
  */
 async function getFallbackResponse(
   prompt: string,
   doc: DocumentItem | null,
   pages: string[]
 ): Promise<{ text: string; isGemini: boolean }> {
-  await new Promise((r) => setTimeout(r, 350));
+  await new Promise((r) => setTimeout(r, 250));
   const lower = prompt.toLowerCase().trim();
 
   // -------------------------------------------------------------
-  // NHÓM 1: CÔNG THỨC TOÁN HỌC & HÌNH HỌC PHỔ THÔNG
+  // NHÓM 1: CÔNG THỨC TOÁN HỌC & HÌNH HỌC PHỔ THÔNG (FONT & ICON CHUẨN)
   // -------------------------------------------------------------
 
   // 1.1 Hình tròn (Chu vi, diện tích, bán kính, đường kính)
@@ -274,24 +273,22 @@ async function getFallbackResponse(
   ) {
     return {
       text:
-        `Dạ, công thức đầy đủ liên quan đến **hình tròn** đây nè bạn: 📐✨\n\n` +
+        `Công thức đầy đủ liên quan đến **hình tròn** đây nè bạn: 📐✨\n\n` +
         `### 1. Chu vi hình tròn:\n` +
-        `$$C = 2 \\times \\pi \\times r$$\n` +
-        `Hoặc nếu bạn biết đường kính ($d = 2r$):\n` +
-        `$$C = \\pi \\times d$$\n\n` +
+        `> **\`C = 2 × π × r\`**  *(hoặc **\`C = π × d\`** nếu biết đường kính)*\n\n` +
         `### 2. Diện tích hình tròn:\n` +
-        `$$S = \\pi \\times r^2$$\n\n` +
+        `> **\`S = π × r²\`**\n\n` +
         `**Trong đó:**\n` +
-        `- **$C$**: Chu vi hình tròn (đơn vị: cm, m...)\n` +
-        `- **$S$**: Diện tích hình tròn (đơn vị: $\\text{cm}^2$, $\\text{m}^2$...)\n` +
-        `- **$r$**: Bán kính hình tròn (khoảng cách từ tâm đến mép đường tròn)\n` +
-        `- **$d$**: Đường kính ($d = 2r$)\n` +
-        `- **$\\pi$ (Số Pi)**: Hằng số xấp xỉ $\\approx 3.14159$\n\n` +
-        `💡 **Ví dụ minh họa:**\n` +
-        `Nếu một hình tròn có bán kính $r = 5\\text{ cm}$:\n` +
-        `- Chu vi: $C = 2 \\times 3.14 \\times 5 = \\mathbf{31.4\\text{ cm}}$\n` +
-        `- Diện tích: $S = 3.14 \\times 5^2 = \\mathbf{78.5\\text{ cm}^2}$\n\n` +
-        `Bạn có bài toán cụ thể nào cần mình giải từng bước cùng bạn không? 😊`,
+        `- **C**: Chu vi hình tròn (đơn vị: cm, m...)\n` +
+        `- **S**: Diện tích hình tròn (đơn vị: cm², m²...)\n` +
+        `- **r**: Bán kính hình tròn (khoảng cách từ tâm đến mép đường tròn)\n` +
+        `- **d**: Đường kính (d = 2 × r)\n` +
+        `- **π (Số Pi)**: Hằng số toán học xấp xỉ ≈ **3.14159**\n\n` +
+        `💡 **Ví dụ minh họa dễ hiểu:**\n` +
+        `Nếu một hình tròn có bán kính **r = 5 cm**:\n` +
+        `- **Chu vi:** C = 2 × 3.14 × 5 = **31.4 cm**\n` +
+        `- **Diện tích:** S = 3.14 × 5² = 3.14 × 25 = **78.5 cm²**\n\n` +
+        `Bạn có bài tập cụ thể nào cần tính toán thì cứ nhắn số liệu cho mình nha! 😊`,
       isGemini: false,
     };
   }
@@ -302,15 +299,14 @@ async function getFallbackResponse(
       text:
         `Công thức về **hình tam giác** đây bạn nhé: 📐\n\n` +
         `### 1. Chu vi hình tam giác:\n` +
-        `$$P = a + b + c$$\n` +
-        `*(Tổng độ dài 3 cạnh)*\n\n` +
+        `> **\`P = a + b + c\`**  *(Tổng độ dài 3 cạnh)*\n\n` +
         `### 2. Diện tích hình tam giác thường:\n` +
-        `$$S = \\frac{1}{2} \\times a \\times h$$\n` +
-        `*(Bằng nửa tích của chiều cao nhân với cạnh đáy tương ứng)*\n\n` +
+        `> **\`S = (a × h) / 2\`**  *(Đáy nhân chiều cao chia 2)*\n\n` +
         `### 3. Các trường hợp đặc biệt:\n` +
-        `- **Tam giác vuông**: $S = \\frac{1}{2} \\times a \\times b$ *(tích hai cạnh góc vuông chia 2)*.\n` +
-        `- **Định lý Heron (khi biết 3 cạnh)**: $S = \\sqrt{p(p-a)(p-b)(p-c)}$ với nửa chu vi $p = \\frac{a+b+c}{2}$.\n\n` +
-        `Cần áp dụng vào bài tập nào thì nhắn số đo cho mình tính cùng nha! ✨`,
+        `- **Tam giác vuông:** \`S = (a × b) / 2\` *(Tích 2 cạnh góc vuông chia 2)*\n` +
+        `- **Tam giác đều (cạnh a):** \`S = (a² × √3) / 4\`\n` +
+        `- **Công thức Heron (khi biết 3 cạnh a, b, c):**\n` +
+        `  \`S = √(p × (p - a) × (p - b) × (p - c))\` *(với nửa chu vi p = (a + b + c) / 2)*`,
       isGemini: false,
     };
   }
@@ -319,10 +315,10 @@ async function getFallbackResponse(
   if (lower.includes("chữ nhật") && (lower.includes("diện tích") || lower.includes("chu vi") || lower.includes("công thức"))) {
     return {
       text:
-        `Công thức **hình chữ nhật** cực kỳ dễ nhớ nè: 📦\n\n` +
-        `- **Chu vi**: $P = (a + b) \\times 2$ *(dài cộng rộng cùng đơn vị đo rồi nhân 2)*\n` +
-        `- **Diện tích**: $S = a \\times b$ *(dài nhân rộng)*\n\n` +
-        `Ví dụ: Chiều dài $8\\text{ cm}$, chiều rộng $5\\text{ cm}$ thì chu vi là $26\\text{ cm}$ và diện tích là $40\\text{ cm}^2$ nha!`,
+        `Công thức **hình chữ nhật** (chiều dài a, chiều rộng b): 📦\n\n` +
+        `- **Chu vi:** \`P = (a + b) × 2\`\n` +
+        `- **Diện tích:** \`S = a × b\`\n\n` +
+        `*Ví dụ:* Dài 8 cm, rộng 5 cm thì Chu vi = 26 cm và Diện tích = 40 cm².`,
       isGemini: false,
     };
   }
@@ -330,10 +326,10 @@ async function getFallbackResponse(
   if (lower.includes("hình vuông") && (lower.includes("diện tích") || lower.includes("chu vi") || lower.includes("công thức"))) {
     return {
       text:
-        `Công thức **hình vuông** (cạnh $a$): ⏹️\n\n` +
-        `- **Chu vi**: $P = a \\times 4$ *(độ dài một cạnh nhân 4)*\n` +
-        `- **Diện tích**: $S = a^2$ *(cạnh nhân chính nó)*\n` +
-        `- **Đường chéo**: $d = a\\sqrt{2}$ *(áp dụng định lý Pytago)*.`,
+        `Công thức **hình vuông** (cạnh a): ⏹️\n\n` +
+        `- **Chu vi:** \`P = a × 4\`\n` +
+        `- **Diện tích:** \`S = a²\`\n` +
+        `- **Độ dài đường chéo:** \`d = a × √2\``,
       isGemini: false,
     };
   }
@@ -342,8 +338,9 @@ async function getFallbackResponse(
   if (lower.includes("hình thang") && (lower.includes("diện tích") || lower.includes("công thức"))) {
     return {
       text:
-        `Công thức tính **diện tích hình thang**: 📐\n\n` +
-        `$$S = \\frac{(a + b) \\times h}{2}$$\n\n` +
+        `Công thức **diện tích hình thang**: 📐\n\n` +
+        `> **\`S = ((a + b) × h) / 2\`**\n\n` +
+        `*(Tổng hai đáy nhân chiều cao rồi chia đôi)*\n\n` +
         `💡 *Mẹo nhớ vui: "Muốn tính diện tích hình thang / Đáy lớn đáy nhỏ ta mang cộng vào / Thế rồi nhân với chiều cao / Chia đôi lấy nửa thế nào cũng ra!"* 😄`,
       isGemini: false,
     };
@@ -354,13 +351,15 @@ async function getFallbackResponse(
     return {
       text:
         `**Định lý Pytago (Pythagoras)** trong tam giác vuông: 📐\n\n` +
-        `$$a^2 + b^2 = c^2$$\n\n` +
-        `**Phát biểu:** Trong một tam giác vuông, bình phương cạnh huyền ($c$) luôn bằng tổng bình phương hai cạnh góc vuông ($a$ và $b$).\n\n` +
+        `> **\`a² + b² = c²\`**\n\n` +
+        `Trong đó:\n` +
+        `- **c**: Độ dài cạnh huyền\n` +
+        `- **a, b**: Độ dài hai cạnh góc vuông\n\n` +
         `⭐ **Các bộ 3 số Pytago kinh điển:**\n` +
-        `- $(3, 4, 5)$ vì $3^2 + 4^2 = 9 + 16 = 25 = 5^2$\n` +
-        `- $(5, 12, 13)$\n` +
-        `- $(6, 8, 10)$\n` +
-        `- $(7, 24, 25)$`,
+        `- (3, 4, 5) vì 3² + 4² = 9 + 16 = 25 = 5²\n` +
+        `- (5, 12, 13)\n` +
+        `- (6, 8, 10)\n` +
+        `- (7, 24, 25)`,
       isGemini: false,
     };
   }
@@ -370,20 +369,21 @@ async function getFallbackResponse(
     lower.includes("bậc 2") ||
     lower.includes("bậc hai") ||
     lower.includes("delta") ||
-    lower.includes("ax^2") ||
     lower.includes("phương trình bậc")
   ) {
     return {
       text:
-        `Cách giải **phương trình bậc hai** $ax^2 + bx + c = 0$ ($a \\neq 0$): 🧮\n\n` +
-        `1. Tính biệt thức Delta: $$\\Delta = b^2 - 4ac$$\n` +
-        `2. Biện luận theo $\\Delta$:\n` +
-        `- **$\\Delta > 0$**: Phương trình có 2 nghiệm phân biệt:\n` +
-        `  $$x_{1,2} = \\frac{-b \\pm \\sqrt{\\Delta}}{2a}$$\n` +
-        `- **$\\Delta = 0$**: Phương trình có nghiệm kép:\n` +
-        `  $$x_1 = x_2 = -\\frac{b}{2a}$$\n` +
-        `- **$\\Delta < 0$**: Phương trình vô nghiệm trên tập số thực $\\mathbb{R}$.\n\n` +
-        `💡 *Hệ thức Vi-ét: $x_1 + x_2 = -\\frac{b}{a}$ và $x_1 \\times x_2 = \\frac{c}{a}$.*`,
+        `Cách giải **phương trình bậc hai** \`a × x² + b × x + c = 0\` (a ≠ 0): 🧮\n\n` +
+        `1. **Tính biệt thức Delta:**\n` +
+        `> **\`Δ = b² - 4 × a × c\`**\n\n` +
+        `2. **Biện luận số nghiệm:**\n` +
+        `- **Nếu Δ > 0:** Phương trình có 2 nghiệm phân biệt:\n` +
+        `  \`x₁ = (-b + √Δ) / (2 × a)\`\n` +
+        `  \`x₂ = (-b - √Δ) / (2 × a)\`\n` +
+        `- **Nếu Δ = 0:** Phương trình có nghiệm kép:\n` +
+        `  \`x₁ = x₂ = -b / (2 × a)\`\n` +
+        `- **Nếu Δ < 0:** Phương trình vô nghiệm trên tập số thực.\n\n` +
+        `💡 *Hệ thức Vi-ét: x₁ + x₂ = -b / a và x₁ × x₂ = c / a.*`,
       isGemini: false,
     };
   }
@@ -392,19 +392,19 @@ async function getFallbackResponse(
   if (lower.includes("thể tích")) {
     if (lower.includes("cầu")) {
       return {
-        text: `Thể tích **hình cầu** bán kính $r$: $$V = \\frac{4}{3}\\pi r^3$$ và Diện tích mặt cầu là $$S = 4\\pi r^2$$ nha bạn! ⚽`,
+        text: `Thể tích **hình cầu** bán kính r:\n> **\`V = (4/3) × π × r³\`**\nDiện tích mặt cầu:\n> **\`S = 4 × π × r²\`** ⚽`,
         isGemini: false,
       };
     }
     if (lower.includes("trụ")) {
       return {
-        text: `Thể tích **hình trụ** có bán kính đáy $r$ và chiều cao $h$: $$V = \\pi r^2 h$$ (Bằng diện tích đáy nhân chiều cao) 🥫`,
+        text: `Thể tích **hình trụ** có bán kính r và chiều cao h:\n> **\`V = π × r² × h\`** 🥫`,
         isGemini: false,
       };
     }
     if (lower.includes("nón")) {
       return {
-        text: `Thể tích **hình nón**: $$V = \\frac{1}{3}\\pi r^2 h$$ (Bằng một phần ba thể tích hình trụ cùng đáy và chiều cao) 🍦`,
+        text: `Thể tích **hình nón** có bán kính r và chiều cao h:\n> **\`V = (1/3) × π × r² × h\`** 🍦`,
         isGemini: false,
       };
     }
@@ -413,16 +413,15 @@ async function getFallbackResponse(
   // 1.8 Vận tốc, quãng đường, thời gian
   if (
     lower.includes("vận tốc") ||
-    (lower.includes("quãng đường") && lower.includes("thời gian")) ||
-    lower.includes("s = v")
+    (lower.includes("quãng đường") && lower.includes("thời gian"))
   ) {
     return {
       text:
         `Công thức chuyển động đều căn bản: 🚗💨\n\n` +
-        `- **Quãng đường**: $s = v \\times t$\n` +
-        `- **Vận tốc**: $v = \\frac{s}{t}$\n` +
-        `- **Thời gian**: $t = \\frac{s}{v}$\n\n` +
-        `*Lưu ý đổi đồng nhất đơn vị:* km/h tương ứng với km và giờ, còn m/s tương ứng với m và giây ($1\\text{ m/s} = 3.6\\text{ km/h}$).`,
+        `- **Quãng đường:** \`s = v × t\`\n` +
+        `- **Vận tốc:** \`v = s / t\`\n` +
+        `- **Thời gian:** \`t = s / v\`\n\n` +
+        `*Quy đổi đơn vị:* 1 m/s = 3.6 km/h.`,
       isGemini: false,
     };
   }
@@ -442,52 +441,29 @@ async function getFallbackResponse(
       text:
         `Trong **ReactJS**, các Hooks phổ biến nhất bao gồm: 💻⚛️\n\n` +
         `1. **\`useState\`**: Quản lý trạng thái cục bộ của component.\n` +
-        `   \`\`\`tsx\n` +
-        `   const [count, setCount] = useState<number>(0);\n` +
-        `   \`\`\`\n` +
-        `2. **\`useEffect\`**: Thực thi side-effects (gọi API, lắng nghe event, dọn dẹp timer).\n` +
-        `   \`\`\`tsx\n` +
-        `   useEffect(() => {\n` +
-        `     console.log("Component mounted hoặc count thay đổi!");\n` +
-        `   }, [count]);\n` +
-        `   \`\`\`\n` +
-        `3. **\`useMemo\` & \`useCallback\`**: Tối ưu hiệu năng, lưu bộ nhớ đệm (cache) kết quả tính toán hoặc tham chiếu hàm để tránh re-render thừa.\n\n` +
-        `Bạn đang muốn viết component gì thế, gửi mình xem thử nhé!`,
+        `\`\`\`tsx\n` +
+        `const [count, setCount] = useState<number>(0);\n` +
+        `\`\`\`\n` +
+        `2. **\`useEffect\`**: Thực thi side-effects (gọi API, timer, lắng nghe sự kiện).\n` +
+        `\`\`\`tsx\n` +
+        `useEffect(() => {\n` +
+        `  console.log("Component mounted hoặc count đổi:", count);\n` +
+        `}, [count]);\n` +
+        `\`\`\`\n` +
+        `3. **\`useMemo\` & \`useCallback\`**: Lưu cache kết quả tính toán hoặc hàm để tránh re-render thừa.`,
       isGemini: false,
     };
   }
 
-  if (lower.includes("javascript") || lower.includes("async") || lower.includes("await") || lower.includes("promise")) {
+  if (lower.includes("git") && (lower.includes("commit") || lower.includes("push") || lower.includes("lệnh"))) {
     return {
       text:
-        `Xử lý **bất đồng bộ (Asynchronous)** trong JavaScript: ⚡\n\n` +
-        `- **\`Promise\`**: Đại diện cho một thao tác sẽ hoàn tất trong tương lai (Pending -> Fulfilled / Rejected).\n` +
-        `- **\`async/await\`**: Cú pháp hiện đại giúp viết code bất đồng bộ trông mạch lạc, tuần tự như code đồng bộ:\n` +
-        `\`\`\`javascript\n` +
-        `async function fetchData() {\n` +
-        `  try {\n` +
-        `    const res = await fetch("https://api.example.com/data");\n` +
-        `    const data = await res.json();\n` +
-        `    return data;\n` +
-        `  } catch (error) {\n` +
-        `    console.error("Lỗi:", error);\n` +
-        `  }\n` +
-        `}\n` +
-        `\`\`\``,
-      isGemini: false,
-    };
-  }
-
-  if (lower.includes("git") && (lower.includes("commit") || lower.includes("push") || lower.includes("branch") || lower.includes("lệnh"))) {
-    return {
-      text:
-        `Các lệnh **Git** thường dùng nhất hàng ngày nè bạn: 🐙\n\n` +
-        `- \`git status\`: Xem trạng thái các file đã sửa đổi.\n` +
-        `- \`git add .\`: Thêm tất cả thay đổi vào vùng chuẩn bị (staging area).\n` +
-        `- \`git commit -m "mô tả thay đổi"\`: Đóng gói commit.\n` +
-        `- \`git push origin main\`: Đẩy code lên nhánh main trên GitHub.\n` +
-        `- \`git pull\`: Kéo các cập nhật mới nhất từ máy chủ về máy mình.\n` +
-        `- \`git checkout -b feature-moi\`: Tạo và chuyển sang một nhánh tính năng mới.`,
+        `Các lệnh **Git** thông dụng hàng ngày: 🐙\n\n` +
+        `- \`git status\`: Xem trạng thái các file đã sửa.\n` +
+        `- \`git add .\`: Thêm thay đổi vào vùng chuẩn bị.\n` +
+        `- \`git commit -m "nội dung"\`: Đóng gói commit.\n` +
+        `- \`git push origin main\`: Đẩy code lên nhánh main.\n` +
+        `- \`git pull\`: Lấy code mới nhất về máy.`,
       isGemini: false,
     };
   }
@@ -501,13 +477,12 @@ async function getFallbackResponse(
       text:
         `**Thì Hiện tại đơn (Present Simple Tense)**: 🇬🇧\n\n` +
         `1. **Cấu trúc:**\n` +
-        `- Khẳng định: $S + V(s/es)$ (ví dụ: *She works at Google*).\n` +
-        `- Phủ định: $S + do/does + not + V_0$ (ví dụ: *He does not smoke*).\n` +
-        `- Nghi vấn: $Do/Does + S + V_0?$ (ví dụ: *Do you speak English?*)\n\n` +
+        `- Khẳng định: \`S + V(s/es)\` *(Ví dụ: She loves music)*\n` +
+        `- Phủ định: \`S + do/does + not + V₀\` *(Ví dụ: He does not play tennis)*\n` +
+        `- Nghi vấn: \`Do/Does + S + V₀?\`\n\n` +
         `2. **Cách dùng chính:**\n` +
-        `- Diễn tả chân lý, sự thật hiển nhiên (*The sun rises in the East*).\n` +
-        `- Diễn tả thói quen, hành động lặp đi lặp lại hàng ngày (*I drink coffee every morning*).\n` +
-        `- Lịch trình tàu xe, thời khóa biểu cố định.`,
+        `- Diễn tả chân lý, sự thật hiển nhiên (*The Earth orbits the Sun*).\n` +
+        `- Diễn tả thói quen, lịch trình lặp lại hàng ngày.`,
       isGemini: false,
     };
   }
@@ -515,72 +490,18 @@ async function getFallbackResponse(
   if (lower.includes("hiện tại hoàn thành") || lower.includes("present perfect")) {
     return {
       text:
-        `**Thì Hiện tại hoàn thành (Present Perfect Tense)**: 🇬🇧\n\n` +
-        `1. **Cấu trúc:** $S + have/has + V_3/V_{ed}$\n` +
-        `2. **Cách dùng kinh điển:**\n` +
-        `- Hành động đã xảy ra trong quá khứ nhưng kết quả vẫn còn liên quan đến hiện tại (*I have lost my key*).\n` +
-        `- Diễn tả trải nghiệm từ trước tới nay (*Have you ever been to Paris?*).\n` +
-        `- Hành động bắt đầu từ quá khứ và vẫn đang tiếp diễn ở hiện tại (đi với **since + mốc thời gian** hoặc **for + khoảng thời gian**).`,
-      isGemini: false,
-    };
-  }
-
-  if (lower.includes("câu điều kiện") || lower.includes("conditional")) {
-    return {
-      text:
-        `Tóm tắt nhanh **Câu điều kiện (Conditionals)**: 🇬🇧\n\n` +
-        `- **Loại 1 (Có thật ở hiện tại/tương lai):**\n` +
-        `  *If + S + V(hiện tại đơn), S + will + V_0*\n` +
-        `  *Ví dụ:* If it rains tomorrow, we will stay at home.\n\n` +
-        `- **Loại 2 (Giả định trái ngược với hiện tại):**\n` +
-        `  *If + S + V2/ed (to be dùng 'were'), S + would + V_0*\n` +
-        `  *Ví dụ:* If I were you, I would take that opportunity.\n\n` +
-        `- **Loại 3 (Giả định tiếc nuối trong quá khứ):**\n` +
-        `  *If + S + had + V3/ed, S + would have + V3/ed*`,
+        `**Thì Hiện tại hoàn thành (Present Perfect)**: 🇬🇧\n\n` +
+        `- **Cấu trúc:** \`S + have/has + V₃/V_ed\`\n` +
+        `- **Cách dùng phổ biến:**\n` +
+        `  + Hành động xảy ra trong quá khứ và kết quả còn ảnh hưởng ở hiện tại (*I have finished my homework*).\n` +
+        `  + Trải nghiệm cuộc sống (*Have you ever visited Da Nang?*).\n` +
+        `  + Đi kèm với **since + mốc thời gian** hoặc **for + khoảng thời gian**.`,
       isGemini: false,
     };
   }
 
   // -------------------------------------------------------------
-  // NHÓM 4: PHƯƠNG PHÁP HỌC TẬP & NĂNG SUẤT
-  // -------------------------------------------------------------
-
-  if (lower.includes("pomodoro") || lower.includes("cà chua")) {
-    return {
-      text:
-        `Phương pháp **Pomodoro (Quả cà chua)** giúp tập trung học đỉnh cao: 🍅⏰\n\n` +
-        `1. **25 phút học tập trung cao độ:** Tắt hết thông báo, không lướt mạng xã hội.\n` +
-        `2. **5 phút nghỉ ngắn:** Đứng dậy, uống ngụm nước, vươn vai thư giãn mắt.\n` +
-        `3. Lặp lại 4 chu kỳ như vậy (tổng 2 tiếng).\n` +
-        `4. **Nghỉ dài 15 - 30 phút** để não nạp lại năng lượng.\n\n` +
-        `Tụi mình cùng bắt đầu 1 hiệp Pomodoro ngay bây giờ không nè? 🚀`,
-      isGemini: false,
-    };
-  }
-
-  if (lower.includes("feynman")) {
-    return {
-      text:
-        `Kỹ thuật học sâu **Feynman** (từ nhà vật lý đạt giải Nobel Richard Feynman): 🧠✨\n\n` +
-        `1. **Chọn một chủ đề** bạn muốn hiểu sâu.\n` +
-        `2. **Tự giải thích nó cho một đứa trẻ 10 tuổi** (dùng từ ngữ cực kỳ đơn giản, không biệt ngữ hàn lâm).\n` +
-        `3. **Phát hiện lỗ hổng kiến thức:** Chỗ nào bạn lúng túng hoặc phải dùng từ phức tạp để lấp liếm chính là chỗ bạn chưa hiểu rõ.\n` +
-        `4. **Quay lại tài liệu học lại chỗ đó** và đơn giản hóa tiếp bằng ví dụ đời thực!`,
-      isGemini: false,
-    };
-  }
-
-  if (lower.includes("mệt") || lower.includes("stress") || lower.includes("áp lực") || lower.includes("chán học")) {
-    return {
-      text:
-        `Nghe bạn nói mình cũng đồng cảm lắm nè 🥺. Học tập là cả một chặng đường dài, có những lúc mệt mỏi hay bão hòa là chuyện rất bình thường luôn.\n\n` +
-        `Bạn hãy tạm gác sách vở lại tầm 10-15 phút, đứng dậy uống một cốc nước ấm, hít thở thật sâu hoặc nghe một bản nhạc nhẹ nhé. Khi nào đầu óc nhẹ nhàng hơn tụi mình lại cùng học tiếp, mình luôn ở đây đồng hành cùng bạn mà! Cố lên nha! 🍀☕`,
-      isGemini: false,
-    };
-  }
-
-  // -------------------------------------------------------------
-  // NHÓM 5: CHÀO HỎI, TÁN GẪU & DANH TÍNH
+  // NHÓM 4: CHÀO HỎI, TÁN GẪU & DANH TÍNH
   // -------------------------------------------------------------
 
   const isGreeting =
@@ -590,9 +511,9 @@ async function getFallbackResponse(
     lower === "hi";
 
   if (isGreeting) {
-    const docHint = doc ? ` Tụi mình cũng đang có sẵn tài liệu **"${doc.title}"** nếu bạn muốn cùng ôn bài nè.` : "";
+    const docHint = doc ? ` Tụi mình đang xem tài liệu **"${doc.title}"** nếu bạn muốn cùng ôn bài nè.` : "";
     return {
-      text: `Chào bạn nha! Rất vui được gặp bạn hôm nay 😊. Mình là Trợ lý AI PeerMind. Bạn có thắc mắc bài tập gì, cần hỏi công thức toán, lập trình, tiếng Anh hay trò chuyện học tập thì cứ thoải mái nhắn mình nhé!${docHint} ✨`,
+      text: `Chào bạn nha! Rất vui được gặp bạn hôm nay 😊. Mình là Trợ lý AI PeerMind. Bạn cần hỏi công thức toán, lập trình, tiếng Anh hay trao đổi bài tập thì cứ thoải mái nhắn mình nhé!${docHint} ✨`,
       isGemini: false,
     };
   }
@@ -600,11 +521,11 @@ async function getFallbackResponse(
   if (lower.includes("bạn là ai") || lower.includes("tên gì") || lower.includes("giới thiệu")) {
     return {
       text:
-        `Mình là **Trợ lý AI PeerMind** — bạn đồng hành học tập cùng bàn 24/7 của bạn nè! 🤖🎓\n\n` +
+        `Mình là **Trợ lý AI PeerMind** — bạn đồng hành học tập cùng bàn của bạn nè! 🤖🎓\n\n` +
         `Mình có thể hỗ trợ bạn:\n` +
-        `- 📐 Giải đáp mọi câu hỏi Toán học, Vật lý, Khoa học, Hình học.\n` +
+        `- 📐 Giải đáp mọi câu hỏi Toán học, Hình học, Vật lý, Khoa học.\n` +
         `- 💻 Hỗ trợ lập trình (React, JavaScript, Python, Git...).\n` +
-        `- 🇬🇧 Giải thích ngữ pháp tiếng Anh & mẹo học tập (Pomodoro, Feynman).\n` +
+        `- 🇬🇧 Giải thích ngữ pháp tiếng Anh & phương pháp học tập (Pomodoro, Feynman).\n` +
         `- 📄 Đọc hiểu tài liệu, tóm tắt ý chính & tạo sơ đồ tư duy (Mindmap).\n` +
         `- 📝 Soạn trắc nghiệm để cùng bạn ôn luyện trước kỳ thi.\n\n` +
         `Cứ tự nhiên coi mình như bạn học cùng lớp nhé! Bạn đang băn khoăn phần nào thế? 🚀`,
@@ -612,36 +533,11 @@ async function getFallbackResponse(
     };
   }
 
-  if (lower.includes("cảm ơn") || lower.includes("thanks") || lower.includes("thank you")) {
-    return {
-      text: `Không có chi nè bạn ơi! Giúp được bạn là mình vui lắm rồi 😊. Cần hỏi thêm câu nào nữa thì bạn cứ nhắn tiếp nha, mình luôn sẵn sàng! ✨`,
-      isGemini: false,
-    };
-  }
-
-  if (lower.includes("khen") || lower.includes("giỏi quá") || lower.includes("xịn") || lower.includes("tuyệt vời")) {
-    return {
-      text: `Hihi, cảm ơn bạn nhiều nha! Được bạn khen làm mình có thêm bao nhiêu động lực luôn á 🥰. Chúc bạn học thật vui và đạt kết quả thật cao nha!`,
-      isGemini: false,
-    };
-  }
-
-  if (lower.includes("chuyện cười") || lower.includes("đố vui") || lower.includes("câu đố")) {
-    return {
-      text:
-        `Gửi bạn một câu đố vui thư giãn đầu óc nè: 😄\n\n` +
-        `👉 *"Cái gì bạn có thể giữ sau khi đã cho người khác?"*\n\n` +
-        `*(Gợi ý: Liên quan đến lời nói hoặc chữ tín nha! Bạn đoán thử xem nào?)*`,
-      isGemini: false,
-    };
-  }
-
   // -------------------------------------------------------------
-  // NHÓM 6: THAO TÁC THEO TÀI LIỆU (KHI CÓ DOC VÀ NGƯỜI DÙNG YÊU CẦU)
+  // NHÓM 5: THAO TÁC THEO TÀI LIỆU
   // -------------------------------------------------------------
 
   if (doc) {
-    // 6.1 Sơ đồ tư duy
     if (lower.includes("tư duy") || lower.includes("sơ đồ") || lower.includes("mindmap")) {
       const branches =
         pages.length > 0
@@ -665,7 +561,6 @@ async function getFallbackResponse(
       };
     }
 
-    // 6.2 Tóm tắt tài liệu
     if (lower.includes("tóm tắt") || lower.includes("khái quát") || lower.includes("nội dung chính")) {
       if (pages.length > 0) {
         const summaryList = pages.map((p, i) => `• **Ý ${i + 1}:** ${p}`).join("\n\n");
@@ -679,61 +574,20 @@ async function getFallbackResponse(
         isGemini: false,
       };
     }
-
-    // 6.3 Tạo câu hỏi ôn tập
-    if (lower.includes("câu hỏi") || lower.includes("trắc nghiệm") || lower.includes("ôn tập")) {
-      return {
-        text:
-          `Mình gửi bạn 3 câu hỏi ôn tập nhanh cho tài liệu **"${doc.title}"** nè:\n\n` +
-          `**Câu 1:** Khái niệm cốt lõi nhất được đề cập trong bài này là gì?\n` +
-          `*A. Định nghĩa và nguyên lý cơ bản* | *B. Lịch sử phát triển* | *C. Danh mục tài liệu tham khảo* | *D. Bài tập mở rộng*\n\n` +
-          `**Câu 2:** Phương pháp nào được ứng dụng để giải quyết bài toán trọng tâm?\n` +
-          `*A. Biến đổi công thức chuẩn* | *B. Tra cứu thủ công* | *C. Ước lượng ngẫu nhiên* | *D. Loại trừ giả thuyết*\n\n` +
-          `**Câu 3:** Ý nghĩa thực tiễn quan trọng nhất sau khi học xong phần này là gì?\n` +
-          `*A. Nắm vững phương pháp luận và vận dụng vào bài thi thực tế*\n\n` +
-          `👉 *Đáp án gợi ý: 1-A, 2-A, 3-A. Bạn thấy sao, có muốn thử sức thêm không?*`,
-        isGemini: false,
-      };
-    }
-
-    // 6.4 Tìm kiếm theo tài liệu CHỈ KHI người dùng nhắc rõ về tài liệu
-    const mentionsDocExplicitly =
-      lower.includes("tài liệu") ||
-      lower.includes("trong bài") ||
-      lower.includes("bài này") ||
-      lower.includes("trang") ||
-      lower.includes(doc.title.toLowerCase());
-
-    if (mentionsDocExplicitly && pages.length > 0) {
-      const meaningfulKeywords = lower
-        .split(/\s+/)
-        .filter((w) => w.length > 3 && !["này", "trong", "bài", "cho", "biết", "được", "không"].includes(w));
-
-      const matched = pages.find((p) =>
-        meaningfulKeywords.some((kw) => p.toLowerCase().includes(kw))
-      );
-
-      if (matched) {
-        return {
-          text: `Về câu hỏi của bạn trong tài liệu **"${doc.title}"**, trong bài có đoạn này rất đáng lưu ý nè:\n\n> "${matched}"\n\nBạn có cần mình lấy thêm ví dụ đời thường để dễ nhớ hơn không? 😊`,
-          isGemini: false,
-        };
-      }
-    }
   }
 
   // -------------------------------------------------------------
-  // NHÓM 7: CÂU TRẢ LỜI MẶC ĐỊNH THÔNG MINH, TỰ NHIÊN
+  // NHÓM 6: CÂU TRẢ LỜI MẶC ĐỊNH
   // -------------------------------------------------------------
   return {
     text:
       `Mình đã ghi nhận câu hỏi của bạn: *" ${prompt} "* 💡\n\n` +
-      `Bạn có thể hỏi mình chi tiết hơn về:\n` +
-      `- 📐 Các công thức Toán học, Hình học, Vật lý (ví dụ: chu vi hình tròn, diện tích tam giác, định lý Pytago, giải pt bậc 2...).\n` +
-      `- 💻 Giải thích code & công nghệ (React, JavaScript, Python, Git...).\n` +
-      `- 🇬🇧 Ngữ pháp tiếng Anh & các thì.\n` +
-      `${doc ? `- 📄 Tóm tắt, vẽ sơ đồ tư duy hoặc giải đáp bài học **"${doc.title}"** đang mở.\n` : ""}` +
-      `\nCứ tự nhiên đặt câu hỏi cụ thể, mình sẽ giải thích thật chi tiết cho bạn nha! 😊`,
+      `Bạn có thể hỏi mình cụ thể hơn về:\n` +
+      `- 📐 Các công thức Toán học, Hình học (chu vi hình tròn, tam giác, định lý Pytago, giải pt bậc 2...)\n` +
+      `- 💻 Giải thích code & công nghệ (React, JavaScript, Python, Git...)\n` +
+      `- 🇬🇧 Ngữ pháp tiếng Anh & các thì\n` +
+      `${doc ? `- 📄 Tóm tắt, vẽ sơ đồ tư duy bài học **"${doc.title}"** đang mở.\n` : ""}` +
+      `\nCứ tự nhiên nhắn tin, mình sẽ giải thích chi tiết và tận tình cho bạn nhé! 😊`,
     isGemini: false,
   };
 }

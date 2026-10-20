@@ -1,5 +1,6 @@
-// components/documents/AIChat.tsx — Khung chat với AI chuẩn Crisp Academic SaaS
+// components/documents/AIChat.tsx — Khung chat với AI chuẩn Crisp Academic SaaS & Typography hoàn hảo
 import { useRef, useState, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import { MessageSquare, X, Send, Bot, FileText, HelpCircle, Sparkles, Network, Compass } from "lucide-react";
 import { DocumentItem, ChatMessage, askAI } from "../../services/aiService";
 import { hasGeminiApiKey } from "../../services/geminiClient";
@@ -11,6 +12,111 @@ type AIChatProps = {
   onOpen: () => void;
   onClose: () => void;
 };
+
+/**
+ * Hàm tự động dọn dẹp các ký hiệu toán học LaTeX / Markdown thô
+ * Biến đổi các ký hiệu rườm rà thành Unicode tự nhiên, chuẩn font và dễ đọc
+ */
+function cleanMathText(text: string): string {
+  if (!text) return "";
+  return text
+    // 1. Phân số LaTeX \frac{a}{b} -> (a / b)
+    .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1 / $2)")
+    // 2. Ký hiệu toán học thông dụng
+    .replace(/\\times/g, "×")
+    .replace(/\\cdot/g, "·")
+    .replace(/\\pi/g, "π")
+    .replace(/\\approx/g, "≈")
+    .replace(/\\neq/g, "≠")
+    .replace(/\\pm/g, "±")
+    .replace(/\\sqrt\{([^}]+)\}/g, "√($1)")
+    .replace(/\\Delta/g, "Δ")
+    .replace(/\\le/g, "≤")
+    .replace(/\\ge/g, "≥")
+    .replace(/\\infty/g, "∞")
+    // 3. Số mũ thường gặp
+    .replace(/\^2\b/g, "²")
+    .replace(/\^3\b/g, "³")
+    .replace(/r\^2/g, "r²")
+    .replace(/r\^3/g, "r³")
+    .replace(/a\^2/g, "a²")
+    .replace(/b\^2/g, "b²")
+    .replace(/c\^2/g, "c²")
+    .replace(/x\^2/g, "x²")
+    // 4. Các đơn vị LaTeX \text{cm}^2 -> cm²
+    .replace(/\\text\{cm\}\^2/g, "cm²")
+    .replace(/\\text\{m\}\^2/g, "m²")
+    .replace(/\\text\{([a-zA-Z0-9\s]+)\}/g, "$1")
+    .replace(/\\mathbf\{([^}]+)\}/g, "**$1**")
+    // 5. Chuẩn hóa khối công thức $$ ... $$ thành blockquote đẹp mắt
+    .replace(/\$\$([\s\S]*?)\$\$/g, (_, formula) => {
+      const clean = formula.trim();
+      return `\n\n> **\`${clean}\`**\n\n`;
+    })
+    // 6. Xóa các dấu $ nội dòng đơn độc bao quanh chữ cái
+    .replace(/\$([a-zA-Z0-9_+\-×/·π≈≠±√²³\s]+)\$/g, "$1")
+    .replace(/\$/g, "");
+}
+
+/**
+ * Component hiển thị tin nhắn AI chuẩn định dạng Markdown & Typography
+ */
+function FormattedMessage({ text }: { text: string }) {
+  const cleaned = cleanMathText(text);
+  return (
+    <div className="text-xs leading-relaxed text-slate-800 dark:text-slate-200">
+      <ReactMarkdown
+        components={{
+          h1: ({ children }) => (
+            <h3 className="font-bold text-sm text-indigo-700 dark:text-indigo-400 mt-2.5 mb-1">
+              {children}
+            </h3>
+          ),
+          h2: ({ children }) => (
+            <h4 className="font-semibold text-xs text-indigo-700 dark:text-indigo-400 mt-2 mb-1">
+              {children}
+            </h4>
+          ),
+          h3: ({ children }) => (
+            <h5 className="font-semibold text-xs text-indigo-600 dark:text-indigo-300 mt-2 mb-1">
+              {children}
+            </h5>
+          ),
+          p: ({ children }) => <p className="my-1.5 leading-relaxed">{children}</p>,
+          strong: ({ children }) => (
+            <strong className="font-semibold text-slate-900 dark:text-slate-100">
+              {children}
+            </strong>
+          ),
+          ul: ({ children }) => (
+            <ul className="list-disc list-outside pl-4 space-y-1 my-1.5">{children}</ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="list-decimal list-outside pl-4 space-y-1 my-1.5">{children}</ol>
+          ),
+          li: ({ children }) => <li className="my-0.5 leading-relaxed">{children}</li>,
+          blockquote: ({ children }) => (
+            <div className="my-2 rounded-xl border border-indigo-200/80 dark:border-indigo-800/80 bg-gradient-to-r from-indigo-50/80 via-sky-50/40 to-white dark:from-indigo-950/40 dark:via-slate-900/60 dark:to-slate-900 p-2.5 text-indigo-950 dark:text-indigo-200 font-mono text-xs shadow-2xs">
+              {children}
+            </div>
+          ),
+          code: ({ children }) => (
+            <code className="rounded bg-indigo-50 dark:bg-indigo-950/80 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
+              {children}
+            </code>
+          ),
+          pre: ({ children }) => (
+            <pre className="overflow-x-auto rounded-xl bg-slate-900 text-slate-100 p-3 my-2 text-[11px] font-mono leading-relaxed">
+              {children}
+            </pre>
+          ),
+        }}
+      >
+        {cleaned}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -81,7 +187,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                 {isGeminiReady ? (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Gemini 2.0
+                    Gemini AI
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
@@ -118,7 +224,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
               <div
                 className={`max-w-[88%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed ${
                   m.role === "user"
-                    ? "bg-indigo-600 text-white shadow-2xs font-normal"
+                    ? "bg-indigo-600 text-white shadow-2xs font-normal whitespace-pre-wrap"
                     : "bg-white dark:bg-slate-800/90 text-slate-800 dark:text-slate-200 border border-slate-200/90 dark:border-slate-700/60 shadow-2xs"
                 }`}
               >
@@ -129,7 +235,12 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                   </div>
                 )}
 
-                <div className="whitespace-pre-wrap">{m.text}</div>
+                {m.role === "user" ? (
+                  <div>{m.text}</div>
+                ) : (
+                  <FormattedMessage text={m.text} />
+                )}
+
                 {m.chart && <MiniBarChart data={m.chart} />}
               </div>
             </div>
