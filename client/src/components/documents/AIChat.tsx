@@ -36,8 +36,23 @@ export type ChatSizeMode = "normal" | "expanded" | "minimized";
  * Component hiển thị tin nhắn AI chuẩn định dạng Markdown & Công thức toán học KaTeX / LaTeX
  */
 function FormattedAIMessage({ text }: { text: string }) {
-  // Tiền xử lý nhẹ để làm sạch các ký hiệu LaTeX thường bị rách hoặc nằm ngoài thẻ toán học
+  // Tiền xử lý:
+  // 1. Chuyển đổi các chữ cái viết tắt của góc toán học (như phi, theta) thành ký hiệu Hy Lạp chuẩn (φ, θ)
+  // 2. Chuyển đổi dấu nhân sao (*) giữa các biến số lượng giác thành dấu nhân toán học (·) để tránh bị Markdown hiểu lầm thành chữ in nghiêng
+  // 3. Làm sạch các ký hiệu LaTeX thường bị rách hoặc nằm ngoài thẻ toán học
   const normalized = text
+    .replace(/([a-zA-Z0-9])\s*\*\s*cos/g, "$1 · cos")
+    .replace(/([a-zA-Z0-9])\s*\*\s*sin/g, "$1 · sin")
+    .replace(/cos\s*\(\s*phi\s*\)/gi, "cos(φ)")
+    .replace(/sin\s*\(\s*phi\s*\)/gi, "sin(φ)")
+    .replace(/\\cos\s*\(\s*phi\s*\)/gi, "\\cos(\\varphi)")
+    .replace(/\\sin\s*\(\s*phi\s*\)/gi, "\\sin(\\varphi)")
+    .replace(/\(phi\)/gi, "(φ)")
+    .replace(/\bphi\b/g, "φ")
+    .replace(/\(theta\)/gi, "(θ)")
+    .replace(/\btheta\b/g, "θ")
+    .replace(/\balpha\b/g, "α")
+    .replace(/\bbeta\b/g, "β")
     .replace(/\\text\{cm\}\^2/g, "cm²")
     .replace(/\\text\{m\}\^2/g, "m²")
     .replace(/\\text\{([a-zA-Z0-9\s]+)\}/g, "$1")

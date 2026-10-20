@@ -48,7 +48,7 @@ export const INITIAL_DOCS: DocumentItem[] = [
     updatedAt: "2 giờ trước",
     pagesContent: [
       "Tích phân kép trên miền chữ nhật: Định lý Fubini và cách tính tích phân lặp.",
-      "Đổi biến số trong tích phân kép: Tọa độ cực x = r*cos(phi), y = r*sin(phi) với Jacobian là r.",
+      "Đổi biến số trong tích phân kép: Tọa độ cực $x = r \\cdot \\cos(\\varphi), y = r \\cdot \\sin(\\varphi)$ với Jacobian $J = r$.",
       "Ứng dụng hình học: Tính diện tích hình phẳng và thể tích vật thể không gian.",
     ],
   },

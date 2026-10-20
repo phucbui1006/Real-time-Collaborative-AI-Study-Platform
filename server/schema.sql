@@ -82,7 +82,7 @@ CREATE INDEX IF NOT EXISTS idx_submissions_exam_id ON exam_submissions (exam_id)
 INSERT INTO documents (id, filename, original_name, subject, total_pages, pages_content)
 VALUES 
   (1, 'toan_cao_cap_c4.pdf', 'Toán cao cấp – Chương 4', 'Toán học', 3, 
-   '["Tích phân kép trên miền chữ nhật: Định lý Fubini và cách tính tích phân lặp.", "Đổi biến số trong tích phân kép: Tọa độ cực x = r*cos(phi), y = r*sin(phi) với Jacobian là r.", "Ứng dụng hình học: Tính diện tích hình phẳng và thể tích vật thể không gian."]'::jsonb),
+   '["Tích phân kép trên miền chữ nhật: Định lý Fubini và cách tính tích phân lặp.", "Đổi biến số trong tích phân kép: Tọa độ cực $x = r \\cdot \\cos(\\varphi), y = r \\cdot \\sin(\\varphi)$ với Jacobian $J = r$.", "Ứng dụng hình học: Tính diện tích hình phẳng và thể tích vật thể không gian."]'::jsonb),
   (2, 'english_grammar_b1.pdf', 'Ngữ pháp tiếng Anh B1', 'Ngoại ngữ', 2,
    '["Present Perfect Tense: Have/Has + V3/ed. Used for experiences and actions with present relevance.", "Conditional Sentences: Type 1 (Real in present/future) and Type 2 (Unreal condition)."]'::jsonb),
   (3, 'tri_tue_nhan_tao.pdf', 'Giáo trình Trí tuệ nhân tạo', 'Công nghệ', 4,
