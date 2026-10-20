@@ -1,6 +1,6 @@
 // components/documents/AIChat.tsx — Khung chat với AI chuẩn Crisp Academic SaaS
 import { useRef, useState, useEffect } from "react";
-import { MessageSquare, X, Send, Bot, FileText, HelpCircle, Sparkles, Network } from "lucide-react";
+import { MessageSquare, X, Send, Bot, FileText, HelpCircle, Sparkles, Network, Compass } from "lucide-react";
 import { DocumentItem, ChatMessage, askAI } from "../../services/aiService";
 import { hasGeminiApiKey } from "../../services/geminiClient";
 import { MiniBarChart } from "./MiniBarChart";
@@ -16,7 +16,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "ai",
-      text: "Chào bạn nha! Mình là Trợ lý AI PeerMind. Mình có thể cùng bạn đọc tài liệu, tóm tắt bài giảng, vẽ sơ đồ tư duy hay tạo đề ôn thi bất cứ lúc nào. Bạn cần mình đồng hành phần nào nè? 😊",
+      text: "Chào bạn nha! Mình là Trợ lý AI PeerMind 😊. Bạn có thể hỏi mình bất kỳ điều gì: từ công thức toán học, hình học, viết code lập trình, tiếng Anh, mẹo học tập... cho đến tóm tắt bài giảng hay vẽ sơ đồ tư duy nhé! Cần mình trợ giúp gì cứ nhắn ngay nha! ✨",
       isGemini: hasGeminiApiKey(),
     },
   ]);
@@ -69,7 +69,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
   return (
     <aside className="lg:col-span-4 min-w-0 transition-all duration-300 h-full">
       <div className="sticky top-20 z-20 flex h-[calc(100vh-6.5rem)] min-h-[550px] flex-col overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs dark:shadow-2xl">
-        {/* Header - Clean & Minimal, NO settings button */}
+        {/* Header - Clean & Minimal */}
         <div className="bg-gradient-to-r from-indigo-50/80 via-sky-50/50 to-white dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/40 px-4 py-3 shrink-0 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
@@ -77,7 +77,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
             </div>
             <div className="min-w-0">
               <div className="font-semibold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                <span>Trợ lý AI</span>
+                <span>Trợ lý AI PeerMind</span>
                 {isGeminiReady ? (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -92,10 +92,10 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
               <div className="mt-0.5 truncate text-[11px]">
                 {doc ? (
                   <span className="inline-block max-w-[200px] truncate text-slate-600 dark:text-slate-300 font-medium">
-                    {doc.title}
+                    📖 {doc.title}
                   </span>
                 ) : (
-                  <span className="text-slate-400">Chưa chọn tài liệu</span>
+                  <span className="text-slate-400">Trợ lý học tập & Hỏi đáp đa năng</span>
                 )}
               </div>
             </div>
@@ -135,63 +135,73 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
             </div>
           ))}
 
-          {/* Action Cards gợi ý nhanh cho bạn học */}
+          {/* Action Cards & Gợi ý câu hỏi phong phú */}
           {messages.length === 1 && (
             <div className="pt-2 space-y-2">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-1">
-                Gợi ý nhanh cho tài liệu này:
+                Gợi ý nhanh cho bạn:
               </p>
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-1 gap-1.5">
+                {/* Gợi ý kiến thức chung */}
                 <button
-                  onClick={() => send("Tóm tắt nội dung chính của tài liệu này")}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
+                  onClick={() => send("Bạn có thể cho tôi biết công thức tính chu vi và diện tích hình tròn là gì không?")}
+                  className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-200/60 dark:border-purple-500/30 shrink-0">
-                    <FileText className="h-4 w-4" strokeWidth={1.75} />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300 border border-sky-200/60 dark:border-sky-500/30 shrink-0">
+                    <Compass className="h-3.5 w-3.5" strokeWidth={1.75} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                      Tóm tắt tài liệu
-                    </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      Trích xuất ý chính và công thức quan trọng
+                    <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                      📐 Công thức chu vi & diện tích hình tròn
                     </div>
                   </div>
                 </button>
 
-                <button
-                  onClick={() => send("Vẽ mô hình tư duy cho tôi")}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-500/30 shrink-0">
-                    <Network className="h-4 w-4" strokeWidth={1.75} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                      Vẽ mô hình tư duy
-                    </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      Khởi tạo cây sơ đồ Mindmap phân cấp dễ nhớ
-                    </div>
-                  </div>
-                </button>
+                {doc && (
+                  <>
+                    <button
+                      onClick={() => send("Tóm tắt nội dung chính của tài liệu này")}
+                      className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
+                    >
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-200/60 dark:border-purple-500/30 shrink-0">
+                        <FileText className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                          📄 Tóm tắt nhanh tài liệu này
+                        </div>
+                      </div>
+                    </button>
 
-                <button
-                  onClick={() => send("Tạo 5 câu hỏi ôn tập từ tài liệu này")}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-200/60 dark:border-amber-500/30 shrink-0">
-                    <HelpCircle className="h-4 w-4" strokeWidth={1.75} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                      Tạo câu hỏi ôn tập
-                    </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      Khởi tạo bộ trắc nghiệm tự luyện tức thì
-                    </div>
-                  </div>
-                </button>
+                    <button
+                      onClick={() => send("Vẽ mô hình tư duy cho tôi")}
+                      className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
+                    >
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-500/30 shrink-0">
+                        <Network className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                          🧠 Dựng sơ đồ tư duy (Mindmap)
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => send("Tạo 3 câu hỏi ôn tập từ tài liệu này")}
+                      className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
+                    >
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-200/60 dark:border-amber-500/30 shrink-0">
+                        <HelpCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                          📝 Đố vui 3 câu trắc nghiệm
+                        </div>
+                      </div>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -212,7 +222,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send(input)}
-              placeholder="Hỏi AI bất kỳ điều gì về bài học…"
+              placeholder="Hỏi bất kỳ điều gì (giải toán, lập trình, tóm tắt bài...)..."
               className="flex-1 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors"
             />
             <button

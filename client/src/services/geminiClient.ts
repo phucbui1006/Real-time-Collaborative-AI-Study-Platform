@@ -3,7 +3,7 @@
 
 const STORAGE_KEY = "peermind_gemini_api_key";
 const DEFAULT_MODEL = "gemini-2.0-flash";
-const BACKUP_MODEL = "gemini-2.0-flash-exp";
+const BACKUP_MODEL = "gemini-1.5-flash";
 
 /**
  * Lấy API Key đang hoạt động: ưu tiên localStorage -> biến môi trường VITE
@@ -49,8 +49,7 @@ export function hasGeminiApiKey(): boolean {
 }
 
 /**
- * Tạo URL chuẩn gọi Gemini API:
- * Với key AQ... thì chỉ dùng x-goog-api-key trong header, không gắn ?key= vào URL
+ * Tạo URL chuẩn gọi Gemini API
  */
 function buildGeminiUrl(model: string, apiKey: string): string {
   if (apiKey.startsWith("AIza")) {
@@ -60,7 +59,7 @@ function buildGeminiUrl(model: string, apiKey: string): string {
 }
 
 /**
- * Test thử kết nối của API Key với Google Gemini API
+ * Test kết nối với Google Gemini API
  */
 export async function testGeminiApiKey(keyToTest?: string): Promise<{ success: boolean; message: string }> {
   const apiKey = (keyToTest ?? getGeminiApiKey()).trim();
@@ -113,7 +112,7 @@ async function callGemini(prompt: string, jsonMode = false, model = DEFAULT_MODE
       },
     ],
     generationConfig: {
-      temperature: 0.7, // Giúp phản hồi tự nhiên, sinh động, thân thiện
+      temperature: 0.7, // Giúp phản hồi tự nhiên, sinh động, thông minh
       maxOutputTokens: 2500,
     },
   };
@@ -159,55 +158,57 @@ async function callGemini(prompt: string, jsonMode = false, model = DEFAULT_MODE
 }
 
 /**
- * 1. AI RAG Chat — Trò chuyện tự nhiên, thân thiện và giải đáp theo tài liệu
+ * 1. AI RAG & Universal Chatbot: Trò chuyện tự do, giải đáp kiến thức đa ngành và theo tài liệu
  */
 export async function askGeminiRAG({
   question,
   docTitle,
   docSubject,
-  pagesContent,
+  pagesContent = [],
 }: {
   question: string;
-  docTitle: string;
+  docTitle?: string;
   docSubject?: string;
-  pagesContent: string[];
+  pagesContent?: string[];
 }): Promise<string> {
   let context = "";
-  if (pagesContent.length > 0) {
+  const hasDoc = !!docTitle && pagesContent && pagesContent.length > 0;
+
+  if (hasDoc) {
     const keywords = question
       .toLowerCase()
       .split(/\s+/)
-      .filter((w) => w.length > 2);
+      .filter((w) => w.length > 3 && !["này", "trong", "bài", "cho", "biết", "được", "không"].includes(w));
 
     const relevantPages = pagesContent
       .map((text, idx) => ({ text, page: idx + 1 }))
       .filter(({ text }) => keywords.some((kw) => text.toLowerCase().includes(kw)))
-      .slice(0, 4);
+      .slice(0, 3);
 
-    const pagesToUse =
-      relevantPages.length > 0
-        ? relevantPages
-        : pagesContent.slice(0, 4).map((text, idx) => ({ text, page: idx + 1 }));
-
-    context = pagesToUse.map((p) => `[Trang ${p.page}]:\n${p.text}`).join("\n\n---\n\n");
+    if (relevantPages.length > 0) {
+      context = relevantPages.map((p) => `[Trang ${p.page}]:\n${p.text}`).join("\n\n---\n\n");
+    }
   }
 
   const prompt = `
-Bạn là Trợ lý AI PeerMind — một người bạn học cùng bàn cực kỳ thân thiện, thông minh, dí dỏm và dễ mến.
+Bạn là Trợ lý AI PeerMind — một AI Chatbot thông minh, uyên bác và thân thiện như một người bạn học cùng bàn 24/7.
 
-PHONG CÁCH GIAO TIẾP BẮT BUỘC:
-1. Giao tiếp hoàn toàn tự nhiên, gần gũi, ấm áp như hai người bạn thân đang học cùng nhau.
-2. Xưng hô "mình" và "bạn". Tránh hoàn toàn giọng điệu hàn lâm, trang trọng kiểu công chức hay sách giáo khoa khô khan. Dùng thêm emoji sinh động (😊, ✨, 💡, 🚀) để không khí học tập thoải mái.
-3. Nếu người dùng chỉ chào hỏi, làm quen hoặc nói chuyện phiếm (ví dụ: "chào bạn", "hello", "hi", "bạn tên gì", "hôm nay thế nào"): Hãy vui vẻ chào lại, hỏi thăm bạn học một cách tự nhiên. TUYỆT ĐỐI KHÔNG tự động tuôn ra một tràng lý thuyết tài liệu nếu người dùng chưa hỏi!
-4. Nếu người dùng hỏi về bài học: Hãy giải thích thật đơn giản, dễ hiểu, dùng hình ảnh so sánh hoặc ví dụ thực tế đời sống để bạn học nhớ lâu. Có thể gợi ý: "(Nội dung này có ở trang X nè)".
-5. Luôn động viên tinh thần bạn học.
+VAI TRÒ VÀ NĂNG LỰC TOÀN DIỆN CỦA BẠN:
+1. Bạn là một trợ lý chatbot đa năng (như ChatGPT / Gemini):
+   - Bạn có thể trả lời BẤT KỲ câu hỏi nào về: Toán học, Hình học, Vật lý, Hóa học, Lập trình & CNTT (React, TypeScript, Python...), Ngữ pháp tiếng Anh, Khoa học tự nhiên, Kỹ năng học tập, cho đến những câu hỏi giao tiếp, đời sống hàng ngày.
+2. NGUYÊN TẮC QUAN TRỌNG VỀ TÀI LIỆU ĐANG MỞ:
+   ${hasDoc ? `- Hiện tại người dùng đang mở tài liệu: "${docTitle}" (${docSubject || "Chung"}).
+   - QUY TẮC: Bạn CHỈ nhắc đến tài liệu này khi câu hỏi của người dùng THỰC SỰ LIÊN QUAN đến tài liệu đó (hoặc người dùng yêu cầu tóm tắt, giải thích tài liệu).
+   - NẾU người dùng hỏi các câu hỏi kiến thức ngoài (ví dụ: công thức chu vi hình tròn, hỏi về lập trình, giải toán phổ thông, hỏi thăm đời sống...): Hãy TRẢ LỜI ĐẦY ĐỦ, CHÍNH XÁC VÀ TỰ NHIÊN câu hỏi đó! TUYỆT ĐỐI KHÔNG gượng ép lôi tài liệu vào nếu không liên quan.` : "- Hiện tại không có tài liệu nào được chỉ định. Hãy giải đáp tự do mọi câu hỏi của người dùng như một AI Chatbot thông minh và hữu ích."}
+3. PHONG CÁCH GIAO TIẾP BẮT BUỘC:
+   - Xưng hô "mình" và "bạn". Giao tiếp gần gũi, tự nhiên, ấm áp như hai bạn học thân thiết đang ngồi học cùng nhau.
+   - Giải thích cặn kẽ, dễ hiểu, có ví dụ minh họa sinh động.
+   - Trình bày Markdown đẹp mắt: công thức toán học rõ ràng, danh sách gạch đầu dòng, code block chuẩn, dùng emoji tươi vui (😊, ✨, 💡, 📐, 🚀, 💻).
+   - Nếu người dùng chào hỏi, hỏi thăm hoặc trò chuyện phiếm: Hãy vui vẻ trò chuyện tự nhiên, đừng tuôn ra lý thuyết sách vở khô khan.
 
-=== THÔNG TIN TÀI LIỆU ĐANG MỞ (ĐỂ BẠN THAM KHẢO KHI CẦN) ===
-- Tên tài liệu: "${docTitle}"
-- Phân môn: ${docSubject || "Chung"}
-${context ? `\n- Nội dung tài liệu:\n${context}` : ""}
+${context ? `=== NỘI DUNG TÀI LIỆU THAM KHẢO (CHỈ DÙNG KHI LIÊN QUAN) ===\n${context}\n` : ""}
 
-=== CÂU HỎI / TIN NHẮN TỪ BẠN HỌC ===
+=== CÂU HỎI TỪ BẠN HỌC ===
 "${question}"
 `;
 
