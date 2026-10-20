@@ -1,4 +1,4 @@
-// services/aiService.ts — Tương tác AI & Dữ liệu mẫu tài liệu
+// services/aiService.ts — Tương tác AI & Dữ liệu mẫu tài liệu (Phong cách tự nhiên, thân thiện)
 import {
   hasGeminiApiKey,
   askGeminiRAG,
@@ -138,7 +138,7 @@ export async function askAI(
   // Yêu cầu vẽ biểu đồ tiến độ
   if (lower.includes("biểu đồ") || lower.includes("tiến độ")) {
     return {
-      text: "Đây là biểu đồ tiến độ học tập và mức độ hoàn thành các tài liệu của bạn:",
+      text: "Đây là biểu đồ tiến độ học tập và mức độ hoàn thành các tài liệu của bạn nè:",
       chart: INITIAL_DOCS.map((d) => ({
         label: d.subject,
         value: d.progress,
@@ -150,7 +150,7 @@ export async function askAI(
 
   if (!doc) {
     return {
-      text: "Bạn hãy chọn một tài liệu ở danh sách bên trái để mình có thể giải đáp chi tiết theo nội dung bài học nhé!",
+      text: "Bạn hãy chọn một tài liệu ở danh sách bên trái để tụi mình cùng thảo luận và ôn bài nhé! 😊",
       isGemini: false,
     };
   }
@@ -195,12 +195,12 @@ export async function askAI(
               `*B.* ${q.options.B}  \n` +
               `*C.* ${q.options.C}  \n` +
               `*D.* ${q.options.D}  \n\n` +
-              `👉 **Đáp án đúng:** ${q.correctAnswer} — *${q.explanation}*`
+              `👉 **Đáp án:** ${q.correctAnswer} — *${q.explanation}*`
           )
           .join("\n\n---\n\n");
 
         return {
-          text: `Bộ câu hỏi ôn tập do **Google Gemini AI** vừa khởi tạo từ tài liệu **"${doc.title}"**:\n\n${formatted}\n\n💡 *Gợi ý: Bạn có thể sao chép câu hỏi này hoặc chuyển sang tab "Bài kiểm tra" để thi đấu trực tiếp.*`,
+          text: `Mình vừa nhờ **Google Gemini AI** soạn nhanh bộ câu hỏi ôn tập cho tài liệu **"${doc.title}"** nè:\n\n${formatted}\n\n💡 *Bạn thử làm xem đúng được mấy câu nhé!*`,
           isGemini: true,
         };
       }
@@ -215,30 +215,51 @@ export async function askAI(
       return { text: response, isGemini: true };
     } catch (err: unknown) {
       const e = err as Error;
-      console.warn("Lỗi gọi Gemini AI:", e.message);
-      // Khi gặp lỗi từ Gemini (ví dụ Quota 429 hoặc Key sai), thông báo và fallback
-      const errorNotice = `⚠️ *[Google Gemini AI: ${e.message}]*\n\nHệ thống tạm thời chuyển sang chế độ phân tích dự phòng cho tài liệu:\n\n`;
+      console.warn("Gemini API log:", e.message);
+      // Khi gặp lỗi kết nối API, phản hồi tự nhiên, thân thiện mà không in mã lỗi máy móc
       const fallbackResult = await getFallbackResponse(prompt, doc, pages);
-      return { text: errorNotice + fallbackResult.text, isGemini: false };
+      return { text: fallbackResult.text, isGemini: false };
     }
   }
 
-  // NẾU CHƯA CÓ KEY -> SỬ DỤNG CHẾ ĐỘ PHÂN TÍCH NỘI DUNG TÀI LIỆU DỰ PHÒNG
+  // NẾU CHƯA CÓ KEY -> SỬ DỤNG PHẢN HỒI THÂN THIỆN THÔNG MINH
   return getFallbackResponse(prompt, doc, pages);
 }
 
 /**
- * Chế độ phản hồi thông minh dự phòng khi chưa cấu hình Gemini API Key
+ * Chế độ phản hồi thông minh thân thiện, tự nhiên
  */
 async function getFallbackResponse(
   prompt: string,
   doc: DocumentItem,
   pages: string[]
 ): Promise<{ text: string; isGemini: boolean }> {
-  await new Promise((r) => setTimeout(r, 650));
-  const lower = prompt.toLowerCase();
+  await new Promise((r) => setTimeout(r, 450));
+  const lower = prompt.toLowerCase().trim();
 
-  // Yêu cầu tóm tắt
+  // 1. Chào hỏi / giao tiếp thông thường
+  const isGreeting =
+    /^(chào|hello|hi|hey|xin chào|chào bạn|alo|hé lô)/i.test(lower) ||
+    lower === "chào" ||
+    lower === "hello" ||
+    lower === "hi";
+
+  if (isGreeting) {
+    return {
+      text: `Chào bạn nha! Rất vui được đồng hành học tập cùng bạn hôm nay 😊.\n\nTụi mình đang xem tài liệu **"${doc.title}"**. Bạn có thắc mắc gì, muốn mình tóm tắt bài giảng hay giải thích công thức nào thì cứ thoải mái nhắn mình nhé! ✨`,
+      isGemini: false,
+    };
+  }
+
+  // 2. Hỏi danh tính
+  if (lower.includes("bạn là ai") || lower.includes("tên gì") || lower.includes("giới thiệu")) {
+    return {
+      text: `Mình là **Trợ lý AI PeerMind** — bạn đồng hành học tập cùng bàn 24/7 của bạn nè! Mình có thể cùng bạn đọc tài liệu, tóm tắt bài học, vẽ biểu đồ tiến độ hay ra đề đố vui ôn thi bất cứ lúc nào. Cứ tự nhiên coi mình như bạn cùng lớp nhé! 🚀`,
+      isGemini: false,
+    };
+  }
+
+  // 3. Yêu cầu tóm tắt
   if (
     lower.includes("tóm tắt") ||
     lower.includes("khái quát") ||
@@ -247,20 +268,20 @@ async function getFallbackResponse(
   ) {
     if (pages.length > 0) {
       const summaryList = pages
-        .map((p, i) => `• **Phần ${i + 1}:** ${p}`)
+        .map((p, i) => `• **Ý ${i + 1}:** ${p}`)
         .join("\n\n");
       return {
-        text: `Dưới đây là tóm tắt các điểm trọng tâm của tài liệu **"${doc.title}"**:\n\n${summaryList}\n\n💡 *Mẹo: Bạn có thể bấm biểu tượng ⚙️ góc trên khung chat để nhập Google Gemini API Key và mở khóa phản hồi AI trực tiếp!*`,
+        text: `Dưới đây là tóm tắt nhanh những điểm đáng nhớ nhất của tài liệu **"${doc.title}"** nè:\n\n${summaryList}\n\n💡 *Bạn muốn mình giải thích chi tiết hơn phần nào không?*`,
         isGemini: false,
       };
     }
     return {
-      text: `Tóm tắt nhanh tài liệu **"${doc.title}"** (${doc.subject}):\n\n• Tài liệu bao gồm ${doc.pagesCount || 15} trang kiến thức trọng tâm.\n• Tập trung vào lý thuyết nền tảng, các công thức cốt lõi và ví dụ minh họa trực quan.\n• Tiến độ ôn tập hiện tại của bạn là **${doc.progress}%**.`,
+      text: `Tóm tắt nhanh tài liệu **"${doc.title}"** (${doc.subject}):\n\n• Tài liệu bao gồm ${doc.pagesCount || 15} trang kiến thức trọng tâm.\n• Tập trung vào lý thuyết nền tảng, công thức cốt lõi và bài tập áp dụng.\n• Tiến độ ôn tập hiện tại của bạn là **${doc.progress}%**. Cố lên nha!`,
       isGemini: false,
     };
   }
 
-  // Yêu cầu tạo câu hỏi ôn tập
+  // 4. Yêu cầu tạo câu hỏi ôn tập
   if (
     lower.includes("câu hỏi") ||
     lower.includes("trắc nghiệm") ||
@@ -269,19 +290,19 @@ async function getFallbackResponse(
   ) {
     return {
       text:
-        `Bộ câu hỏi ôn tập trọng tâm cho tài liệu **"${doc.title}"**:\n\n` +
-        `**Câu 1:** Khái niệm cốt lõi nhất được đề cập trong tài liệu này là gì?\n` +
+        `Mình gửi bạn 3 câu đố vui ôn tập nhanh cho tài liệu **"${doc.title}"** nè:\n\n` +
+        `**Câu 1:** Khái niệm cốt lõi nhất được đề cập trong bài này là gì?\n` +
         `*A. Định nghĩa và nguyên lý cơ bản* | *B. Lịch sử phát triển* | *C. Danh mục tài liệu tham khảo* | *D. Bài tập mở rộng*\n\n` +
         `**Câu 2:** Phương pháp nào được ứng dụng để giải quyết bài toán trọng tâm?\n` +
         `*A. Biến đổi công thức chuẩn* | *B. Tra cứu thủ công* | *C. Ước lượng ngẫu nhiên* | *D. Loại trừ giả thuyết*\n\n` +
         `**Câu 3:** Ý nghĩa thực tiễn quan trọng nhất sau khi học xong phần này là gì?\n` +
         `*A. Nắm vững phương pháp luận và vận dụng vào bài thi thực tế*\n\n` +
-        `👉 *Đáp án gợi ý: 1-A, 2-A, 3-A. Nhập Gemini API Key để AI sinh câu hỏi bám sát 100% nội dung từng trang nhé!*`,
+        `👉 *Đáp án gợi ý: 1-A, 2-A, 3-A. Bạn thấy sao, có muốn thử sức thêm không?*`,
       isGemini: false,
     };
   }
 
-  // Khớp từ khóa theo nội dung từng trang (RAG keyword matching)
+  // 5. Khớp từ khóa theo nội dung từng trang
   if (pages.length > 0) {
     const words = lower.split(/\s+/).filter((w) => w.length > 2);
     const matched = pages.find((p) =>
@@ -289,7 +310,7 @@ async function getFallbackResponse(
     );
     if (matched) {
       return {
-        text: `Dựa vào tài liệu **"${doc.title}"**, nội dung liên quan trực tiếp đến câu hỏi của bạn:\n\n> "${matched}"\n\nNếu cần làm rõ công thức hoặc bài tập vận dụng, bạn cứ nhắn mình nhé!`,
+        text: `Về câu hỏi của bạn trong tài liệu **"${doc.title}"**, trong bài có đoạn này rất đáng lưu ý nè:\n\n> "${matched}"\n\nBạn có cần mình lấy thêm ví dụ đời thường để dễ nhớ hơn không? 😊`,
         isGemini: false,
       };
     }
@@ -300,7 +321,7 @@ async function getFallbackResponse(
   }
 
   return {
-    text: `Trợ lý AI đã ghi nhận câu hỏi của bạn về tài liệu **"${doc.title}"** (${doc.subject}). Để nhận câu trả lời phân tích chuyên sâu bằng mô hình Gemini 2.0 Flash, bạn hãy bấm nút ⚙️ trên thanh tiêu đề để cài đặt API Key nhé!`,
+    text: `Mình đã nghe rõ câu hỏi của bạn về **"${doc.title}"** rồi nha! Bạn muốn mình giúp tóm tắt bài giảng, giải thích công thức hay làm vài câu đố vui trắc nghiệm cùng bạn nè? 😊`,
     isGemini: false,
   };
 }

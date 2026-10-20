@@ -3,7 +3,7 @@
 
 const STORAGE_KEY = "peermind_gemini_api_key";
 const DEFAULT_MODEL = "gemini-2.0-flash";
-const BACKUP_MODEL = "gemini-1.5-flash";
+const BACKUP_MODEL = "gemini-2.0-flash-exp";
 
 /**
  * Lấy API Key đang hoạt động: ưu tiên localStorage -> biến môi trường VITE
@@ -49,6 +49,17 @@ export function hasGeminiApiKey(): boolean {
 }
 
 /**
+ * Tạo URL chuẩn gọi Gemini API:
+ * Với key AQ... thì chỉ dùng x-goog-api-key trong header, không gắn ?key= vào URL
+ */
+function buildGeminiUrl(model: string, apiKey: string): string {
+  if (apiKey.startsWith("AIza")) {
+    return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  }
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+}
+
+/**
  * Test thử kết nối của API Key với Google Gemini API
  */
 export async function testGeminiApiKey(keyToTest?: string): Promise<{ success: boolean; message: string }> {
@@ -58,7 +69,7 @@ export async function testGeminiApiKey(keyToTest?: string): Promise<{ success: b
   }
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${DEFAULT_MODEL}:generateContent?key=${apiKey}`;
+    const url = buildGeminiUrl(DEFAULT_MODEL, apiKey);
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -66,8 +77,8 @@ export async function testGeminiApiKey(keyToTest?: string): Promise<{ success: b
         "x-goog-api-key": apiKey,
       },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: "Hello, reply with 'OK' only." }] }],
-        generationConfig: { maxOutputTokens: 10 },
+        contents: [{ parts: [{ text: "Chào bạn" }] }],
+        generationConfig: { maxOutputTokens: 20 },
       }),
     });
 
@@ -77,7 +88,7 @@ export async function testGeminiApiKey(keyToTest?: string): Promise<{ success: b
       return { success: false, message: msg };
     }
 
-    return { success: true, message: "Kết nối Google Gemini AI thành công!" };
+    return { success: true, message: "Kết nối Google Gemini AI thành công! Trợ lý đã sẵn sàng." };
   } catch (err: unknown) {
     const e = err as Error;
     return { success: false, message: e.message || "Không thể kết nối đến máy chủ Google." };
@@ -93,7 +104,7 @@ async function callGemini(prompt: string, jsonMode = false, model = DEFAULT_MODE
     throw new Error("Chưa cấu hình Google Gemini API Key.");
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const url = buildGeminiUrl(model, apiKey);
 
   const bodyPayload: Record<string, unknown> = {
     contents: [
@@ -102,13 +113,14 @@ async function callGemini(prompt: string, jsonMode = false, model = DEFAULT_MODE
       },
     ],
     generationConfig: {
-      temperature: 0.4,
+      temperature: 0.7, // Giúp phản hồi tự nhiên, sinh động, thân thiện
       maxOutputTokens: 2500,
     },
   };
 
   if (jsonMode) {
     (bodyPayload.generationConfig as Record<string, unknown>).responseMimeType = "application/json";
+    (bodyPayload.generationConfig as Record<string, unknown>).temperature = 0.2;
   }
 
   try {
@@ -122,7 +134,6 @@ async function callGemini(prompt: string, jsonMode = false, model = DEFAULT_MODE
     });
 
     if (!res.ok) {
-      // Nếu model 2.0-flash lỗi, thử dự phòng sang model 1.5-flash
       if (model === DEFAULT_MODEL) {
         return callGemini(prompt, jsonMode, BACKUP_MODEL);
       }
@@ -148,7 +159,7 @@ async function callGemini(prompt: string, jsonMode = false, model = DEFAULT_MODE
 }
 
 /**
- * 1. AI RAG Chat — Hỏi đáp thông minh trực tiếp trên nội dung tài liệu
+ * 1. AI RAG Chat — Trò chuyện tự nhiên, thân thiện và giải đáp theo tài liệu
  */
 export async function askGeminiRAG({
   question,
@@ -161,7 +172,6 @@ export async function askGeminiRAG({
   docSubject?: string;
   pagesContent: string[];
 }): Promise<string> {
-  // Lọc lấy các trang có liên quan hoặc tối đa 4 trang đầu nếu câu hỏi chung
   let context = "";
   if (pagesContent.length > 0) {
     const keywords = question
@@ -174,37 +184,38 @@ export async function askGeminiRAG({
       .filter(({ text }) => keywords.some((kw) => text.toLowerCase().includes(kw)))
       .slice(0, 4);
 
-    const pagesToUse = relevantPages.length > 0 ? relevantPages : pagesContent.slice(0, 4).map((text, idx) => ({ text, page: idx + 1 }));
+    const pagesToUse =
+      relevantPages.length > 0
+        ? relevantPages
+        : pagesContent.slice(0, 4).map((text, idx) => ({ text, page: idx + 1 }));
 
     context = pagesToUse.map((p) => `[Trang ${p.page}]:\n${p.text}`).join("\n\n---\n\n");
   }
 
   const prompt = `
-Bạn là Trợ lý Gia sư AI chuyên nghiệp của nền tảng học tập PeerMind.
-Nhiệm vụ của bạn là giải đáp thắc mắc của học sinh dựa trên nội dung tài liệu học tập được cung cấp.
+Bạn là Trợ lý AI PeerMind — một người bạn học cùng bàn cực kỳ thân thiện, thông minh, dí dỏm và dễ mến.
 
-=== THÔNG TIN TÀI LIỆU ===
+PHONG CÁCH GIAO TIẾP BẮT BUỘC:
+1. Giao tiếp hoàn toàn tự nhiên, gần gũi, ấm áp như hai người bạn thân đang học cùng nhau.
+2. Xưng hô "mình" và "bạn". Tránh hoàn toàn giọng điệu hàn lâm, trang trọng kiểu công chức hay sách giáo khoa khô khan. Dùng thêm emoji sinh động (😊, ✨, 💡, 🚀) để không khí học tập thoải mái.
+3. Nếu người dùng chỉ chào hỏi, làm quen hoặc nói chuyện phiếm (ví dụ: "chào bạn", "hello", "hi", "bạn tên gì", "hôm nay thế nào"): Hãy vui vẻ chào lại, hỏi thăm bạn học một cách tự nhiên. TUYỆT ĐỐI KHÔNG tự động tuôn ra một tràng lý thuyết tài liệu nếu người dùng chưa hỏi!
+4. Nếu người dùng hỏi về bài học: Hãy giải thích thật đơn giản, dễ hiểu, dùng hình ảnh so sánh hoặc ví dụ thực tế đời sống để bạn học nhớ lâu. Có thể gợi ý: "(Nội dung này có ở trang X nè)".
+5. Luôn động viên tinh thần bạn học.
+
+=== THÔNG TIN TÀI LIỆU ĐANG MỞ (ĐỂ BẠN THAM KHẢO KHI CẦN) ===
 - Tên tài liệu: "${docTitle}"
 - Phân môn: ${docSubject || "Chung"}
+${context ? `\n- Nội dung tài liệu:\n${context}` : ""}
 
-=== NỘI DUNG TRÍCH XUẤT TỪ TÀI LIỆU ===
-${context || "(Tài liệu chưa có trích xuất chi tiết theo trang, hãy trả lời theo kiến thức môn học này một cách ngắn gọn)"}
-
-=== CÂU HỎI CỦA HỌC SINH ===
+=== CÂU HỎI / TIN NHẮN TỪ BẠN HỌC ===
 "${question}"
-
-=== YÊU CẦU TRẢ LỜI ===
-1. Trả lời bằng tiếng Việt, giọng điệu thân thiện, khuyến khích học sinh.
-2. Trả lời chính xác, trọng tâm, rõ ràng trong 2-4 đoạn ngắn. Dùng Markdown (gạch đầu dòng, **in đậm** công thức/khái niệm quan trọng).
-3. Nếu câu hỏi liên quan trực tiếp đến nội dung trích xuất ở trên, hãy chỉ rõ: "(Trích từ trang X)".
-4. Nếu tài liệu không chứa thông tin câu hỏi, hãy trả lời dựa trên kiến thức chuẩn của môn học và ghi chú rằng đây là kiến thức mở rộng ngoài tài liệu.
 `;
 
   return callGemini(prompt, false);
 }
 
 /**
- * 2. Tóm tắt tài liệu tự động bằng Gemini
+ * 2. Tóm tắt tài liệu tự nhiên, sinh động bằng Gemini
  */
 export async function summarizeDocumentWithGemini({
   docTitle,
@@ -218,21 +229,17 @@ export async function summarizeDocumentWithGemini({
   const contentText = pagesContent.length > 0 ? pagesContent.join("\n\n") : docTitle;
 
   const prompt = `
-Bạn là chuyên gia tóm tắt kiến thức giáo trình cho học sinh, sinh viên.
-Hãy đọc hiểu nội dung tài liệu sau và tạo bản tóm lược kiến thức cô đọng, dễ nhớ nhất.
-
-=== TÀI LIỆU ===
-Tên: "${docTitle}"
-Môn học: ${docSubject || "Tổng hợp"}
+Bạn là bạn học cùng bàn kiêm trợ lý học tập thân thiện của PeerMind.
+Hãy tóm tắt tài liệu "${docTitle}" (${docSubject || "Tổng hợp"}) một cách sinh động, dễ hiểu, ngắn gọn và cuốn hút nhất.
 
 === NỘI DUNG TÀI LIỆU ===
 ${contentText.slice(0, 10000)}
 
-=== YÊU CẦU ĐẦU RA ===
-Trình bày tóm tắt bằng tiếng Việt dưới định dạng Markdown chuẩn:
-1. 🎯 **Mục tiêu cốt lõi**: 2 câu tóm gọn ý nghĩa bài học.
-2. 🔑 **Kiến thức trọng tâm**: 3-5 ý chính có phân tích ngắn gọn và công thức/thuật toán (nếu có).
-3. 💡 **Lưu ý quan trọng / Mẹo thi cử**: Các bẫy thường gặp hoặc điểm cần chú ý.
+=== YÊU CẦU TRÌNH BÀY ===
+Dùng giọng văn thân thiện, xưng "mình - bạn", có icon và định dạng Markdown đẹp mắt:
+1. 🎯 **Bản chất của bài này là gì?**: Tóm gọn trong 1-2 câu dễ hiểu nhất.
+2. 🔑 **Những ý đắt giá cần nhớ**: 3-4 gạch đầu dòng then chốt, nhấn mạnh công thức hoặc mẹo nhớ nhanh.
+3. 💡 **Bẫy thi cử / Mẹo ôn tập**: Chia sẻ mẹo thực tế để không bị mất điểm oan.
 `;
 
   return callGemini(prompt, false);
@@ -257,7 +264,7 @@ export type GeneratedQuestion = {
 export async function generateQuizWithGemini({
   docTitle,
   pagesContent,
-  count = 5,
+  count = 4,
 }: {
   docTitle: string;
   pagesContent: string[];
@@ -266,7 +273,7 @@ export async function generateQuizWithGemini({
   const contentText = pagesContent.length > 0 ? pagesContent.join("\n\n") : docTitle;
 
   const prompt = `
-Bạn là giáo viên giàu kinh nghiệm. Dựa vào nội dung tài liệu dưới đây, hãy soạn thảo ${count} câu hỏi trắc nghiệm 4 đáp án (A, B, C, D) phục vụ ôn thi.
+Bạn là người bạn đồng hành cùng ôn thi. Dựa vào nội dung tài liệu dưới đây, hãy soạn thảo ${count} câu hỏi trắc nghiệm thú vị, bám sát kiến thức:
 
 === TÀI LIỆU: "${docTitle}" ===
 ${contentText.slice(0, 9000)}
@@ -285,7 +292,7 @@ Trả về kết quả ở dạng JSON thuần túy theo schema sau (KHÔNG bọ
         "D": "Đáp án D"
       },
       "correctAnswer": "A",
-      "explanation": "Giải thích cặn kẽ tại sao đáp án này đúng."
+      "explanation": "Giải thích ngắn gọn, dễ hiểu vì sao đáp án này đúng."
     }
   ]
 }
