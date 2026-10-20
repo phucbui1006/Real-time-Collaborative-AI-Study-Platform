@@ -2,8 +2,14 @@
 // Hỗ trợ lưu trữ API Key trong localStorage (BYOK) hoặc qua biến môi trường VITE_GEMINI_API_KEY
 
 const STORAGE_KEY = "peermind_gemini_api_key";
-const DEFAULT_MODEL = "gemini-2.0-flash";
-const BACKUP_MODEL = "gemini-1.5-flash";
+
+// Danh sách các mô hình Flash thế hệ mới nhất của Google (tự động thử dự phòng nếu một mô hình bị nghẽn tải)
+const ACTIVE_MODELS = [
+  "gemini-flash-lite-latest", // Gemini 3.5 Flash Lite siêu nhanh & ổn định
+  "gemini-flash-latest",
+  "gemini-3-flash-preview",
+  "gemini-3.8-flash",
+];
 
 /**
  * Lấy API Key đang hoạt động: ưu tiên localStorage -> biến môi trường VITE
@@ -65,7 +71,7 @@ export async function testGeminiApiKey(keyToTest?: string): Promise<{ success: b
   }
 
   try {
-    const url = buildGeminiUrl(DEFAULT_MODEL, apiKey);
+    const url = buildGeminiUrl(ACTIVE_MODELS[0], apiKey);
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -92,66 +98,71 @@ export async function testGeminiApiKey(keyToTest?: string): Promise<{ success: b
 }
 
 /**
- * Gọi Gemini REST API sinh văn bản
+ * Gọi Gemini REST API sinh văn bản với cơ chế tự động chuyển đổi mô hình (Failover)
  */
-async function callGemini(prompt: string, jsonMode = false, model = DEFAULT_MODEL): Promise<string> {
+async function callGemini(prompt: string, jsonMode = false): Promise<string> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
     throw new Error("Chưa cấu hình Google Gemini API Key.");
   }
 
-  const url = buildGeminiUrl(model, apiKey);
+  let lastError: Error | null = null;
 
-  const bodyPayload: Record<string, unknown> = {
-    contents: [
-      {
-        parts: [{ text: prompt }],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.7, // Giúp phản hồi tự nhiên, sinh động, thông minh
-      maxOutputTokens: 2500,
-    },
-  };
+  for (const model of ACTIVE_MODELS) {
+    try {
+      const url = buildGeminiUrl(model, apiKey);
 
-  if (jsonMode) {
-    (bodyPayload.generationConfig as Record<string, unknown>).responseMimeType = "application/json";
-    (bodyPayload.generationConfig as Record<string, unknown>).temperature = 0.2;
-  }
+      const bodyPayload: Record<string, unknown> = {
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.7, // Giúp phản hồi tự nhiên, sinh động, thông minh
+          maxOutputTokens: 2500,
+        },
+      };
 
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify(bodyPayload),
-    });
-
-    if (!res.ok) {
-      if (model === DEFAULT_MODEL) {
-        return callGemini(prompt, jsonMode, BACKUP_MODEL);
+      if (jsonMode) {
+        (bodyPayload.generationConfig as Record<string, unknown>).responseMimeType = "application/json";
+        (bodyPayload.generationConfig as Record<string, unknown>).temperature = 0.2;
       }
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || `Lỗi API Google Gemini (Mã: ${res.status})`);
-    }
 
-    const data = await res.json();
-    const candidate = data.candidates?.[0];
-    const textPart = candidate?.content?.parts?.[0]?.text;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify(bodyPayload),
+      });
 
-    if (!textPart) {
-      throw new Error("Mô hình không trả về nội dung.");
-    }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const errMsg = err.error?.message || `Mã HTTP: ${res.status}`;
+        lastError = new Error(`Lỗi mô hình ${model}: ${errMsg}`);
+        // Thử mô hình tiếp theo trong danh sách
+        continue;
+      }
 
-    return textPart.trim();
-  } catch (err) {
-    if (model === DEFAULT_MODEL) {
-      return callGemini(prompt, jsonMode, BACKUP_MODEL);
+      const data = await res.json();
+      const candidate = data.candidates?.[0];
+      const textPart = candidate?.content?.parts?.[0]?.text;
+
+      if (!textPart) {
+        lastError = new Error("Mô hình không trả về nội dung.");
+        continue;
+      }
+
+      return textPart.trim();
+    } catch (err) {
+      lastError = err as Error;
+      continue;
     }
-    throw err;
   }
+
+  throw lastError || new Error("Không thể kết nối đến Google Gemini API.");
 }
 
 /**
