@@ -137,6 +137,9 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [thinkingStatus, setThinkingStatus] = useState("Đang phân tích ý định...");
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isGeminiReady = hasGeminiApiKey();
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -147,11 +150,37 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
   const [isDragging, setIsDragging] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
+  // Dọn dẹp timer khi unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) {
+        clearInterval(typingTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Luân phiên thay đổi dòng trạng thái khi AI đang suy nghĩ
+  useEffect(() => {
+    if (!loading) return;
+    const statuses = [
+      "Đang phân tích ý định...",
+      "Đang tra cứu cơ sở tri thức...",
+      "Đang chuẩn bị câu trả lời...",
+    ];
+    let idx = 0;
+    setThinkingStatus(statuses[0]);
+    const timer = setInterval(() => {
+      idx = (idx + 1) % statuses.length;
+      setThinkingStatus(statuses[idx]);
+    }, 750);
+    return () => clearInterval(timer);
+  }, [loading]);
+
   useEffect(() => {
     if (isOpen && chatSizeMode !== "minimized") {
       endRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, loading, isOpen, chatSizeMode]);
+  }, [messages, loading, isTyping, isOpen, chatSizeMode]);
 
   // Logic kéo mép trái để tùy chỉnh chiều rộng
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -181,18 +210,78 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
 
   const send = async (text: string) => {
     const prompt = text.trim();
-    if (!prompt || loading) return;
+    if (!prompt || loading || isTyping) return;
     const newHistory = [...messages, { role: "user" as const, text: prompt }];
     setMessages(newHistory);
     setInput("");
     setLoading(true);
+
+    const startTime = Date.now();
     try {
       const reply = await askAI(prompt, doc, newHistory);
-      setMessages((m) => [...m, { role: "ai", ...reply }]);
+
+      // 1. HIỆU ỨNG ĐANG SUY NGHĨ: giữ tối thiểu 1.6 giây
+      const elapsed = Date.now() - startTime;
+      const minWait = 1600;
+      if (elapsed < minWait) {
+        await new Promise((r) => setTimeout(r, minWait - elapsed));
+      }
+
+      setLoading(false);
+      setIsTyping(true);
+
+      // 2. HIỆU ỨNG GÕ CHỮ TỪNG KÝ TỰ (TYPEWRITER / STREAMING EFFECT)
+      const aiMsgIndex = newHistory.length;
+      const initialAiMsg: ChatMessage = {
+        role: "ai",
+        text: "",
+        isGemini: reply.isGemini,
+        chart: reply.chart,
+      };
+      setMessages((prev) => [...prev, initialAiMsg]);
+
+      const fullText = reply.text || "";
+      const totalLength = fullText.length;
+      let currentIndex = 0;
+
+      // Tốc độ khoảng 25-35ms mỗi bước:
+      // Tùy theo độ dài chuỗi mà điều chỉnh bước nhảy để mượt mà và không bắt người dùng đợi quá lâu
+      const step = totalLength > 800 ? 5 : totalLength > 400 ? 3 : 2;
+      const delay = 28;
+
+      await new Promise<void>((resolve) => {
+        const timer = setInterval(() => {
+          currentIndex = Math.min(totalLength, currentIndex + step);
+          const currentSlice = fullText.slice(0, currentIndex);
+
+          setMessages((prev) => {
+            const updated = [...prev];
+            if (updated[aiMsgIndex]) {
+              updated[aiMsgIndex] = {
+                ...updated[aiMsgIndex],
+                text: currentSlice,
+              };
+            }
+            return updated;
+          });
+
+          endRef.current?.scrollIntoView({ behavior: "smooth" });
+
+          if (currentIndex >= totalLength) {
+            clearInterval(timer);
+            typingTimerRef.current = null;
+            resolve();
+          }
+        }, delay);
+
+        typingTimerRef.current = timer;
+      });
     } catch {
+      setLoading(false);
       setMessages((m) => [...m, { role: "ai", text: "Mình đang bị nghẽn mạng xíu, bạn nhắn lại với mình nha! 😊" }]);
     } finally {
       setLoading(false);
+      setIsTyping(false);
     }
   };
 
@@ -266,7 +355,17 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
           <div className="min-w-0 flex-1">
             <div className="font-semibold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
               <span>Trợ lý AI</span>
-              {isGeminiReady ? (
+              {loading ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                  Đang suy nghĩ...
+                </span>
+              ) : isTyping ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                  Đang trả lời...
+                </span>
+              ) : isGeminiReady ? (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   Gemini Flash
@@ -381,10 +480,15 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                   {m.role === "user" ? (
                     <div>{m.text}</div>
                   ) : (
-                    <FormattedAIMessage text={m.text} />
+                    <div>
+                      <FormattedAIMessage text={m.text} />
+                      {isTyping && i === messages.length - 1 && (
+                        <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-indigo-500 animate-pulse align-middle" />
+                      )}
+                    </div>
                   )}
 
-                  {m.chart && <MiniBarChart data={m.chart} />}
+                  {m.chart && (!isTyping || i < messages.length - 1) && <MiniBarChart data={m.chart} />}
                 </div>
               </div>
             ))}
@@ -401,8 +505,9 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                   }`}
                 >
                   <button
-                    onClick={() => send("Bạn có thể cho tôi biết công thức tính chu vi và diện tích hình tròn là gì không?")}
-                    className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
+                    onClick={() => !loading && !isTyping && send("Bạn có thể cho tôi biết công thức tính chu vi và diện tích hình tròn là gì không?")}
+                    disabled={loading || isTyping}
+                    className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
                   >
                     <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300 border border-sky-200/60 dark:border-sky-500/30 shrink-0">
                       <Compass className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -417,8 +522,9 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                   {doc && (
                     <>
                       <button
-                        onClick={() => send("Tóm tắt nội dung chính của tài liệu này")}
-                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
+                        onClick={() => !loading && !isTyping && send("Tóm tắt nội dung chính của tài liệu này")}
+                        disabled={loading || isTyping}
+                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
                       >
                         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-200/60 dark:border-purple-500/30 shrink-0">
                           <FileText className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -431,8 +537,9 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                       </button>
 
                       <button
-                        onClick={() => send("Vẽ mô hình tư duy cho tôi")}
-                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
+                        onClick={() => !loading && !isTyping && send("Vẽ mô hình tư duy cho tôi")}
+                        disabled={loading || isTyping}
+                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
                       >
                         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-500/30 shrink-0">
                           <Network className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -445,8 +552,9 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                       </button>
 
                       <button
-                        onClick={() => send("Tạo 3 câu hỏi ôn tập từ tài liệu này")}
-                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
+                        onClick={() => !loading && !isTyping && send("Tạo 3 câu hỏi ôn tập từ tài liệu này")}
+                        disabled={loading || isTyping}
+                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
                       >
                         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-200/60 dark:border-amber-500/30 shrink-0">
                           <HelpCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -463,10 +571,28 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
               </div>
             )}
 
+            {/* 1. HIỆU ỨNG ĐANG SUY NGHĨ (Thinking Bubble) */}
             {loading && (
-              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-300 italic bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700 w-fit shadow-2xs">
-                <span className="h-2 w-2 rounded-full bg-indigo-600 animate-ping" />
-                <span>AI đang suy nghĩ và chuẩn bị câu trả lời…</span>
+              <div className="flex justify-start animate-fade-in">
+                <div className="max-w-[88%] rounded-2xl px-4 py-3 bg-white dark:bg-slate-800/90 text-slate-800 dark:text-slate-200 border border-slate-200/90 dark:border-slate-700/60 shadow-sm space-y-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
+                    <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: "3s" }} />
+                    <span className="font-semibold">Trợ lý AI PeerMind</span>
+                  </div>
+
+                  {/* 3 dấu chấm nảy liên tục animate-bounce */}
+                  <div className="flex items-center gap-1.5 py-1">
+                    <span className="h-2 w-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="h-2 w-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="h-2 w-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+
+                  {/* Dòng trạng thái nhỏ luân phiên thay đổi */}
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 italic flex items-center gap-1.5 transition-all duration-300">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    <span>{thinkingStatus}</span>
+                  </div>
+                </div>
               </div>
             )}
             <div ref={endRef} />
@@ -478,13 +604,20 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && send(input)}
-                placeholder="Hỏi bất kỳ điều gì (giải toán, lập trình, tóm tắt bài...)..."
-                className="flex-1 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors"
+                onKeyDown={(e) => e.key === "Enter" && !loading && !isTyping && send(input)}
+                disabled={loading || isTyping}
+                placeholder={
+                  loading
+                    ? "AI đang suy nghĩ câu trả lời..."
+                    : isTyping
+                    ? "AI đang viết câu trả lời..."
+                    : "Hỏi bất kỳ điều gì (giải toán, lập trình, tóm tắt bài...)..."
+                }
+                className="flex-1 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors disabled:opacity-60"
               />
               <button
                 onClick={() => send(input)}
-                disabled={!input.trim() || loading}
+                disabled={!input.trim() || loading || isTyping}
                 className="inline-flex items-center justify-center h-9 px-3.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-xs text-xs font-medium transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0"
                 title="Gửi câu hỏi"
               >
