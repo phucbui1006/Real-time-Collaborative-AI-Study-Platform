@@ -136,15 +136,15 @@ export default function LibraryPage() {
   const currentDoc = docs.find((d) => d.id === selectedId) || docs[0] || null;
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
-      <div className={isAIChatOpen ? "lg:col-span-8 min-w-0" : "lg:col-span-12 min-w-0"}>
+    <div className="relative min-w-0">
+      <div className="w-full min-w-0">
         <DocumentStore
           docs={docs}
           selectedId={selectedId}
           onSelect={handleSelectDoc}
           onDelete={handleDeleteDoc}
           onUpload={handleUpload}
-          isAIChatOpen={isAIChatOpen}
+          isAIChatOpen={false}
         />
       </div>
 

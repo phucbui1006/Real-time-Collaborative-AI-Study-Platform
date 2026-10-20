@@ -1,10 +1,24 @@
-// components/documents/AIChat.tsx — Khung chat với AI chuẩn Crisp Academic SaaS & KaTeX Math Typography
+// components/documents/AIChat.tsx — Khung chat AI đa năng hỗ trợ Phóng to / Thu nhỏ & Drag resize
 import { useRef, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { MessageSquare, X, Send, Bot, FileText, HelpCircle, Sparkles, Network, Compass } from "lucide-react";
+import {
+  MessageSquare,
+  X,
+  Send,
+  Bot,
+  FileText,
+  HelpCircle,
+  Sparkles,
+  Network,
+  Compass,
+  Minus,
+  Maximize2,
+  Minimize2,
+  ChevronUp,
+} from "lucide-react";
 import { DocumentItem, ChatMessage, askAI } from "../../services/aiService";
 import { hasGeminiApiKey } from "../../services/geminiClient";
 import { MiniBarChart } from "./MiniBarChart";
@@ -15,6 +29,8 @@ type AIChatProps = {
   onOpen: () => void;
   onClose: () => void;
 };
+
+export type ChatSizeMode = "normal" | "expanded" | "minimized";
 
 /**
  * Component hiển thị tin nhắn AI chuẩn định dạng Markdown & Công thức toán học KaTeX / LaTeX
@@ -107,11 +123,44 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
   const isGeminiReady = hasGeminiApiKey();
   const endRef = useRef<HTMLDivElement>(null);
 
+  // 3 Chế độ kích thước: 'normal' | 'expanded' | 'minimized'
+  const [chatSizeMode, setChatSizeMode] = useState<ChatSizeMode>("normal");
+  // Cho phép kéo cạnh trái chỉnh chiều rộng tùy ý (từ 380px đến 820px)
+  const [customWidth, setCustomWidth] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && chatSizeMode !== "minimized") {
       endRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, loading, isOpen]);
+  }, [messages, loading, isOpen, chatSizeMode]);
+
+  // Logic kéo mép trái để tùy chỉnh chiều rộng
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    const startX = e.clientX;
+    const initialWidth =
+      chatContainerRef.current?.getBoundingClientRect().width ||
+      (chatSizeMode === "expanded" ? 740 : 450);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      // Vì khung neo ở mép phải màn hình, kéo sang trái (startX - moveX > 0) sẽ làm tăng chiều rộng
+      const deltaX = startX - moveEvent.clientX;
+      const newWidth = Math.min(820, Math.max(380, initialWidth + deltaX));
+      setCustomWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
 
   const send = async (text: string) => {
     const prompt = text.trim();
@@ -129,12 +178,13 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
     }
   };
 
+  // Nút mở dạng Pill Button tròn khi đóng hoàn toàn
   if (!isOpen) {
     return (
       <div className="fixed bottom-6 right-6 z-40">
         <button
           onClick={onOpen}
-          className="inline-flex items-center gap-2.5 rounded-full bg-indigo-600 px-4 py-2.5 text-white shadow-md hover:bg-indigo-700 transition-all cursor-pointer"
+          className="inline-flex items-center gap-2.5 rounded-full bg-indigo-600 px-4 py-2.5 text-white shadow-lg hover:bg-indigo-700 transition-all cursor-pointer hover:scale-105 active:scale-95"
           title="Mở khung Trợ lý AI"
         >
           <span className="relative flex h-2 w-2">
@@ -148,181 +198,284 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
     );
   }
 
+  // Xác định chiều rộng & chiều cao theo từng chế độ
+  const getContainerSizeClasses = () => {
+    if (chatSizeMode === "minimized") {
+      return "w-[300px] h-14 rounded-2xl shadow-lg cursor-pointer";
+    }
+    if (chatSizeMode === "expanded") {
+      return `${customWidth ? "" : "w-[680px] lg:w-[740px]"} h-[82vh] max-w-[95vw] rounded-2xl shadow-2xl`;
+    }
+    // Normal mode: cân đối chiều cao và chiều rộng
+    return `${customWidth ? "" : "w-[430px] sm:w-[450px]"} h-[580px] max-h-[75vh] max-w-[92vw] rounded-2xl shadow-2xl`;
+  };
+
   return (
-    <aside className="lg:col-span-4 min-w-0 transition-all duration-300 h-full">
-      <div className="sticky top-20 z-20 flex h-[calc(100vh-6.5rem)] min-h-[550px] flex-col overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs dark:shadow-2xl">
-        {/* Header - Clean & Minimal */}
-        <div className="bg-gradient-to-r from-indigo-50/80 via-sky-50/50 to-white dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/40 px-4 py-3 shrink-0 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-              <Bot className="h-4 w-4" strokeWidth={1.75} />
+    <div
+      ref={chatContainerRef}
+      style={
+        customWidth && chatSizeMode !== "minimized"
+          ? { width: `${customWidth}px` }
+          : undefined
+      }
+      className={`fixed bottom-6 right-6 z-40 flex flex-col overflow-hidden bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 ${getContainerSizeClasses()} ${
+        isDragging ? "" : "transition-all duration-300 ease-in-out"
+      }`}
+    >
+      {/* 3. Dải kéo vô hình ở cạnh trái để tự do chỉnh độ rộng (Chỉ hiện khi không thu nhỏ) */}
+      {chatSizeMode !== "minimized" && (
+        <div
+          onMouseDown={handleMouseDown}
+          className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-indigo-500/40 active:bg-indigo-600/50 transition-colors z-50 flex items-center justify-center group"
+          title="Nhấn giữ và kéo sang trái/phải để tinh chỉnh độ rộng khung chat"
+        >
+          <div className="w-0.5 h-7 rounded-full bg-slate-300 dark:bg-slate-700 group-hover:bg-indigo-500 transition-colors" />
+        </div>
+      )}
+
+      {/* HEADER: Tiêu đề, Trạng thái & Cụm nút Phóng to / Thu nhỏ / Đóng */}
+      <div
+        onClick={() => chatSizeMode === "minimized" && setChatSizeMode("normal")}
+        className={`bg-gradient-to-r from-indigo-50/80 via-sky-50/50 to-white dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/40 px-3.5 py-3 shrink-0 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 ${
+          chatSizeMode === "minimized" ? "h-full select-none" : ""
+        }`}
+      >
+        {/* Khối thông tin Trợ lý & Tài liệu */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+            <Bot className="h-4 w-4" strokeWidth={1.75} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+              <span>Trợ lý AI</span>
+              {isGeminiReady ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Gemini Flash
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                  Sẵn sàng
+                </span>
+              )}
             </div>
-            <div className="min-w-0">
-              <div className="font-semibold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                <span>Trợ lý AI PeerMind</span>
-                {isGeminiReady ? (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Gemini AI
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                    Sẵn sàng
-                  </span>
-                )}
-              </div>
-              <div className="mt-0.5 truncate text-[11px]">
-                {doc ? (
-                  <span className="inline-block max-w-[200px] truncate text-slate-600 dark:text-slate-300 font-medium">
-                    📖 {doc.title}
-                  </span>
-                ) : (
-                  <span className="text-slate-400">Trợ lý học tập & Hỏi đáp đa năng</span>
-                )}
-              </div>
+            <div className="mt-0.5 truncate text-[11px]">
+              {doc ? (
+                <span className="inline-block max-w-[190px] truncate text-slate-600 dark:text-slate-300 font-medium">
+                  📖 {doc.title}
+                </span>
+              ) : (
+                <span className="text-slate-400">Trợ lý học tập đa năng</span>
+              )}
             </div>
           </div>
+        </div>
 
-          {/* Close button only */}
+        {/* 2. CỤM NÚT ĐIỀU KHIỂN TRÊN HEADER */}
+        <div className="flex items-center gap-0.5 shrink-0 ml-1.5">
+          {/* Nút 1: Thu gọn / Mở lại (Minus / ChevronUp) */}
+          {chatSizeMode === "minimized" ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setChatSizeMode("normal");
+              }}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
+              title="Mở lại khung chat"
+            >
+              <ChevronUp className="h-4 w-4" strokeWidth={1.75} />
+            </button>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setChatSizeMode("minimized");
+              }}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
+              title="Thu gọn khung chat"
+            >
+              <Minus className="h-4 w-4" strokeWidth={1.75} />
+            </button>
+          )}
+
+          {/* Nút 2: Phóng to / Thu nhỏ kích thước (Maximize2 / Minimize2) */}
+          {chatSizeMode === "expanded" ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setCustomWidth(null);
+                setChatSizeMode("normal");
+              }}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
+              title="Thu nhỏ về mặc định"
+            >
+              <Minimize2 className="h-4 w-4" strokeWidth={1.75} />
+            </button>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setCustomWidth(null);
+                setChatSizeMode("expanded");
+              }}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
+              title="Phóng to khung chat"
+            >
+              <Maximize2 className="h-4 w-4" strokeWidth={1.75} />
+            </button>
+          )}
+
+          {/* Nút 3: Đóng khung chat (X) */}
           <button
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
-            title="Thu gọn khung chat"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+            title="Đóng khung chat"
           >
             <X className="h-4 w-4" strokeWidth={1.75} />
           </button>
         </div>
-
-        {/* Khung tin nhắn */}
-        <div className="flex-1 space-y-3.5 overflow-y-auto bg-slate-50/40 dark:bg-slate-950/60 p-4">
-          {messages.map((m, i) => (
-            <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
-              <div
-                className={`max-w-[88%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed ${
-                  m.role === "user"
-                    ? "bg-indigo-600 text-white shadow-2xs font-normal whitespace-pre-wrap"
-                    : "bg-white dark:bg-slate-800/90 text-slate-800 dark:text-slate-200 border border-slate-200/90 dark:border-slate-700/60 shadow-2xs"
-                }`}
-              >
-                {m.role === "ai" && m.isGemini && (
-                  <div className="mb-1 flex items-center gap-1 text-[10px] font-mono font-semibold text-indigo-600 dark:text-indigo-400">
-                    <Sparkles className="w-2.5 h-2.5" />
-                    <span>Gemini AI</span>
-                  </div>
-                )}
-
-                {m.role === "user" ? (
-                  <div>{m.text}</div>
-                ) : (
-                  <FormattedAIMessage text={m.text} />
-                )}
-
-                {m.chart && <MiniBarChart data={m.chart} />}
-              </div>
-            </div>
-          ))}
-
-          {/* Action Cards & Gợi ý câu hỏi phong phú */}
-          {messages.length === 1 && (
-            <div className="pt-2 space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-1">
-                Gợi ý nhanh cho bạn:
-              </p>
-              <div className="grid grid-cols-1 gap-1.5">
-                {/* Gợi ý kiến thức chung */}
-                <button
-                  onClick={() => send("Bạn có thể cho tôi biết công thức tính chu vi và diện tích hình tròn là gì không?")}
-                  className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
-                >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300 border border-sky-200/60 dark:border-sky-500/30 shrink-0">
-                    <Compass className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                      📐 Công thức chu vi & diện tích hình tròn
-                    </div>
-                  </div>
-                </button>
-
-                {doc && (
-                  <>
-                    <button
-                      onClick={() => send("Tóm tắt nội dung chính của tài liệu này")}
-                      className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
-                    >
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-200/60 dark:border-purple-500/30 shrink-0">
-                        <FileText className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                          📄 Tóm tắt nhanh tài liệu này
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => send("Vẽ mô hình tư duy cho tôi")}
-                      className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
-                    >
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-500/30 shrink-0">
-                        <Network className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                          🧠 Dựng sơ đồ tư duy (Mindmap)
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => send("Tạo 3 câu hỏi ôn tập từ tài liệu này")}
-                      className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
-                    >
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-200/60 dark:border-amber-500/30 shrink-0">
-                        <HelpCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                          📝 Đố vui 3 câu trắc nghiệm
-                        </div>
-                      </div>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {loading && (
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-300 italic bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700 w-fit shadow-2xs">
-              <span className="h-2 w-2 rounded-full bg-indigo-600 animate-ping" />
-              <span>AI đang suy nghĩ và chuẩn bị câu trả lời…</span>
-            </div>
-          )}
-          <div ref={endRef} />
-        </div>
-
-        {/* Form Input */}
-        <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && send(input)}
-              placeholder="Hỏi bất kỳ điều gì (giải toán, lập trình, tóm tắt bài...)..."
-              className="flex-1 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors"
-            />
-            <button
-              onClick={() => send(input)}
-              disabled={!input.trim() || loading}
-              className="inline-flex items-center justify-center h-9 px-3.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-xs text-xs font-medium transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0"
-              title="Gửi câu hỏi"
-            >
-              <Send className="h-3.5 w-3.5" strokeWidth={1.75} />
-            </button>
-          </div>
-        </div>
       </div>
-    </aside>
+
+      {/* THÂN TIN NHẮN & Ô NHẬP LIỆU (Ẩn khi ở chế độ 'minimized') */}
+      {chatSizeMode !== "minimized" && (
+        <>
+          {/* Khung tin nhắn cuộn mượt */}
+          <div className="flex-1 space-y-3.5 overflow-y-auto bg-slate-50/40 dark:bg-slate-950/60 p-4 min-h-0">
+            {messages.map((m, i) => (
+              <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
+                <div
+                  className={`max-w-[88%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed ${
+                    m.role === "user"
+                      ? "bg-indigo-600 text-white shadow-2xs font-normal whitespace-pre-wrap"
+                      : "bg-white dark:bg-slate-800/90 text-slate-800 dark:text-slate-200 border border-slate-200/90 dark:border-slate-700/60 shadow-2xs"
+                  }`}
+                >
+                  {m.role === "ai" && m.isGemini && (
+                    <div className="mb-1 flex items-center gap-1 text-[10px] font-mono font-semibold text-indigo-600 dark:text-indigo-400">
+                      <Sparkles className="w-2.5 h-2.5" />
+                      <span>Gemini Flash</span>
+                    </div>
+                  )}
+
+                  {m.role === "user" ? (
+                    <div>{m.text}</div>
+                  ) : (
+                    <FormattedAIMessage text={m.text} />
+                  )}
+
+                  {m.chart && <MiniBarChart data={m.chart} />}
+                </div>
+              </div>
+            ))}
+
+            {/* Action Cards & Gợi ý câu hỏi */}
+            {messages.length === 1 && (
+              <div className="pt-2 space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-1">
+                  Gợi ý nhanh cho bạn:
+                </p>
+                <div
+                  className={`grid gap-1.5 ${
+                    chatSizeMode === "expanded" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"
+                  }`}
+                >
+                  <button
+                    onClick={() => send("Bạn có thể cho tôi biết công thức tính chu vi và diện tích hình tròn là gì không?")}
+                    className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300 border border-sky-200/60 dark:border-sky-500/30 shrink-0">
+                      <Compass className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                        📐 Công thức chu vi & diện tích hình tròn
+                      </div>
+                    </div>
+                  </button>
+
+                  {doc && (
+                    <>
+                      <button
+                        onClick={() => send("Tóm tắt nội dung chính của tài liệu này")}
+                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
+                      >
+                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-200/60 dark:border-purple-500/30 shrink-0">
+                          <FileText className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                            📄 Tóm tắt nhanh tài liệu này
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => send("Vẽ mô hình tư duy cho tôi")}
+                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
+                      >
+                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-500/30 shrink-0">
+                          <Network className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                            🧠 Dựng sơ đồ tư duy (Mindmap)
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => send("Tạo 3 câu hỏi ôn tập từ tài liệu này")}
+                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group"
+                      >
+                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-200/60 dark:border-amber-500/30 shrink-0">
+                          <HelpCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                            📝 Đố vui 3 câu trắc nghiệm
+                          </div>
+                        </div>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {loading && (
+              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-300 italic bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700 w-fit shadow-2xs">
+                <span className="h-2 w-2 rounded-full bg-indigo-600 animate-ping" />
+                <span>AI đang suy nghĩ và chuẩn bị câu trả lời…</span>
+              </div>
+            )}
+            <div ref={endRef} />
+          </div>
+
+          {/* Ô nhập liệu tin nhắn */}
+          <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shrink-0">
+            <div className="flex items-center gap-2">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && send(input)}
+                placeholder="Hỏi bất kỳ điều gì (giải toán, lập trình, tóm tắt bài...)..."
+                className="flex-1 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors"
+              />
+              <button
+                onClick={() => send(input)}
+                disabled={!input.trim() || loading}
+                className="inline-flex items-center justify-center h-9 px-3.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-xs text-xs font-medium transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0"
+                title="Gửi câu hỏi"
+              >
+                <Send className="h-3.5 w-3.5" strokeWidth={1.75} />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
