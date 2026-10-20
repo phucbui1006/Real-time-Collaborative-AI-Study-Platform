@@ -180,11 +180,12 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
   const send = async (text: string) => {
     const prompt = text.trim();
     if (!prompt || loading) return;
-    setMessages((m) => [...m, { role: "user", text: prompt }]);
+    const newHistory = [...messages, { role: "user" as const, text: prompt }];
+    setMessages(newHistory);
     setInput("");
     setLoading(true);
     try {
-      const reply = await askAI(prompt, doc);
+      const reply = await askAI(prompt, doc, newHistory);
       setMessages((m) => [...m, { role: "ai", ...reply }]);
     } catch {
       setMessages((m) => [...m, { role: "ai", text: "Mình đang bị nghẽn mạng xíu, bạn nhắn lại với mình nha! 😊" }]);

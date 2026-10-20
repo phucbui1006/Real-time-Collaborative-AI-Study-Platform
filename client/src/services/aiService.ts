@@ -135,7 +135,8 @@ export const SUGGESTIONS = [
  */
 export async function askAI(
   prompt: string,
-  doc: DocumentItem | null
+  doc: DocumentItem | null,
+  history?: ChatMessage[]
 ): Promise<{ text: string; chart?: ChartItem[]; isGemini?: boolean }> {
   const lower = prompt.toLowerCase().trim();
 
@@ -235,6 +236,7 @@ export async function askAI(
         docTitle: doc?.title,
         docSubject: doc?.subject,
         pagesContent: pages,
+        history,
       });
       return { text: response, isGemini: true };
     } catch (err: unknown) {
@@ -293,8 +295,46 @@ async function getFallbackResponse(
     };
   }
 
-  // 1.2 Hình tam giác
-  if (lower.includes("tam giác") && (lower.includes("diện tích") || lower.includes("chu vi") || lower.includes("công thức"))) {
+  // 1.2 Góc trong tam giác (Tổng các góc, Định lý Cosin, Định lý Sin, Hệ thức lượng)
+  if (
+    lower.includes("tam giác") &&
+    (lower.includes("góc") || lower.includes("cos") || lower.includes("sin") || lower.includes("độ") || lower.includes("lượng giác"))
+  ) {
+    return {
+      text:
+        `Tổng hợp đầy đủ các **công thức liên quan đến góc trong tam giác** đây nè bạn: 📐✨\n\n` +
+        `### 1. Định lý tổng ba góc trong một tam giác:\n` +
+        `> Trong mọi tam giác, tổng số đo 3 góc trong luôn bằng **180°**:\n` +
+        `> **\`Â + B̂ + Ĉ = 180°\`**\n\n` +
+        `### 2. Định lý Cosin (Tính góc khi biết 3 cạnh a, b, c):\n` +
+        `- **Góc A:** \`cos A = (b² + c² - a²) / (2 × b × c)\`\n` +
+        `- **Góc B:** \`cos B = (a² + c² - b²) / (2 × a × c)\`\n` +
+        `- **Góc C:** \`cos C = (a² + b² - c²) / (2 × a × b)\`\n` +
+        `*(Bấm \`Shift + cos\` trên máy tính bỏ túi để suy ra số đo góc theo độ)*\n\n` +
+        `### 3. Định lý Sin (Liên hệ giữa cạnh, góc đối diện và bán kính đường tròn ngoại tiếp R):\n` +
+        `> **\`a / sin A = b / sin B = c / sin C = 2R\`**\n\n` +
+        `### 4. Công thức tính diện tích tam giác qua góc:\n` +
+        `- \`S = 1/2 × a × b × sin C\`\n` +
+        `- \`S = 1/2 × b × c × sin A\`\n` +
+        `- \`S = 1/2 × a × c × sin B\`\n\n` +
+        `### 5. Các trường hợp góc trong tam giác đặc biệt:\n` +
+        `- **Tam giác vuông (Â = 90°):**\n` +
+        `  + Hai góc nhọn phụ nhau: \`B̂ + Ĉ = 90°\`\n` +
+        `  + Tỉ số lượng giác: \`sin = đối / huyền\`, \`cos = kề / huyền\`, \`tan = đối / kề\`\n` +
+        `- **Tam giác đều:** Cả 3 góc đều bằng nhau và bằng **60°** (\`Â = B̂ = Ĉ = 60°\`).\n` +
+        `- **Tam giác vuông cân:** Có 1 góc vuông **90°** và 2 góc nhọn bằng nhau **45°**.\n` +
+        `- **Góc ngoài của tam giác:** Bằng tổng của hai góc trong không kề với nó (\`Â_ngoài = B̂ + Ĉ\`).\n\n` +
+        `💡 *Nếu bạn có số liệu bài toán cụ thể nào, cứ nhắn cho mình cùng giải chi tiết nhé!*`,
+      isGemini: false,
+    };
+  }
+
+  // 1.3 Chu vi & Diện tích hình tam giác
+  if (
+    lower.includes("tam giác") &&
+    !lower.includes("góc") &&
+    (lower.includes("diện tích") || lower.includes("chu vi") || lower.includes("công thức") || lower.includes("chiều cao"))
+  ) {
     return {
       text:
         `Công thức về **hình tam giác** đây bạn nhé: 📐\n\n` +

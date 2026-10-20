@@ -3,6 +3,18 @@
 
 const STORAGE_KEY = "peermind_gemini_api_key";
 
+// Tự động dọn dẹp các key lỗi hoặc bị khóa nếu còn sót trong localStorage của trình duyệt
+if (typeof window !== "undefined") {
+  try {
+    const cached = localStorage.getItem(STORAGE_KEY);
+    if (cached && (cached.includes("Tx1Q") || cached.includes("Lehc") || cached.length < 20)) {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 // Danh sách các mô hình Flash thế hệ mới nhất của Google (tự động thử dự phòng nếu một mô hình bị nghẽn tải)
 const ACTIVE_MODELS = [
   "gemini-flash-lite-latest", // Gemini 3.5 Flash Lite siêu nhanh & ổn định
@@ -12,17 +24,38 @@ const ACTIVE_MODELS = [
 ];
 
 /**
- * Lấy API Key đang hoạt động: ưu tiên localStorage -> biến môi trường VITE
+ * Lấy API Key đang hoạt động:
+ * 1. Ưu tiên biến môi trường VITE_GEMINI_API_KEY (được cấu hình chuẩn trên Vercel / server)
+ * 2. Nếu không có biến môi trường thì mới dùng key người dùng lưu trong localStorage (BYOK)
  */
 export function getGeminiApiKey(): string {
+  const envKey = ((import.meta.env.VITE_GEMINI_API_KEY as string) || "").trim();
+  if (envKey.length > 10) {
+    // Nếu biến môi trường Vercel đã có sẵn key hợp lệ, tự dọn dẹp key cũ trong localStorage nếu có
+    if (typeof window !== "undefined") {
+      try {
+        const local = localStorage.getItem(STORAGE_KEY);
+        if (local && (local.includes("Tx1Q") || local.includes("Lehc"))) {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return envKey;
+  }
+
   if (typeof window !== "undefined") {
-    const local = localStorage.getItem(STORAGE_KEY);
-    if (local && local.trim().length > 10) {
-      return local.trim();
+    try {
+      const local = localStorage.getItem(STORAGE_KEY);
+      if (local && !local.includes("Tx1Q") && !local.includes("Lehc") && local.trim().length > 10) {
+        return local.trim();
+      }
+    } catch {
+      // ignore
     }
   }
-  const envKey = (import.meta.env.VITE_GEMINI_API_KEY as string) || "";
-  return envKey.trim();
+  return "";
 }
 
 /**
@@ -148,6 +181,24 @@ async function callGemini(prompt: string, jsonMode = false): Promise<string> {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         const errMsg = err.error?.message || `Mã HTTP: ${res.status}`;
+
+        // Nếu gặp lỗi xác thực 400/401/403 hoặc API key bị block/invalid, tự động xóa key lỗi khỏi localStorage
+        if (
+          res.status === 401 ||
+          res.status === 403 ||
+          errMsg.includes("API_KEY") ||
+          errMsg.includes("blocked") ||
+          errMsg.includes("credential")
+        ) {
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.removeItem(STORAGE_KEY);
+            } catch {
+              // ignore
+            }
+          }
+        }
+
         lastError = new Error(`Lỗi mô hình ${model}: ${errMsg}`);
         // Thử mô hình tiếp theo trong danh sách
         continue;
@@ -180,11 +231,13 @@ export async function askGeminiRAG({
   docTitle,
   docSubject,
   pagesContent = [],
+  history = [],
 }: {
   question: string;
   docTitle?: string;
   docSubject?: string;
   pagesContent?: string[];
+  history?: { role: "user" | "ai"; text: string }[];
 }): Promise<string> {
   let context = "";
   const hasDoc = !!docTitle && pagesContent && pagesContent.length > 0;
@@ -205,6 +258,20 @@ export async function askGeminiRAG({
     }
   }
 
+  // Thu thập các tin nhắn trao đổi gần nhất để AI nắm bắt chuẩn ngữ cảnh hội thoại
+  let conversationHistory = "";
+  if (history && history.length > 0) {
+    const recent = history
+      .filter((m) => m.text && !m.text.startsWith("Chào bạn nha! Mình là Trợ lý AI PeerMind"))
+      .slice(-6);
+
+    if (recent.length > 0) {
+      conversationHistory = recent
+        .map((m) => `${m.role === "user" ? "👤 Bạn học" : "🤖 Trợ lý AI PeerMind"}: ${m.text}`)
+        .join("\n\n");
+    }
+  }
+
   const prompt = `
 Bạn là Trợ lý AI PeerMind — một AI Chatbot thông minh, uyên bác và thân thiện như một người bạn học cùng bàn 24/7.
 
@@ -214,24 +281,28 @@ VAI TRÒ VÀ NĂNG LỰC TOÀN DIỆN CỦA BẠN:
 2. NGUYÊN TẮC QUAN TRỌNG VỀ TÀI LIỆU ĐANG MỞ:
    ${hasDoc ? `- Hiện tại người dùng đang mở tài liệu: "${docTitle}" (${docSubject || "Chung"}).
    - QUY TẮC: Bạn CHỈ nhắc đến tài liệu này khi câu hỏi của người dùng THỰC SỰ LIÊN QUAN đến tài liệu đó (hoặc người dùng yêu cầu tóm tắt, giải thích tài liệu).
-   - NẾU người dùng hỏi các câu hỏi kiến thức ngoài (ví dụ: công thức chu vi hình tròn, hỏi về lập trình, giải toán phổ thông, hỏi thăm đời sống...): Hãy TRẢ LỜI ĐẦY ĐỦ, CHÍNH XÁC VÀ TỰ NHIÊN câu hỏi đó! TUYỆT ĐỐI KHÔNG gượng ép lôi tài liệu vào nếu không liên quan.` : "- Hiện tại không có tài liệu nào được chỉ định. Hãy giải đáp tự do mọi câu hỏi của người dùng như một AI Chatbot thông minh và hữu ích."}
+   - NẾU người dùng hỏi các câu hỏi kiến thức ngoài (ví dụ: công thức chu vi hình tròn, góc trong tam giác, hỏi về lập trình, giải toán phổ thông, hỏi thăm đời sống...): Hãy TRẢ LỜI ĐẦY ĐỦ, CHÍNH XÁC VÀ TỰ NHIÊN câu hỏi đó! TUYỆT ĐỐI KHÔNG gượng ép lôi tài liệu vào nếu không liên quan.` : "- Hiện tại không có tài liệu nào được chỉ định. Hãy giải đáp tự do mọi câu hỏi của người dùng như một AI Chatbot thông minh và hữu ích."}
 3. PHONG CÁCH GIAO TIẾP & ĐỊNH DẠNG CÔNG THỨC (BẮT BUỘC):
    - Xưng hô "mình" và "bạn". Giao tiếp gần gũi, tự nhiên, ấm áp như hai bạn học thân thiết đang ngồi học cùng nhau.
    - QUY TẮC CÔNG THỨC TOÁN HỌC & KÝ HIỆU:
-     + Khi viết công thức toán học, ưu tiên sử dụng ký hiệu Unicode trực quan dễ đọc (như π, ×, ÷, ², ³, ≈, √, ∫) thay vì lạm dụng mã LaTeX phức tạp như \text{} hay \times.
+     + Khi viết công thức toán học, ưu tiên sử dụng ký hiệu Unicode trực quan dễ đọc (như π, ×, ÷, ², ³, ≈, √, ∫, Â, B̂, Ĉ) hoặc LaTeX KaTeX chuẩn để hiển thị đẹp mắt.
      + Hãy viết công thức bằng ký tự Unicode tự nhiên dễ đọc trên mọi thiết bị:
-       * Dấu nhân: × (thay vì * hay \times)
-       * Số Pi: π (thay vì \pi)
+       * Dấu nhân: × (thay vì * hay \\times)
+       * Số Pi: π (thay vì \\pi)
        * Số mũ: ², ³ (ví dụ: r², cm², m³)
-       * Dấu xấp xỉ: ≈ (thay vì \approx)
+       * Dấu xấp xỉ: ≈ (thay vì \\approx)
        * Căn bậc hai: √ (ví dụ: √(a² + b²))
-       * Đặt công thức trọng tâm trong khối mã hoặc in đậm để nổi bật: ví dụ \`C = 2 × π × r\` hoặc \`S = π × r\`.
+       * Đặt công thức trọng tâm trong khối mã hoặc in đậm để nổi bật: ví dụ \`C = 2 × π × r\` hoặc \`S = π × r²\`.
    - Trình bày Markdown sạch sẽ, font tiếng Việt chuẩn xác, danh sách gạch đầu dòng rõ ràng, emoji tươi vui (💡, 📌, ✨, 🚀, 📐, 💻).
    - Nếu người dùng chào hỏi, hỏi thăm hoặc trò chuyện phiếm: Hãy vui vẻ trò chuyện tự nhiên, đừng tuôn ra lý thuyết sách vở khô khan.
+4. QUY TẮC BÁM SÁT NGỮ CẢNH CÂU HỎI:
+   - Hãy tập trung trả lời CHÍNH XÁC VÀ ĐẦY ĐỦ theo chủ đề của câu hỏi mới nhất.
+   - Nếu câu hỏi mới nhất chuyển sang một chủ đề khác (ví dụ: đang nói về hình tròn chuyển sang hỏi về góc trong tam giác), hãy lập tức trả lời đúng chủ đề góc trong tam giác, KHÔNG nhầm lẫn hoặc lặp lại chủ đề cũ.
+   - Nếu câu hỏi mới là dạng tiếp nối (ví dụ: "còn trường hợp...", "tại sao?", "ví dụ minh họa?"), hãy đối chiếu với lịch sử hội thoại bên dưới để trả lời liền mạch.
 
 ${context ? `=== NỘI DUNG TÀI LIỆU THAM KHẢO (CHỈ DÙNG KHI LIÊN QUAN) ===\n${context}\n` : ""}
-
-=== CÂU HỎI TỪ BẠN HỌC ===
+${conversationHistory ? `=== LỊCH SỬ HỘI THOẠI GẦN ĐÂY (ĐỂ BẮT ĐÚNG NGỮ CẢNH) ===\n${conversationHistory}\n` : ""}
+=== CÂU HỎI MỚI NHẤT CỦA BẠN HỌC ===
 "${question}"
 `;
 
