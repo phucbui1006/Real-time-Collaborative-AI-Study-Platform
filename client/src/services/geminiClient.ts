@@ -52,10 +52,7 @@ export function hasGeminiApiKey(): boolean {
  * Tạo URL chuẩn gọi Gemini API
  */
 function buildGeminiUrl(model: string, apiKey: string): string {
-  if (apiKey.startsWith("AIza")) {
-    return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  }
-  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 }
 
 /**
