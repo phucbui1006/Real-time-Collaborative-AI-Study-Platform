@@ -1,27 +1,36 @@
-import { createRoom, verifyRoom, getRooms } from "./api";
+// services/roomService.ts — Service quản lý phòng học & dữ liệu Supabase Realtime
+import { supabase } from "./supabaseClient";
 
-// services/roomService.ts — Service quản lý phòng học & dữ liệu lịch sử
 export type RoomItem = {
   id: number;
   name: string;
   code: string;
   lastVisit: string;
   color: string;
+  documentId?: number | null;
 };
 
 export const INITIAL_HISTORY: RoomItem[] = [
-  { id: 1, name: "Nhóm ôn thi Toán 12", code: "482913", lastVisit: "Hôm nay, 19:30", color: "#0ea5e9" },
-  { id: 2, name: "English Speaking Club", code: "730256", lastVisit: "Hôm qua, 20:00", color: "#8b5cf6" },
-  { id: 3, name: "Lập trình AI & Web", code: "159847", lastVisit: "3 ngày trước", color: "#10b981" },
+  { id: 1, name: "Nhóm ôn thi Toán 12", code: "482913", lastVisit: "Hôm nay, 19:30", color: "#0ea5e9", documentId: 1 },
+  { id: 2, name: "English Speaking Club", code: "730256", lastVisit: "Hôm qua, 20:00", color: "#8b5cf6", documentId: 2 },
+  { id: 3, name: "Lập trình AI & Web", code: "159847", lastVisit: "3 ngày trước", color: "#10b981", documentId: 3 },
 ];
 
 export const COLORS = ["#0ea5e9", "#8b5cf6", "#10b981", "#f59e0b", "#ec4899", "#14b8a6"];
 
+/**
+ * Lấy danh sách phòng học trực tiếp từ Supabase
+ */
 export async function fetchRoomsApi(): Promise<RoomItem[]> {
   try {
-    const res = await getRooms();
-    if (res.data?.success && Array.isArray(res.data.rooms) && res.data.rooms.length > 0) {
-      return res.data.rooms.map((r: { id: number; name: string; code: string; created_at?: string }, i: number) => {
+    const { data: rooms, error } = await supabase
+      .from("rooms")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
+    if (!error && Array.isArray(rooms) && rooms.length > 0) {
+      return rooms.map((r, i) => {
         let lastVisit = "Gần đây";
         if (r.created_at) {
           try {
@@ -42,47 +51,103 @@ export async function fetchRoomsApi(): Promise<RoomItem[]> {
           code: r.code,
           lastVisit,
           color: COLORS[i % COLORS.length],
+          documentId: r.document_id,
         };
       });
     }
   } catch (err) {
-    console.warn("Lỗi tải phòng từ server, dùng cache:", err);
+    console.warn("Lỗi tải phòng từ Supabase, dùng cache:", err);
   }
   return INITIAL_HISTORY;
 }
 
-export async function joinRoomApi({ code, password }: { code: string; password: string }): Promise<{ name: string; code: string }> {
+/**
+ * Kiểm tra mã phòng và mật khẩu trực tiếp trên Supabase
+ */
+export async function joinRoomApi({
+  code,
+  password,
+}: {
+  code: string;
+  password: string;
+}): Promise<{ name: string; code: string; documentId?: number | null }> {
   try {
-    const res = await verifyRoom(code, password);
-    if (res.data?.success && res.data?.room) {
-      return { name: res.data.room.name, code: res.data.room.code };
+    const cleanCode = code.trim();
+    const cleanPassword = password.trim();
+
+    // 1. Kiểm tra trong Supabase
+    const { data: room, error } = await supabase
+      .from("rooms")
+      .select("*")
+      .eq("code", cleanCode)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Lỗi truy vấn Supabase rooms:", error.message);
     }
-    throw new Error(res.data?.error || "Không thể vào phòng.");
+
+    if (room) {
+      if (room.password_hash && room.password_hash !== cleanPassword) {
+        throw new Error("Mật khẩu phòng không chính xác.");
+      }
+      return { name: room.name, code: room.code, documentId: room.document_id };
+    }
+
+    // 2. Dự phòng kiểm tra trong danh sách mẫu cho chế độ demo
+    const mockRoom = INITIAL_HISTORY.find((r) => r.code === cleanCode);
+    if (mockRoom) {
+      return { name: mockRoom.name, code: mockRoom.code, documentId: mockRoom.documentId };
+    }
+
+    throw new Error("Mã phòng không tồn tại trên hệ thống hoặc phòng đã đóng.");
   } catch (err: unknown) {
-    const axiosError = err as { response?: { status?: number; data?: { error?: string } }; message?: string };
-    if (axiosError.response?.data?.error) {
-      throw new Error(axiosError.response.data.error);
-    }
-    if (axiosError.response?.status === 404) {
-      throw new Error("Mã phòng không tồn tại trên hệ thống.");
-    }
-    if (axiosError.response?.status === 401) {
-      throw new Error("Mật khẩu phòng không chính xác.");
-    }
-    throw new Error(axiosError.message || "Có lỗi xảy ra khi xác thực phòng.");
+    const e = err as Error;
+    throw new Error(e.message || "Có lỗi xảy ra khi xác thực phòng.");
   }
 }
 
-export async function createRoomApi({ name, code, password }: { name: string; code: string; password: string }): Promise<{ name: string; code: string }> {
+/**
+ * Tạo phòng học mới và lưu trực tiếp lên Supabase
+ */
+export async function createRoomApi({
+  name,
+  code,
+  password,
+}: {
+  name: string;
+  code: string;
+  password: string;
+}): Promise<{ name: string; code: string }> {
+  const roomName = name.trim();
+  const roomCode = code.trim() || randomCode();
+  const roomPassword = password ? password.trim() : null;
+
   try {
-    const res = await createRoom(name, password);
-    if (res.data?.success && res.data?.room) {
-      return { name: res.data.room.name, code: res.data.room.code };
+    const { data, error } = await supabase
+      .from("rooms")
+      .insert([
+        {
+          name: roomName,
+          code: roomCode,
+          password_hash: roomPassword,
+          is_active: true,
+        },
+      ])
+      .select()
+      .maybeSingle();
+
+    if (!error && data) {
+      return { name: data.name, code: data.code };
+    }
+    if (error) {
+      console.warn("Lỗi tạo phòng Supabase:", error.message);
     }
   } catch (err) {
-    console.warn("Lỗi tạo phòng trên server:", err);
+    console.warn("Lỗi kết nối khi tạo phòng:", err);
   }
-  return { name, code };
+
+  return { name: roomName, code: roomCode };
 }
 
 export const randomCode = () => String(Math.floor(100000 + Math.random() * 900000));

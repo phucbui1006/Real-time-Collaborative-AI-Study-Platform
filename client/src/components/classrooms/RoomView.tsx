@@ -537,7 +537,7 @@ export default function RoomView({
   onSlide = () => {},
   onChangeAnnotations = () => {},
 }: RoomViewProps) {
-  const [doc, setDoc] = useState<DocItem | null>(null);
+  const [doc, setDoc] = useState<DocItem | null>(docs && docs.length > 0 ? docs[0] : null);
   const [index, setIndex] = useState(0);
   const [notes, setNotes] = useState<Record<string, AnnotationObj[]>>({});
   const [tool, setTool] = useState("pen");
