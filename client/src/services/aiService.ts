@@ -4,6 +4,7 @@ import {
   askGeminiRAG,
   summarizeDocumentWithGemini,
   generateQuizWithGemini,
+  generateMindmapTextWithGemini,
 } from "./geminiClient";
 
 export type DocumentItem = {
@@ -122,7 +123,7 @@ export const INITIAL_DOCS: DocumentItem[] = [
 
 export const SUGGESTIONS = [
   { label: "Tóm tắt tài liệu", prompt: "Tóm tắt nội dung chính của tài liệu này" },
-  { label: "Vẽ biểu đồ tiến độ", prompt: "Vẽ biểu đồ tiến độ học của tôi" },
+  { label: "Vẽ mô hình tư duy", prompt: "Vẽ mô hình tư duy cho tôi" },
   { label: "Tạo câu hỏi ôn tập", prompt: "Tạo 5 câu hỏi ôn tập từ tài liệu này" },
 ];
 
@@ -133,7 +134,7 @@ export async function askAI(
   prompt: string,
   doc: DocumentItem | null
 ): Promise<{ text: string; chart?: ChartItem[]; isGemini?: boolean }> {
-  const lower = prompt.toLowerCase();
+  const lower = prompt.toLowerCase().trim();
 
   // Yêu cầu vẽ biểu đồ tiến độ
   if (lower.includes("biểu đồ") || lower.includes("tiến độ")) {
@@ -175,7 +176,22 @@ export async function askAI(
         return { text: summary, isGemini: true };
       }
 
-      // 2. Tạo câu hỏi ôn tập
+      // 2. Vẽ mô hình tư duy / Sơ đồ tư duy (Mindmap)
+      if (
+        lower.includes("tư duy") ||
+        lower.includes("sơ đồ") ||
+        lower.includes("mô hình") ||
+        lower.includes("mindmap")
+      ) {
+        const mindmap = await generateMindmapTextWithGemini({
+          docTitle: doc.title,
+          docSubject: doc.subject,
+          pagesContent: pages,
+        });
+        return { text: mindmap, isGemini: true };
+      }
+
+      // 3. Tạo câu hỏi ôn tập
       if (
         lower.includes("câu hỏi") ||
         lower.includes("trắc nghiệm") ||
@@ -205,7 +221,7 @@ export async function askAI(
         };
       }
 
-      // 3. Hỏi đáp RAG thông thường
+      // 4. Hỏi đáp RAG / Trò chuyện thông thường
       const response = await askGeminiRAG({
         question: prompt,
         docTitle: doc.title,
@@ -246,7 +262,7 @@ async function getFallbackResponse(
 
   if (isGreeting) {
     return {
-      text: `Chào bạn nha! Rất vui được đồng hành học tập cùng bạn hôm nay 😊.\n\nTụi mình đang xem tài liệu **"${doc.title}"**. Bạn có thắc mắc gì, muốn mình tóm tắt bài giảng hay giải thích công thức nào thì cứ thoải mái nhắn mình nhé! ✨`,
+      text: `Chào bạn nha! Rất vui được đồng hành học tập cùng bạn hôm nay 😊.\n\nTụi mình đang xem tài liệu **"${doc.title}"**. Bạn có thắc mắc gì, muốn mình tóm tắt bài giảng hay vẽ sơ đồ tư duy thì cứ thoải mái nhắn mình nhé! ✨`,
       isGemini: false,
     };
   }
@@ -254,12 +270,41 @@ async function getFallbackResponse(
   // 2. Hỏi danh tính
   if (lower.includes("bạn là ai") || lower.includes("tên gì") || lower.includes("giới thiệu")) {
     return {
-      text: `Mình là **Trợ lý AI PeerMind** — bạn đồng hành học tập cùng bàn 24/7 của bạn nè! Mình có thể cùng bạn đọc tài liệu, tóm tắt bài học, vẽ biểu đồ tiến độ hay ra đề đố vui ôn thi bất cứ lúc nào. Cứ tự nhiên coi mình như bạn cùng lớp nhé! 🚀`,
+      text: `Mình là **Trợ lý AI PeerMind** — bạn đồng hành học tập cùng bàn 24/7 của bạn nè! Mình có thể cùng bạn đọc tài liệu, tóm tắt bài học, vẽ sơ đồ tư duy hay soạn câu hỏi trắc nghiệm ôn thi bất cứ lúc nào. Cứ tự nhiên coi mình như bạn cùng lớp nhé! 🚀`,
       isGemini: false,
     };
   }
 
-  // 3. Yêu cầu tóm tắt
+  // 3. Yêu cầu vẽ mô hình tư duy / Sơ đồ tư duy
+  if (
+    lower.includes("tư duy") ||
+    lower.includes("sơ đồ") ||
+    lower.includes("mô hình") ||
+    lower.includes("mindmap")
+  ) {
+    const branches =
+      pages.length > 0
+        ? pages
+            .map((p, i) => {
+              const parts = p.split(":");
+              const mainTitle = parts[0]?.trim() || `Phần ${i + 1}`;
+              const subDetail = parts[1]?.trim() || p;
+              return `├── 🌿 **Nhánh ${i + 1}: ${mainTitle}**\n│    └── 📌 ${subDetail}`;
+            })
+            .join("\n")
+        : `├── 🌿 **1. Khái niệm & Nguyên lý nền tảng**\n│    └── 📌 Định nghĩa cốt lõi và các quy tắc áp dụng\n├── 🌿 **2. Phương pháp giải & Thuật toán**\n│    └── 📌 Trình tự từng bước giải bài toán mẫu\n└── 🌿 **3. Điểm lưu ý & Bẫy thường gặp**\n     └── 💡 Mẹo làm bài nhanh và chính xác`;
+
+    return {
+      text:
+        `Dưới đây là sơ đồ tư duy (Mindmap) trực quan cho bài học **"${doc.title}"** nè bạn: 🧠✨\n\n` +
+        `📦 **CHỦ ĐỀ: ${doc.title.toUpperCase()}**\n` +
+        branches +
+        `\n\n💡 *Nhìn theo sơ đồ này bạn sẽ thấy toàn bộ cấu trúc bài học liên kết với nhau rất mạch lạc! Cần mình đào sâu nhánh nào thì cứ nhắn nhé!*`,
+      isGemini: false,
+    };
+  }
+
+  // 4. Yêu cầu tóm tắt
   if (
     lower.includes("tóm tắt") ||
     lower.includes("khái quát") ||
@@ -281,7 +326,7 @@ async function getFallbackResponse(
     };
   }
 
-  // 4. Yêu cầu tạo câu hỏi ôn tập
+  // 5. Yêu cầu tạo câu hỏi ôn tập
   if (
     lower.includes("câu hỏi") ||
     lower.includes("trắc nghiệm") ||
@@ -302,7 +347,7 @@ async function getFallbackResponse(
     };
   }
 
-  // 5. Khớp từ khóa theo nội dung từng trang
+  // 6. Khớp từ khóa theo nội dung từng trang
   if (pages.length > 0) {
     const words = lower.split(/\s+/).filter((w) => w.length > 2);
     const matched = pages.find((p) =>
@@ -321,7 +366,7 @@ async function getFallbackResponse(
   }
 
   return {
-    text: `Mình đã nghe rõ câu hỏi của bạn về **"${doc.title}"** rồi nha! Bạn muốn mình giúp tóm tắt bài giảng, giải thích công thức hay làm vài câu đố vui trắc nghiệm cùng bạn nè? 😊`,
+    text: `Mình đã nghe rõ câu hỏi của bạn về **"${doc.title}"** rồi nha! Bạn muốn mình giúp tóm tắt bài giảng, vẽ sơ đồ tư duy hay làm vài câu đố vui trắc nghiệm cùng bạn nè? 😊`,
     isGemini: false,
   };
 }

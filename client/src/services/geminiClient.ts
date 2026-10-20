@@ -246,7 +246,40 @@ Dùng giọng văn thân thiện, xưng "mình - bạn", có icon và định d�
 }
 
 /**
- * 3. Tạo bộ câu hỏi trắc nghiệm tự động (Quiz Generator)
+ * 3. Vẽ sơ đồ tư duy (Mindmap) phân cấp bằng Gemini
+ */
+export async function generateMindmapTextWithGemini({
+  docTitle,
+  docSubject,
+  pagesContent,
+}: {
+  docTitle: string;
+  docSubject?: string;
+  pagesContent: string[];
+}): Promise<string> {
+  const contentText = pagesContent.length > 0 ? pagesContent.join("\n\n") : docTitle;
+
+  const prompt = `
+Bạn là chuyên gia trực quan hóa kiến thức và sơ đồ tư duy của PeerMind.
+Dựa vào nội dung tài liệu "${docTitle}" (${docSubject || "Chung"}), hãy dựng một sơ đồ tư duy (Mindmap) phân cấp bằng Markdown tuyệt đẹp, trực quan, sinh động.
+
+=== NỘI DUNG TÀI LIỆU ===
+${contentText.slice(0, 9000)}
+
+=== YÊU CẦU TRÌNH BÀY ===
+- Dùng các ký tự cây phân nhánh: ├──, └──, │ và các emoji (🧠, 📦, 🌿, 📌, 💡, ⚡) để tạo thành sơ đồ tư duy trực quan, rõ ràng từng tầng lớp.
+- Bố cục gồm:
+  + Gốc: 📦 **CHỦ ĐỀ: ${docTitle.toUpperCase()}**
+  + Các nhánh cấp 1 (🌿): Các phần lớn / nội dung trọng tâm
+  + Các nhánh con cấp 2 (📌): Khái niệm, công thức hoặc quy tắc cốt lõi
+- Kèm 1 lời nhắn thân thiện ở cuối khích lệ bạn học bằng giọng văn tự nhiên xưng "mình - bạn".
+`;
+
+  return callGemini(prompt, false);
+}
+
+/**
+ * 4. Tạo bộ câu hỏi trắc nghiệm tự động (Quiz Generator)
  */
 export type GeneratedQuestion = {
   id: number;
