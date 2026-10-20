@@ -18,6 +18,7 @@ import {
   Maximize2,
   Minimize2,
   ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { DocumentItem, ChatMessage, askAI } from "../../services/aiService";
 import { hasGeminiApiKey } from "../../services/geminiClient";
@@ -142,6 +143,9 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isGeminiReady = hasGeminiApiKey();
   const endRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const userScrolledUpRef = useRef(false);
 
   // 3 Chế độ kích thước: 'normal' | 'expanded' | 'minimized'
   const [chatSizeMode, setChatSizeMode] = useState<ChatSizeMode>("normal");
@@ -176,11 +180,39 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
     return () => clearInterval(timer);
   }, [loading]);
 
+  // Lắng nghe thao tác cuộn để nhận diện người dùng muốn tự do đọc văn bản phía trên
+  const handleScroll = () => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    // Nếu cách đáy hơn 70px: người dùng đang chủ động cuộn lên xem lịch sử hoặc đọc từ trên xuống
+    const isUp = distanceFromBottom > 70;
+    userScrolledUpRef.current = isUp;
+    setShowScrollBottom(isUp);
+  };
+
+  // Cuộn xuống đáy có kiểm soát
+  const scrollToBottom = (force = false) => {
+    if (force) {
+      userScrolledUpRef.current = false;
+      setShowScrollBottom(false);
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    // Nếu người dùng đang cuộn lên đọc bài, TUYỆT ĐỐI KHÔNG can thiệp kéo xuống
+    if (userScrolledUpRef.current) return;
+
+    const el = messagesContainerRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  };
+
   useEffect(() => {
     if (isOpen && chatSizeMode !== "minimized") {
-      endRef.current?.scrollIntoView({ behavior: "smooth" });
+      scrollToBottom(false);
     }
-  }, [messages, loading, isTyping, isOpen, chatSizeMode]);
+  }, [messages, loading, isOpen, chatSizeMode]);
 
   // Logic kéo mép trái để tùy chỉnh chiều rộng
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -215,6 +247,13 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
     setMessages(newHistory);
     setInput("");
     setLoading(true);
+
+    // Reset cờ cuộn khi người dùng gửi tin nhắn mới và cuộn xuống đáy
+    userScrolledUpRef.current = false;
+    setShowScrollBottom(false);
+    setTimeout(() => {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 50);
 
     const startTime = Date.now();
     try {
@@ -265,7 +304,13 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
             return updated;
           });
 
-          endRef.current?.scrollIntoView({ behavior: "smooth" });
+          // Chỉ tự động bám theo đáy nếu người dùng KHÔNG chủ động cuộn lên
+          if (!userScrolledUpRef.current) {
+            const el = messagesContainerRef.current;
+            if (el) {
+              el.scrollTop = el.scrollHeight;
+            }
+          }
 
           if (currentIndex >= totalLength) {
             clearInterval(timer);
@@ -460,142 +505,160 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
       {chatSizeMode !== "minimized" && (
         <>
           {/* Khung tin nhắn cuộn mượt */}
-          <div className="flex-1 space-y-3.5 overflow-y-auto bg-slate-50/40 dark:bg-slate-950/60 p-4 min-h-0">
-            {messages.map((m, i) => (
-              <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
-                <div
-                  className={`max-w-[88%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed ${
-                    m.role === "user"
-                      ? "bg-indigo-600 text-white shadow-2xs font-normal whitespace-pre-wrap"
-                      : "bg-white dark:bg-slate-800/90 text-slate-800 dark:text-slate-200 border border-slate-200/90 dark:border-slate-700/60 shadow-2xs"
-                  }`}
-                >
-                  {m.role === "ai" && m.isGemini && (
-                    <div className="mb-1 flex items-center gap-1 text-[10px] font-mono font-semibold text-indigo-600 dark:text-indigo-400">
-                      <Sparkles className="w-2.5 h-2.5" />
-                      <span>Gemini Flash</span>
-                    </div>
-                  )}
-
-                  {m.role === "user" ? (
-                    <div>{m.text}</div>
-                  ) : (
-                    <div>
-                      <FormattedAIMessage text={m.text} />
-                      {isTyping && i === messages.length - 1 && (
-                        <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-indigo-500 animate-pulse align-middle" />
-                      )}
-                    </div>
-                  )}
-
-                  {m.chart && (!isTyping || i < messages.length - 1) && <MiniBarChart data={m.chart} />}
-                </div>
-              </div>
-            ))}
-
-            {/* Action Cards & Gợi ý câu hỏi */}
-            {messages.length === 1 && (
-              <div className="pt-2 space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-1">
-                  Gợi ý nhanh cho bạn:
-                </p>
-                <div
-                  className={`grid gap-1.5 ${
-                    chatSizeMode === "expanded" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"
-                  }`}
-                >
-                  <button
-                    onClick={() => !loading && !isTyping && send("Bạn có thể cho tôi biết công thức tính chu vi và diện tích hình tròn là gì không?")}
-                    disabled={loading || isTyping}
-                    className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
+          <div className="relative flex-1 min-h-0 flex flex-col">
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 space-y-3.5 overflow-y-auto bg-slate-50/40 dark:bg-slate-950/60 p-4 min-h-0"
+            >
+              {messages.map((m, i) => (
+                <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
+                  <div
+                    className={`max-w-[88%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed ${
+                      m.role === "user"
+                        ? "bg-indigo-600 text-white shadow-2xs font-normal whitespace-pre-wrap"
+                        : "bg-white dark:bg-slate-800/90 text-slate-800 dark:text-slate-200 border border-slate-200/90 dark:border-slate-700/60 shadow-2xs"
+                    }`}
                   >
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300 border border-sky-200/60 dark:border-sky-500/30 shrink-0">
-                      <Compass className="h-3.5 w-3.5" strokeWidth={1.75} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                        📐 Công thức chu vi & diện tích hình tròn
+                    {m.role === "ai" && m.isGemini && (
+                      <div className="mb-1 flex items-center gap-1 text-[10px] font-mono font-semibold text-indigo-600 dark:text-indigo-400">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        <span>Gemini Flash</span>
                       </div>
+                    )}
+
+                    {m.role === "user" ? (
+                      <div>{m.text}</div>
+                    ) : (
+                      <div>
+                        <FormattedAIMessage text={m.text} />
+                        {isTyping && i === messages.length - 1 && (
+                          <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-indigo-500 animate-pulse align-middle" />
+                        )}
+                      </div>
+                    )}
+
+                    {m.chart && (!isTyping || i < messages.length - 1) && <MiniBarChart data={m.chart} />}
+                  </div>
+                </div>
+              ))}
+
+              {/* Action Cards & Gợi ý câu hỏi */}
+              {messages.length === 1 && (
+                <div className="pt-2 space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-1">
+                    Gợi ý nhanh cho bạn:
+                  </p>
+                  <div
+                    className={`grid gap-1.5 ${
+                      chatSizeMode === "expanded" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"
+                    }`}
+                  >
+                    <button
+                      onClick={() => !loading && !isTyping && send("Bạn có thể cho tôi biết công thức tính chu vi và diện tích hình tròn là gì không?")}
+                      disabled={loading || isTyping}
+                      className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
+                    >
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300 border border-sky-200/60 dark:border-sky-500/30 shrink-0">
+                        <Compass className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                          📐 Công thức chu vi & diện tích hình tròn
+                        </div>
+                      </div>
+                    </button>
+
+                    {doc && (
+                      <>
+                        <button
+                          onClick={() => !loading && !isTyping && send("Tóm tắt nội dung chính của tài liệu này")}
+                          disabled={loading || isTyping}
+                          className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
+                        >
+                          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-200/60 dark:border-purple-500/30 shrink-0">
+                            <FileText className="h-3.5 w-3.5" strokeWidth={1.75} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                              📄 Tóm tắt nhanh tài liệu này
+                            </div>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => !loading && !isTyping && send("Vẽ mô hình tư duy cho tôi")}
+                          disabled={loading || isTyping}
+                          className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
+                        >
+                          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-500/30 shrink-0">
+                            <Network className="h-3.5 w-3.5" strokeWidth={1.75} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                              🧠 Dựng sơ đồ tư duy (Mindmap)
+                            </div>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => !loading && !isTyping && send("Tạo 3 câu hỏi ôn tập từ tài liệu này")}
+                          disabled={loading || isTyping}
+                          className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
+                        >
+                          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-200/60 dark:border-amber-500/30 shrink-0">
+                            <HelpCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                              📝 Đố vui 3 câu trắc nghiệm
+                            </div>
+                          </div>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 1. HIỆU ỨNG ĐANG SUY NGHĨ (Thinking Bubble) */}
+              {loading && (
+                <div className="flex justify-start animate-fade-in">
+                  <div className="max-w-[88%] rounded-2xl px-4 py-3 bg-white dark:bg-slate-800/90 text-slate-800 dark:text-slate-200 border border-slate-200/90 dark:border-slate-700/60 shadow-sm space-y-2">
+                    <div className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
+                      <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: "3s" }} />
+                      <span className="font-semibold">Trợ lý AI PeerMind</span>
                     </div>
-                  </button>
 
-                  {doc && (
-                    <>
-                      <button
-                        onClick={() => !loading && !isTyping && send("Tóm tắt nội dung chính của tài liệu này")}
-                        disabled={loading || isTyping}
-                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
-                      >
-                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-200/60 dark:border-purple-500/30 shrink-0">
-                          <FileText className="h-3.5 w-3.5" strokeWidth={1.75} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                            📄 Tóm tắt nhanh tài liệu này
-                          </div>
-                        </div>
-                      </button>
+                    {/* 3 dấu chấm nảy liên tục animate-bounce */}
+                    <div className="flex items-center gap-1.5 py-1">
+                      <span className="h-2 w-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="h-2 w-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="h-2 w-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </div>
 
-                      <button
-                        onClick={() => !loading && !isTyping && send("Vẽ mô hình tư duy cho tôi")}
-                        disabled={loading || isTyping}
-                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
-                      >
-                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-500/30 shrink-0">
-                          <Network className="h-3.5 w-3.5" strokeWidth={1.75} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                            🧠 Dựng sơ đồ tư duy (Mindmap)
-                          </div>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={() => !loading && !isTyping && send("Tạo 3 câu hỏi ôn tập từ tài liệu này")}
-                        disabled={loading || isTyping}
-                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/70 bg-white dark:bg-slate-800/50 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/40 dark:hover:bg-slate-800 transition-all text-left shadow-2xs cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
-                      >
-                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-200/60 dark:border-amber-500/30 shrink-0">
-                          <HelpCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                            📝 Đố vui 3 câu trắc nghiệm
-                          </div>
-                        </div>
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* 1. HIỆU ỨNG ĐANG SUY NGHĨ (Thinking Bubble) */}
-            {loading && (
-              <div className="flex justify-start animate-fade-in">
-                <div className="max-w-[88%] rounded-2xl px-4 py-3 bg-white dark:bg-slate-800/90 text-slate-800 dark:text-slate-200 border border-slate-200/90 dark:border-slate-700/60 shadow-sm space-y-2">
-                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
-                    <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: "3s" }} />
-                    <span className="font-semibold">Trợ lý AI PeerMind</span>
-                  </div>
-
-                  {/* 3 dấu chấm nảy liên tục animate-bounce */}
-                  <div className="flex items-center gap-1.5 py-1">
-                    <span className="h-2 w-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="h-2 w-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="h-2 w-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "300ms" }} />
-                  </div>
-
-                  {/* Dòng trạng thái nhỏ luân phiên thay đổi */}
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 italic flex items-center gap-1.5 transition-all duration-300">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                    <span>{thinkingStatus}</span>
+                    {/* Dòng trạng thái nhỏ luân phiên thay đổi */}
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 italic flex items-center gap-1.5 transition-all duration-300">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                      <span>{thinkingStatus}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+              <div ref={endRef} />
+            </div>
+
+            {/* Nút nổi 'Xuống tin mới nhất' khi người dùng đã cuộn lên trên */}
+            {showScrollBottom && (
+              <button
+                onClick={() => scrollToBottom(true)}
+                className="absolute bottom-3 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-medium shadow-lg hover:shadow-xl transition-all cursor-pointer animate-fade-in group border border-indigo-400/30"
+                title="Cuộn xuống tin nhắn mới nhất"
+              >
+                <span>Xuống tin mới nhất</span>
+                <ChevronDown className="w-3.5 h-3.5 group-hover:translate-y-0.5 transition-transform" />
+              </button>
             )}
-            <div ref={endRef} />
           </div>
 
           {/* Ô nhập liệu tin nhắn */}
