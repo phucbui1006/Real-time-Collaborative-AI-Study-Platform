@@ -67,7 +67,7 @@ export default function App() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [authView, setAuthView] = useState<AuthView>("login");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ email?: string; user_metadata?: { full_name?: string } } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id?: string; email?: string; user_metadata?: { full_name?: string } } | null>(null);
 
   // Form input states
   const [email, setEmail] = useState("");
@@ -151,7 +151,7 @@ export default function App() {
   };
 
   const handleGuestLogin = () => {
-    setCurrentUser({ email: "guest@peermind.demo", user_metadata: { full_name: "Khách trải nghiệm" } });
+    setCurrentUser({ id: "guest-user-001", email: "guest@peermind.demo", user_metadata: { full_name: "Khách trải nghiệm" } });
     setIsLoginOpen(false);
     setIsLoggedIn(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -167,6 +167,7 @@ export default function App() {
     return (
       <Dashboard
         onLogout={handleLogout}
+        userId={currentUser?.id}
         userName={currentUser?.user_metadata?.full_name}
         userEmail={currentUser?.email}
       />
@@ -1075,10 +1076,12 @@ export default function App() {
 
 function Dashboard({
   onLogout,
+  userId,
   userName,
   userEmail,
 }: {
   onLogout: () => void;
+  userId?: string;
   userName?: string;
   userEmail?: string;
 }) {
@@ -1116,9 +1119,9 @@ function Dashboard({
       </div>
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-        {activeTab === "documents" && <LibraryPage />}
-        {activeTab === "classrooms" && <ClassroomsPage />}
-        {activeTab === "tests" && <TestsPage userName={userName} />}
+        {activeTab === "documents" && <LibraryPage userId={userId} />}
+        {activeTab === "classrooms" && <ClassroomsPage userId={userId} />}
+        {activeTab === "tests" && <TestsPage userId={userId} userName={userName} />}
       </div>
 
     </div>

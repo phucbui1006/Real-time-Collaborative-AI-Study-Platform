@@ -34,10 +34,11 @@ function useNow(ms = 1000) {
 }
 
 interface TestsPageProps {
+  userId?: string;
   userName?: string;
 }
 
-export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
+export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPageProps) {
   const [view, setView] = useState<
     | { name: "home" }
     | { name: "edit"; set: ExamSet }
@@ -46,9 +47,34 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
     | { name: "result" }
   >({ name: "home" });
 
+  const setsKey = `peermind_exam_sets_${userId || "guest"}`;
+  const historyKey = `peermind_exam_history_${userId || "guest"}`;
+
   const [tab, setTab] = useState<"sets" | "history">("sets");
-  const [sets, setSets] = useState<ExamSet[]>(SEED_SETS);
-  const [history, setHistory] = useState<ExamHistory[]>(SEED_HISTORY);
+  const [sets, setSets] = useState<ExamSet[]>(() => {
+    try {
+      const stored = localStorage.getItem(setsKey);
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return SEED_SETS;
+  });
+  const [history, setHistory] = useState<ExamHistory[]>(() => {
+    try {
+      const stored = localStorage.getItem(historyKey);
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return SEED_HISTORY;
+  });
+
+  useEffect(() => {
+    try {
+      const storedSets = localStorage.getItem(setsKey);
+      setSets(storedSets ? JSON.parse(storedSets) : SEED_SETS);
+      const storedHistory = localStorage.getItem(historyKey);
+      setHistory(storedHistory ? JSON.parse(storedHistory) : SEED_HISTORY);
+    } catch {}
+  }, [userId, setsKey, historyKey]);
+
   const [live, setLive] = useState<LiveExam | null>(null);
   const [mine, setMine] = useState<MyExamState | null>(null);
   const [result, setResult] = useState<ExamResult | null>(null);
@@ -99,18 +125,24 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
       perQ: qs.map((q) => (ans[q.id] === undefined ? null : ans[q.id] === q.correct)),
     };
     setMine({ ...mine, done: true });
-    setHistory((h) => [
-      {
-        id: uid(),
-        title: res.title,
-        subject: res.subject,
-        score: res.score,
-        rank: res.rank,
-        of: res.of,
-        date: new Date().toLocaleDateString("vi-VN"),
-      },
-      ...h,
-    ]);
+    setHistory((h) => {
+      const updated = [
+        {
+          id: uid(),
+          title: res.title,
+          subject: res.subject,
+          score: res.score,
+          rank: res.rank,
+          of: res.of,
+          date: new Date().toLocaleDateString("vi-VN"),
+        },
+        ...h,
+      ];
+      try {
+        localStorage.setItem(historyKey, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
     setResult(res);
     setView({ name: "result" });
   };
@@ -152,7 +184,15 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
 
   const saveSet = (s: ExamSet) => {
     const { isNew: _isNew, ...clean } = s;
-    setSets((a) => (a.some((x) => x.id === clean.id) ? a.map((x) => (x.id === clean.id ? clean : x)) : [clean, ...a]));
+    setSets((a) => {
+      const updated = a.some((x) => x.id === clean.id)
+        ? a.map((x) => (x.id === clean.id ? clean : x))
+        : [clean, ...a];
+      try {
+        localStorage.setItem(setsKey, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
     setView({ name: "home" });
   };
 
@@ -363,10 +403,17 @@ export default function TestsPage({ userName = "Minh Anh" }: TestsPageProps) {
                       </button>
 
                       <button
-                        onClick={() =>
-                          window.confirm(`Xoá "${s.title}"?`) &&
-                          setSets((a) => a.filter((x) => x.id !== s.id))
-                        }
+                        onClick={() => {
+                          if (window.confirm(`Xoá "${s.title}"?`)) {
+                            setSets((a) => {
+                              const updated = a.filter((x) => x.id !== s.id);
+                              try {
+                                localStorage.setItem(setsKey, JSON.stringify(updated));
+                              } catch {}
+                              return updated;
+                            });
+                          }
+                        }}
                         aria-label={`Xoá ${s.title}`}
                         className="px-2 text-slate-300 dark:text-slate-600 hover:text-rose-500 dark:hover:text-rose-400 transition-colors text-lg cursor-pointer"
                       >

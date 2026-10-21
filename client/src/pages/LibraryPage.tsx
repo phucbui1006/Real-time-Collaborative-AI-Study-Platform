@@ -1,6 +1,6 @@
 // pages/LibraryPage.tsx — Trang quản lý thư viện tài liệu cá nhân kết nối Supabase trực tiếp
 import { useState, useEffect, useCallback } from "react";
-import { DocumentItem, INITIAL_DOCS } from "../services/aiService";
+import { DocumentItem } from "../services/aiService";
 import { DocumentStore } from "../components/documents/DocumentStore";
 import { AIChat } from "../components/documents/AIChat";
 import { supabase } from "../services/supabaseClient";
@@ -14,6 +14,7 @@ interface SupabaseDoc {
   file_url?: string;
   created_at?: string;
   pages_content?: string[];
+  owner_user_id?: string | null;
 }
 
 function mapSupabaseDoc(d: SupabaseDoc, index: number): DocumentItem {
@@ -54,56 +55,74 @@ function mapSupabaseDoc(d: SupabaseDoc, index: number): DocumentItem {
     fileType,
     updatedAt: formattedDate,
     pagesContent: Array.isArray(d.pages_content) ? d.pages_content : [],
+    isPublic: !d.owner_user_id,
+    ownerUserId: d.owner_user_id || null,
   };
 }
 
-// Cache cấp module để lưu danh sách tài liệu giữa các lần chuyển tab (tránh fetch lại & không bao giờ nháy)
-let cachedDocs: DocumentItem[] | null = null;
+// Cache theo từng userId để lưu danh sách tài liệu độc lập giữa các tài khoản và các lần chuyển tab
+const userDocsCache = new Map<string, DocumentItem[]>();
 
-export default function LibraryPage() {
-  const [docs, setDocs] = useState<DocumentItem[]>(cachedDocs || []);
+interface LibraryPageProps {
+  userId?: string;
+}
+
+export default function LibraryPage({ userId }: LibraryPageProps) {
+  const currentCache = userId ? userDocsCache.get(userId) || null : null;
+  const [docs, setDocs] = useState<DocumentItem[]>(currentCache || []);
   const [selectedId, setSelectedId] = useState<number | null>(
-    cachedDocs && cachedDocs.length > 0 ? cachedDocs[0].id : null
+    currentCache && currentCache.length > 0 ? currentCache[0].id : null
   );
-  const [isLoading, setIsLoading] = useState<boolean>(!cachedDocs);
+  const [isLoading, setIsLoading] = useState<boolean>(!currentCache);
   const [isAIChatOpen, setIsAIChatOpen] = useState<boolean>(false);
 
   const fetchDocs = useCallback(async () => {
     try {
-      if (!cachedDocs) {
+      const activeCache = userId ? userDocsCache.get(userId) : null;
+      if (!activeCache) {
         setIsLoading(true);
       }
-      const { data, error } = await supabase
-        .from("documents")
-        .select("*")
-        .order("created_at", { ascending: false });
+
+      // 1. Truy vấn tài liệu riêng của user + các tài liệu Public mẫu chung (owner_user_id IS NULL)
+      let query = supabase.from("documents").select("*");
+      if (userId) {
+        query = query.or(`owner_user_id.eq.${userId},owner_user_id.is.null`);
+      }
+      const { data, error } = await query.order("created_at", { ascending: false });
+
+      // Nếu cột owner_user_id chưa có trong database Supabase (trước khi chạy script SQL)
+      if (error && (error.message.includes("owner_user_id") || error.code === "42703")) {
+        console.warn("Cột owner_user_id chưa được kích hoạt trên Supabase. Sử dụng lưu trữ cục bộ cho tài khoản:", userId);
+        const localKey = `peermind_docs_${userId || "guest"}`;
+        const stored = localStorage.getItem(localKey);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (userId) userDocsCache.set(userId, parsed);
+            setDocs(parsed);
+            setSelectedId((prev) => (prev && parsed.some((m: DocumentItem) => m.id === prev) ? prev : (parsed[0]?.id ?? null)));
+            return;
+          } catch {}
+        }
+        setDocs([]);
+        return;
+      }
 
       if (!error && Array.isArray(data)) {
-        if (data.length > 0) {
-          const mapped = data.map(mapSupabaseDoc);
-          cachedDocs = mapped;
-          setDocs(mapped);
-          setSelectedId((prev) =>
-            prev && mapped.some((m: DocumentItem) => m.id === prev) ? prev : mapped[0].id
-          );
-        } else {
-          cachedDocs = [];
-          setDocs([]);
-          setSelectedId(null);
-        }
+        const mapped = data.map(mapSupabaseDoc);
+        if (userId) userDocsCache.set(userId, mapped);
+        setDocs(mapped);
+        setSelectedId((prev) =>
+          prev && mapped.some((m: DocumentItem) => m.id === prev) ? prev : (mapped[0]?.id ?? null)
+        );
         return;
       }
     } catch (err) {
-      console.warn("Không thể tải tài liệu từ Supabase, dùng dữ liệu dự phòng:", err);
-      if (!cachedDocs || cachedDocs.length === 0) {
-        cachedDocs = INITIAL_DOCS;
-        setDocs(INITIAL_DOCS);
-        setSelectedId(INITIAL_DOCS[0].id);
-      }
+      console.warn("Không thể tải tài liệu từ Supabase:", err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     fetchDocs();
@@ -113,22 +132,48 @@ export default function LibraryPage() {
     for (const file of files) {
       try {
         const totalPages = Math.max(1, Math.floor(file.size / 50000));
-        await supabase.from("documents").insert([
-          {
-            filename: file.name,
-            original_name: file.name,
+        const docPayload: any = {
+          filename: file.name,
+          original_name: file.name,
+          subject: customSubject,
+          total_pages: totalPages,
+          file_url: null,
+          pages_content: [
+            `Chương 1: Giới thiệu và tổng quan nội dung ${file.name.replace(/\.[^/.]+$/, "")}`,
+            `Chương 2: Các khái niệm, định nghĩa và công thức cốt lõi`,
+            `Chương 3: Phân tích bài tập mẫu và phương pháp giải nhanh`,
+            `Chương 4: Tóm tắt bài học và ngân hàng câu hỏi tự luyện`,
+          ],
+          created_at: new Date().toISOString(),
+        };
+
+        if (userId) {
+          docPayload.owner_user_id = userId;
+        }
+
+        const { error: insErr } = await supabase.from("documents").insert([docPayload]);
+
+        // Nếu cột owner_user_id chưa có trên DB, fallback lưu an toàn vào local
+        if (insErr && (insErr.message.includes("owner_user_id") || insErr.code === "42703")) {
+          delete docPayload.owner_user_id;
+          await supabase.from("documents").insert([docPayload]);
+          const localKey = `peermind_docs_${userId || "guest"}`;
+          const currentLocal = JSON.parse(localStorage.getItem(localKey) || "[]");
+          currentLocal.unshift({
+            id: Date.now(),
             subject: customSubject,
-            total_pages: totalPages,
-            file_url: null,
-            pages_content: [
-              `Chương 1: Giới thiệu và tổng quan nội dung ${file.name.replace(/\.[^/.]+$/, "")}`,
-              `Chương 2: Các khái niệm, định nghĩa và công thức cốt lõi`,
-              `Chương 3: Phân tích bài tập mẫu và phương pháp giải nhanh`,
-              `Chương 4: Tóm tắt bài học và ngân hàng câu hỏi tự luyện`,
-            ],
-            created_at: new Date().toISOString(),
-          },
-        ]);
+            title: file.name.replace(/\.[^/.]+$/, ""),
+            progress: 0,
+            color: "#0ea5e9",
+            icon: "📄",
+            pagesCount: totalPages,
+            fileSize: "2.4 MB",
+            fileType: "PDF",
+            updatedAt: "Vừa xong",
+            pagesContent: docPayload.pages_content,
+          });
+          localStorage.setItem(localKey, JSON.stringify(currentLocal));
+        }
       } catch (err) {
         console.error("Lỗi khi upload tài liệu lên Supabase:", err);
       }
@@ -144,15 +189,24 @@ export default function LibraryPage() {
 
   const handleDeleteDoc = async (id: number) => {
     try {
-      await supabase.from("documents").delete().eq("id", id);
+      const docToDelete = docs.find((d) => d.id === id);
+      // Nếu là tài liệu cá nhân thì xóa trên DB, tài liệu mẫu chung chỉ ẩn ở phía cá nhân
+      if (!docToDelete?.isPublic) {
+        await supabase.from("documents").delete().eq("id", id);
+      }
       setDocs((prev) => {
         const next = prev.filter((d) => d.id !== id);
-        cachedDocs = next;
+        if (userId) userDocsCache.set(userId, next);
         if (selectedId === id) {
           setSelectedId(next.length > 0 ? next[0].id : null);
         }
         return next;
       });
+      if (userId) {
+        const localKey = `peermind_docs_${userId}`;
+        const currentLocal = JSON.parse(localStorage.getItem(localKey) || "[]");
+        localStorage.setItem(localKey, JSON.stringify(currentLocal.filter((d: any) => d.id !== id)));
+      }
     } catch (err) {
       console.error("Lỗi khi xóa tài liệu trên Supabase:", err);
     }

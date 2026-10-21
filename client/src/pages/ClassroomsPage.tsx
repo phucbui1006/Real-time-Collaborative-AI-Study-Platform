@@ -13,26 +13,47 @@ import {
 } from "../services/roomService";
 
 interface ClassroomsPageProps {
+  userId?: string;
   onEnterRoom?: (room: { name: string; code: string }) => void;
 }
 
 export default function ClassroomsPage({
+  userId,
   onEnterRoom = (room) => console.log("Vào phòng", room),
 }: ClassroomsPageProps) {
-  const [rooms, setRooms] = useState<RoomItem[]>(INITIAL_HISTORY);
+  const localKey = `peermind_rooms_${userId || "guest"}`;
+  const [rooms, setRooms] = useState<RoomItem[]>(() => {
+    try {
+      const stored = localStorage.getItem(localKey);
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return INITIAL_HISTORY;
+  });
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     async function load() {
-      const data = await fetchRoomsApi();
+      const data = await fetchRoomsApi(userId);
       if (data && data.length > 0) {
-        setRooms(data);
+        setRooms((prev) => {
+          // Merge phòng do host tạo trên Supabase với lịch sử đã tham gia
+          const merged = [...data];
+          prev.forEach((p) => {
+            if (!merged.some((m) => m.code === p.code)) {
+              merged.push(p);
+            }
+          });
+          try {
+            localStorage.setItem(localKey, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
       }
     }
     load();
-  }, []);
+  }, [userId, localKey]);
 
   // Trạng thái phòng hiện tại đang vào (nếu có)
   const [activeRoom, setActiveRoom] = useState<{
@@ -42,16 +63,22 @@ export default function ClassroomsPage({
   } | null>(null);
 
   const remember = (room: { name: string; code: string }) =>
-    setRooms((prev) => [
-      {
-        id: Date.now(),
-        name: room.name,
-        code: room.code,
-        lastVisit: "Vừa xong",
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
-      },
-      ...prev.filter((r) => r.code !== room.code),
-    ]);
+    setRooms((prev) => {
+      const updated = [
+        {
+          id: Date.now(),
+          name: room.name,
+          code: room.code,
+          lastVisit: "Vừa xong",
+          color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        },
+        ...prev.filter((r) => r.code !== room.code),
+      ];
+      try {
+        localStorage.setItem(localKey, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
   const handleJoinSubmit = async (data: { code: string; password: string }) => {
     const room = await joinRoomApi(data);
@@ -61,7 +88,7 @@ export default function ClassroomsPage({
   };
 
   const handleCreateSubmit = async (data: { name: string; code: string; password: string }) => {
-    const room = await createRoomApi(data);
+    const room = await createRoomApi({ ...data, hostUserId: userId });
     remember(room);
     return room;
   };

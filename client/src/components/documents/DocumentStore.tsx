@@ -320,14 +320,25 @@ export function DocumentStore({
                           {subjectStyle.icon}
                         </div>
                         <div>
-                          <span className={`text-[10px] font-bold tracking-wider uppercase ${subjectStyle.text}`}>
-                            {doc.subject}
-                          </span>
-                          {doc.fileType && (
-                            <span className={`ml-2 rounded px-1.5 py-0.5 text-[9px] uppercase ${fileTypeBadge}`}>
-                              {doc.fileType}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-[10px] font-bold tracking-wider uppercase ${subjectStyle.text}`}>
+                              {doc.subject}
                             </span>
-                          )}
+                            {doc.fileType && (
+                              <span className={`rounded px-1.5 py-0.2 text-[9px] uppercase ${fileTypeBadge}`}>
+                                {doc.fileType}
+                              </span>
+                            )}
+                            {doc.isPublic ? (
+                              <span className="rounded px-1.5 py-0.2 text-[9px] uppercase font-semibold bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-500/30">
+                                Mẫu chung
+                              </span>
+                            ) : (
+                              <span className="rounded px-1.5 py-0.2 text-[9px] uppercase font-semibold bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-500/30">
+                                Cá nhân
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -349,7 +360,7 @@ export function DocumentStore({
                               className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors"
                             >
                               <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                              Xóa tài liệu
+                              {doc.isPublic ? "Ẩn tài liệu" : "Xóa tài liệu"}
                             </button>
                           </div>
                         )}

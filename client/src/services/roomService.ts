@@ -19,17 +19,37 @@ export const INITIAL_HISTORY: RoomItem[] = [
 export const COLORS = ["#0ea5e9", "#8b5cf6", "#10b981", "#f59e0b", "#ec4899", "#14b8a6"];
 
 /**
- * Lấy danh sách phòng học trực tiếp từ Supabase
+ * Lấy danh sách phòng học trực tiếp từ Supabase (có lọc theo chủ phòng nếu có userId)
  */
-export async function fetchRoomsApi(): Promise<RoomItem[]> {
+export async function fetchRoomsApi(userId?: string): Promise<RoomItem[]> {
   try {
-    const { data: rooms, error } = await supabase
-      .from("rooms")
-      .select("*")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false });
+    let query = supabase.from("rooms").select("*").eq("is_active", true);
+    if (userId) {
+      query = query.eq("host_user_id", userId);
+    }
+    const { data: rooms, error } = await query.order("created_at", { ascending: false });
 
-    if (!error && Array.isArray(rooms) && rooms.length > 0) {
+    // Nếu cột host_user_id chưa có trên DB, fallback query bình thường
+    if (error && (error.message.includes("host_user_id") || error.code === "42703")) {
+      const { data: allRooms, error: errAll } = await supabase
+        .from("rooms")
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+      if (!errAll && Array.isArray(allRooms)) {
+        return allRooms.map((r, i) => ({
+          id: r.id,
+          name: r.name,
+          code: r.code,
+          lastVisit: "Gần đây",
+          color: COLORS[i % COLORS.length],
+          documentId: r.document_id,
+        }));
+      }
+      return [];
+    }
+
+    if (!error && Array.isArray(rooms)) {
       return rooms.map((r, i) => {
         let lastVisit = "Gần đây";
         if (r.created_at) {
@@ -56,9 +76,9 @@ export async function fetchRoomsApi(): Promise<RoomItem[]> {
       });
     }
   } catch (err) {
-    console.warn("Lỗi tải phòng từ Supabase, dùng cache:", err);
+    console.warn("Lỗi tải phòng từ Supabase:", err);
   }
-  return INITIAL_HISTORY;
+  return [];
 }
 
 /**
@@ -108,38 +128,55 @@ export async function joinRoomApi({
 }
 
 /**
- * Tạo phòng học mới và lưu trực tiếp lên Supabase
+ * Tạo phòng học mới và lưu trực tiếp lên Supabase (gắn hostUserId)
  */
 export async function createRoomApi({
   name,
   code,
   password,
+  hostUserId,
 }: {
   name: string;
   code: string;
   password: string;
+  hostUserId?: string;
 }): Promise<{ name: string; code: string }> {
   const roomName = name.trim();
   const roomCode = code.trim() || randomCode();
   const roomPassword = password ? password.trim() : null;
 
   try {
+    const payload: any = {
+      name: roomName,
+      code: roomCode,
+      password_hash: roomPassword,
+      is_active: true,
+    };
+    if (hostUserId) {
+      payload.host_user_id = hostUserId;
+    }
+
     const { data, error } = await supabase
       .from("rooms")
-      .insert([
-        {
-          name: roomName,
-          code: roomCode,
-          password_hash: roomPassword,
-          is_active: true,
-        },
-      ])
+      .insert([payload])
       .select()
       .maybeSingle();
 
     if (!error && data) {
       return { name: data.name, code: data.code };
     }
+
+    // Nếu cột host_user_id chưa tồn tại trên Supabase, fallback bỏ field này
+    if (error && (error.message.includes("host_user_id") || error.code === "42703")) {
+      delete payload.host_user_id;
+      const { data: d2 } = await supabase
+        .from("rooms")
+        .insert([payload])
+        .select()
+        .maybeSingle();
+      if (d2) return { name: d2.name, code: d2.code };
+    }
+
     if (error) {
       console.warn("Lỗi tạo phòng Supabase:", error.message);
     }

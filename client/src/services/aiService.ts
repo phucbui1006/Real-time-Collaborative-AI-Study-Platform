@@ -18,6 +18,8 @@ export type DocumentItem = {
   fileType?: "PDF" | "DOCX" | "PPTX" | "IMG";
   updatedAt?: string;
   pagesContent?: string[];
+  isPublic?: boolean;
+  ownerUserId?: string | null;
 };
 
 export type ChartItem = {
