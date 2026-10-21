@@ -57,28 +57,52 @@ function mapSupabaseDoc(d: SupabaseDoc, index: number): DocumentItem {
   };
 }
 
+// Cache cấp module để lưu danh sách tài liệu giữa các lần chuyển tab (tránh fetch lại & không bao giờ nháy)
+let cachedDocs: DocumentItem[] | null = null;
+
 export default function LibraryPage() {
-  const [docs, setDocs] = useState<DocumentItem[]>(INITIAL_DOCS);
-  const [selectedId, setSelectedId] = useState<number>(INITIAL_DOCS[0].id);
+  const [docs, setDocs] = useState<DocumentItem[]>(cachedDocs || []);
+  const [selectedId, setSelectedId] = useState<number | null>(
+    cachedDocs && cachedDocs.length > 0 ? cachedDocs[0].id : null
+  );
+  const [isLoading, setIsLoading] = useState<boolean>(!cachedDocs);
   const [isAIChatOpen, setIsAIChatOpen] = useState<boolean>(false);
 
   const fetchDocs = useCallback(async () => {
     try {
+      if (!cachedDocs) {
+        setIsLoading(true);
+      }
       const { data, error } = await supabase
         .from("documents")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (!error && Array.isArray(data) && data.length > 0) {
-        const mapped = data.map(mapSupabaseDoc);
-        setDocs(mapped);
-        setSelectedId((prev) => (mapped.some((m: DocumentItem) => m.id === prev) ? prev : mapped[0].id));
+      if (!error && Array.isArray(data)) {
+        if (data.length > 0) {
+          const mapped = data.map(mapSupabaseDoc);
+          cachedDocs = mapped;
+          setDocs(mapped);
+          setSelectedId((prev) =>
+            prev && mapped.some((m: DocumentItem) => m.id === prev) ? prev : mapped[0].id
+          );
+        } else {
+          cachedDocs = [];
+          setDocs([]);
+          setSelectedId(null);
+        }
         return;
       }
     } catch (err) {
       console.warn("Không thể tải tài liệu từ Supabase, dùng dữ liệu dự phòng:", err);
+      if (!cachedDocs || cachedDocs.length === 0) {
+        cachedDocs = INITIAL_DOCS;
+        setDocs(INITIAL_DOCS);
+        setSelectedId(INITIAL_DOCS[0].id);
+      }
+    } finally {
+      setIsLoading(false);
     }
-    setDocs(INITIAL_DOCS);
   }, []);
 
   useEffect(() => {
@@ -123,17 +147,18 @@ export default function LibraryPage() {
       await supabase.from("documents").delete().eq("id", id);
       setDocs((prev) => {
         const next = prev.filter((d) => d.id !== id);
-        if (selectedId === id && next.length > 0) {
-          setSelectedId(next[0].id);
+        cachedDocs = next;
+        if (selectedId === id) {
+          setSelectedId(next.length > 0 ? next[0].id : null);
         }
-        return next.length > 0 ? next : INITIAL_DOCS;
+        return next;
       });
     } catch (err) {
       console.error("Lỗi khi xóa tài liệu trên Supabase:", err);
     }
   };
 
-  const currentDoc = docs.find((d) => d.id === selectedId) || docs[0] || null;
+  const currentDoc = (selectedId !== null ? docs.find((d) => d.id === selectedId) : null) || docs[0] || null;
 
   return (
     <div className="relative min-w-0">
@@ -145,6 +170,7 @@ export default function LibraryPage() {
           onDelete={handleDeleteDoc}
           onUpload={handleUpload}
           isAIChatOpen={false}
+          isLoading={isLoading}
         />
       </div>
 

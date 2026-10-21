@@ -16,11 +16,12 @@ import { DocumentItem } from "../../services/aiService";
 
 type DocumentStoreProps = {
   docs: DocumentItem[];
-  selectedId: number;
+  selectedId: number | null;
   onSelect: (id: number) => void;
   onDelete: (id: number) => void;
   onUpload: (files: File[], customSubject?: string) => void;
   isAIChatOpen: boolean;
+  isLoading?: boolean;
 };
 
 // Helper function ánh xạ màu sắc và icon theo môn học
@@ -94,6 +95,7 @@ export function DocumentStore({
   onDelete,
   onUpload,
   isAIChatOpen,
+  isLoading = false,
 }: DocumentStoreProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalFileInputRef = useRef<HTMLInputElement>(null);
@@ -147,7 +149,7 @@ export function DocumentStore({
   };
 
   return (
-    <section className={`${isAIChatOpen ? "lg:col-span-8" : "lg:col-span-12"} min-w-0 transition-all duration-300`}>
+    <section className={`${isAIChatOpen ? "lg:col-span-8" : "lg:col-span-12"} min-w-0`}>
       {/* ── 1. Top Header ────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -231,7 +233,47 @@ export function DocumentStore({
 
       {/* ── 3. Danh sách Tài liệu Grid ────────────────────────────────────────── */}
       <div className="mt-6">
-        {filteredDocs.length === 0 ? (
+        {isLoading ? (
+          <div
+            className={`grid gap-4 ${
+              isAIChatOpen
+                ? "grid-cols-1 sm:grid-cols-2"
+                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+            }`}
+          >
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="flex flex-col justify-between rounded-xl p-5 border border-slate-200/70 dark:border-slate-800 bg-white dark:bg-slate-900 h-[210px] animate-pulse shadow-2xs"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                      <div className="h-3 w-20 rounded bg-slate-100 dark:bg-slate-800" />
+                    </div>
+                    <div className="h-4 w-4 rounded bg-slate-100 dark:bg-slate-800" />
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    <div className="h-4 w-4/5 rounded bg-slate-100 dark:bg-slate-800" />
+                    <div className="h-3 w-1/2 rounded bg-slate-100 dark:bg-slate-800" />
+                  </div>
+                </div>
+                <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
+                  <div className="flex justify-between">
+                    <div className="h-2.5 w-12 rounded bg-slate-100 dark:bg-slate-800" />
+                    <div className="h-2.5 w-8 rounded bg-slate-100 dark:bg-slate-800" />
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800" />
+                  <div className="flex justify-between pt-1">
+                    <div className="h-2 w-16 rounded bg-slate-100 dark:bg-slate-800" />
+                    <div className="h-2 w-16 rounded bg-slate-100 dark:bg-slate-800" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredDocs.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center">
             <FileText className="mx-auto h-8 w-8 text-slate-400" strokeWidth={1.75} />
             <h3 className="mt-3 font-semibold text-slate-900 dark:text-slate-50 text-sm">Không tìm thấy tài liệu nào</h3>
@@ -264,7 +306,7 @@ export function DocumentStore({
                 <div
                   key={doc.id}
                   onClick={() => onSelect(doc.id)}
-                  className={`group relative flex flex-col justify-between rounded-xl p-5 border transition-all duration-200 cursor-pointer shadow-2xs ${
+                  className={`group relative flex flex-col justify-between rounded-xl p-5 border transition-[border-color,box-shadow,transform] duration-200 cursor-pointer shadow-2xs ${
                     active
                       ? "bg-white dark:bg-slate-900 border-indigo-600 dark:border-indigo-500 ring-2 ring-indigo-600/20 shadow-md"
                       : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-500/60 hover:shadow-lg hover:-translate-y-0.5"
@@ -329,7 +371,7 @@ export function DocumentStore({
                     </div>
                     <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                       <div
-                        className={`h-1.5 rounded-full transition-all duration-300 ${progressStyle.bar}`}
+                        className={`h-1.5 rounded-full transition-[width] duration-300 ease-out ${progressStyle.bar}`}
                         style={{ width: `${doc.progress}%` }}
                       />
                     </div>
