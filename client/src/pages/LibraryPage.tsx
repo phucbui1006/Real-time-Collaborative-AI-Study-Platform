@@ -137,11 +137,11 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
         setIsLoading(true);
       }
 
-      // 1. Truy vấn danh sách tài liệu Supabase siêu nhanh (Chỉ lấy metadata, KHÔNG tải hàng chục MB pages_content của tất cả file)
-      // pages_content sẽ được lazy-load khi người dùng mở chi tiết tài liệu đó trong Studio.
+      // 1. Truy vấn danh sách tài liệu Supabase kèm đầy đủ nội dung các trang (pages_content)
+      // để mở đọc ngay lập tức mà không gặp độ trễ hoặc lỗi mất trang
       let query = supabase
         .from("documents")
-        .select("id, filename, original_name, subject, total_pages, file_url, created_at, owner_user_id");
+        .select("id, filename, original_name, subject, total_pages, file_url, created_at, owner_user_id, pages_content");
 
       if (isValidUUID(userId)) {
         query = query.eq("owner_user_id", userId);
