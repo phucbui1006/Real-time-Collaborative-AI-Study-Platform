@@ -86,6 +86,11 @@ export default function App() {
   // Stable ref so idleService callback always calls the latest handler
   const idleTimeoutRef = useRef<() => void>(() => {});
 
+  // Chỉ mở modal đăng nhập lại khi người dùng ĐÃ từng đăng nhập trong session này.
+  // Tránh việc Supabase bắn SIGNED_OUT ngay lúc tải trang (sessionStorage trống) và
+  // tự động mở modal — người dùng mới vào nên thấy landing page trước.
+  const hasBeenLoggedIn = useRef(false);
+
   useEffect(() => {
     document.body.style.overflow = isLoginOpen ? "hidden" : "";
     return () => {
@@ -102,6 +107,7 @@ export default function App() {
     async function checkAuth() {
       const user = await getCurrentUser();
       if (user) {
+        hasBeenLoggedIn.current = true;
         setCurrentUser(user);
         setIsLoggedIn(true);
       }
@@ -113,6 +119,11 @@ export default function App() {
       // Rule: no Supabase calls directly in this callback — wrap in setTimeout(0)
       setTimeout(() => {
         if (event === "SIGNED_OUT" || !session) {
+          // Chỉ hiện modal đăng nhập lại nếu người dùng đã từng đăng nhập.
+          // Ngăn modal tự bật khi Supabase bắn SIGNED_OUT lúc tải trang lần đầu
+          // (sessionStorage trống, chưa có phiên nào → người dùng nên thấy landing page).
+          if (!hasBeenLoggedIn.current) return;
+
           idleService.stop();
           clearAllUserState();
           setCurrentUser(null);
@@ -123,6 +134,8 @@ export default function App() {
           setFullName("");
           setAuthView("login");
           setIsLoginOpen(true);
+        } else if (event === "SIGNED_IN" && session) {
+          hasBeenLoggedIn.current = true;
         }
       }, 0);
     });
@@ -170,6 +183,7 @@ export default function App() {
       setCurrentUser(user);
       setIsLoginOpen(false);
       setIsLoggedIn(true);
+      hasBeenLoggedIn.current = true;
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: unknown) {
       const e = err as Error;
@@ -199,6 +213,7 @@ export default function App() {
   };
 
   const handleGuestLogin = () => {
+    hasBeenLoggedIn.current = true;
     setCurrentUser({ id: "guest-user-001", email: "guest@peermind.demo", user_metadata: { full_name: "Khách trải nghiệm" } });
     setIsLoginOpen(false);
     setIsLoggedIn(true);
