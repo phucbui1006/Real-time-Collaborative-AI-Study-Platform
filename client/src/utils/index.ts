@@ -32,6 +32,12 @@ export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
+/** Kiểm tra chuỗi có phải là UUID hợp lệ không (chuẩn Supabase auth.users id) */
+export function isValidUUID(id?: string | null): boolean {
+  if (!id) return false
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+}
+
 /** Rút gọn tên file dài (VD: "Toán_cao_cấp_chương_4_rất_dài.pdf" → "Toán_cao_cấp_chươ...pdf") */
 export function truncateFilename(name: string, maxLength = 30): string {
   if (name.length <= maxLength) return name

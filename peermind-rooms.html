@@ -1,0 +1,2167 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PeerMind — Phòng học nhóm của bạn</title>
+  
+  <!-- Font Be Vietnam Pro & Space Mono (đảm bảo hiển thị hoàn hảo dấu tiếng Việt: Ắng ễ ượ Ẩ Ỡ Ộ) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400&family=Space+Mono:wght@400&display=swap" rel="stylesheet">
+  
+  <!-- Phosphor Icons Web Script & Fallback Stylesheet -->
+  <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+  <link rel="stylesheet" type="text/css" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+
+  <style>
+    /* ==========================================================================
+       1. DESIGN TOKENS (CSS VARIABLES) — SUPERHI STYLE ADAPTED FOR PEERMIND
+       ========================================================================== */
+    :root {
+      /* Palette bề mặt & chữ */
+      --color-canvas: #f0f6ff;             /* Nền trang Chalk Blue */
+      --color-card: #ffffff;               /* Mặt thẻ Paper White */
+      --color-surface-subtle: #e1edff;     /* Vùng phụ / ô nhập Frost Blue */
+      --color-ink: #111118;                /* Chữ chính & viền đậm Ink Black */
+      --color-border-hairline: #e1edff;    /* Viền mảnh thẻ */
+      --color-border-strong: #111118;      /* Viền đặc 2px */
+
+      /* Màu hành động DUY NHẤT (Single Action Color) — Xanh ngọc #0b7a75 */
+      --color-action: #0b7a75;
+      --color-action-hover: #08635f;
+      --color-action-text: #ffffff;
+      --color-focus-ring: #0b7a75;
+
+      /* Màu trang trí CHỈ làm màu nền hình khối và nền icon container/tag (KHÔNG làm màu chữ/viền) */
+      --deco-yellow: #ffda00;              /* Vàng */
+      --deco-red: #ff4141;                 /* Đỏ */
+      --deco-pink: #ffbac4;                /* Hồng */
+      --deco-sky: #91d8ec;                 /* Xanh da trời */
+      --deco-green: #16ab59;               /* Xanh lá */
+
+      /* Trạng thái Quiz (Đúng / Sai) có viền đặc 2px #111118 và tương phản >= 4.5:1 */
+      --quiz-correct-bg: #16ab59;
+      --quiz-correct-text: #ffffff;
+      --quiz-incorrect-bg: #ff4141;
+      --quiz-incorrect-text: #ffffff;
+
+      /* Nút phụ tối (Dark Secondary Button) */
+      --color-dark-button-bg: #000000;
+      --color-dark-button-text: #ffffff;
+      --color-dark-button-shadow: #0b7a75;
+
+      /* Đổ bóng CHỈ dạng đặc, 0px blur */
+      --shadow-primary-btn: 0 4px 0 0 #111118;
+      --shadow-dark-btn: 0 4px 0 0 #0b7a75;
+      --shadow-card: 0 2px 0 0 #111118;
+      --shadow-modal: 0 8px 0 0 #111118;
+
+      /* Kiểu chữ (BẮT BUỘC duy nhất 1 độ đậm 400 cho toàn bộ) */
+      --font-base: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
+      --font-mono: 'Space Mono', ui-monospace, monospace;
+      --font-weight-regular: 400;
+
+      /* Cỡ chữ cố định theo quy chuẩn hệ thống: 16 / 20 / 24 / 42 / 52 / 72 */
+      --font-size-16: 16px;
+      --line-height-16: 1.4;
+      --font-size-20: 20px;
+      --line-height-20: 1.4;
+      --font-size-24: 24px;
+      --line-height-24: 1.25;
+      --font-size-42: 42px;
+      --line-height-42: 1.1;
+      --font-size-52: 52px;
+      --line-height-52: 1.1;
+      --font-size-72: 72px;
+      --line-height-72: 1.0;
+
+      /* Khoảng cách chữ tiêu đề: từ 0 đến -0.02em (đảm bảo dấu tiếng Việt không đè nhau) */
+      --tracking-title: -0.015em;
+      --tracking-body: 0;
+
+      /* Hình dạng & Bo góc (Không góc dưới 16px ở thành phần nhìn thấy) */
+      --radius-btn: 48px;                  /* Nút bo 48px (viên thuốc) */
+      --radius-card: 24px;                 /* Thẻ bo 24px */
+      --radius-pill: 5000px;               /* Ô nhập, tag, icon container bo tròn */
+      --radius-shape: 0px;                 /* Hình khối trang trí phẳng cắt mép */
+
+      /* Lưới & Khoảng cách (4px base grid) */
+      --grid-unit: 4px;
+      --container-max: 1200px;             /* Một độ rộng duy nhất cho mọi trang */
+      --section-gap: 80px;                 /* Khoảng cách giữa các khối chính */
+      --card-padding: 24px;                /* Padding thẻ tiêu chuẩn */
+    }
+
+    /* ─── Dark Mode Token Override ────────────────────────────────────────── */
+    [data-theme="dark"] {
+      --color-canvas: #111118;             /* Nền tối sâu */
+      --color-card: #1b1b26;               /* Mặt thẻ tối */
+      --color-surface-subtle: #242436;     /* Vùng nhập tối */
+      --color-ink: #f0f6ff;                /* Chữ sáng Chalk Blue */
+      --color-border-hairline: #2a2a3a;    /* Viền mảnh tối */
+      --color-border-strong: #2a2a3a;      /* Viền phân cách tối */
+
+      /* Màu hành động trong Dark Mode */
+      --color-action: #2dd4bf;             /* Xanh ngọc phát quang dịu */
+      --color-action-hover: #14b8a6;
+      --color-action-text: #111118;        /* Chữ tối trên nền ngọc sáng */
+      --color-focus-ring: #2dd4bf;
+
+      /* Nút phụ trong dark mode */
+      --color-dark-button-bg: #2a2a3a;
+      --color-dark-button-text: #f0f6ff;
+      --color-dark-button-shadow: #2dd4bf;
+
+      /* Đổ bóng đặc chuyển đổi sắc nét */
+      --shadow-primary-btn: 0 4px 0 0 #000000;
+      --shadow-dark-btn: 0 4px 0 0 #2dd4bf;
+      --shadow-card: 0 2px 0 0 #000000;
+      --shadow-modal: 0 8px 0 0 #000000;
+    }
+
+    /* ==========================================================================
+       2. GLOBAL RESET & BASE STYLES
+       ========================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-weight: 400 !important; /* TUYỆT ĐỐI một độ đậm 400 cho toàn bộ */
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    html, body {
+      background-color: var(--color-canvas);
+      color: var(--color-ink);
+      font-family: var(--font-base);
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      outline: none;
+      background: none;
+    }
+
+    input {
+      font-family: inherit;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--color-focus-ring);
+      outline-offset: 2px;
+    }
+
+    /* Inline Phosphor SVG icons */
+    .ph-icon {
+      width: 22px;
+      height: 22px;
+      display: inline-block;
+      vertical-align: middle;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 16;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+
+    /* ==========================================================================
+       3. DECORATIVE SHAPES (1-2 HÌNH PHẲNG Ở MÉP, BO 0, XOAY -15° ĐẾN +15°)
+       ========================================================================== */
+    .bg-shape {
+      position: fixed;
+      pointer-events: none;
+      z-index: 0;
+      border-radius: var(--radius-shape);
+      opacity: 0.9;
+    }
+
+    [data-theme="dark"] .bg-shape {
+      opacity: 0.35; /* Giảm độ sáng nhẹ trong dark mode */
+    }
+
+    /* Hình 1: Ngũ giác góc trên bên phải - màu Vàng #ffda00, xoay 12° */
+    .bg-shape-top-right {
+      top: -100px;
+      right: -120px;
+      width: 440px;
+      height: 440px;
+      background-color: var(--deco-yellow);
+      clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+      transform: rotate(12deg);
+    }
+
+    /* Hình 2: Khối phẳng bán nguyệt góc dưới bên trái - màu Hồng #ffbac4, xoay -10° */
+    .bg-shape-bottom-left {
+      bottom: -130px;
+      left: -130px;
+      width: 460px;
+      height: 460px;
+      background-color: var(--deco-pink);
+      clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
+      transform: rotate(-10deg);
+    }
+
+    /* ==========================================================================
+       4. LAYOUT SYSTEM (1200PX CONTAINER, 80PX SECTION GAP)
+       ========================================================================== */
+    .page-wrapper {
+      position: relative;
+      z-index: 1; /* Nổi trên các khối trang trí nền */
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: 100%;
+      max-width: var(--container-max);
+      margin-left: auto;
+      margin-right: auto;
+      padding-left: 24px;
+      padding-right: 24px;
+    }
+
+    /* ==========================================================================
+       5. TOP NAVIGATION BAR (CÙNG PHONG CÁCH SUPERHI CHO PEERMIND)
+       ========================================================================== */
+    .site-nav {
+      background-color: var(--color-card);
+      border-bottom: 1px solid var(--color-border-hairline);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 72px;
+      padding-top: 12px;
+      padding-bottom: 12px;
+      gap: 16px;
+    }
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: var(--font-size-24);
+      letter-spacing: var(--tracking-title);
+      color: var(--color-ink);
+      line-height: 1;
+    }
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-pill);
+      background-color: var(--color-action);
+      color: var(--color-action-text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 2px 0 0 #111118;
+    }
+
+    /* 3 Phân khu chính của PeerMind */
+    .nav-tabs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-tab-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: var(--radius-btn);
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      color: var(--color-ink);
+      transition: background-color 0.15s ease, color 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .nav-tab-item:hover {
+      background-color: var(--color-surface-subtle);
+    }
+
+    /* Tab đang chọn: Sử dụng màu hành động xanh ngọc duy nhất */
+    .nav-tab-item.active {
+      background-color: var(--color-action);
+      color: var(--color-action-text);
+      box-shadow: 0 2px 0 0 var(--color-border-strong);
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Nút chuyển chế độ sáng/tối */
+    .theme-toggle-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-pill);
+      background-color: var(--color-surface-subtle);
+      border: 1px solid var(--color-border-hairline);
+      color: var(--color-ink);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 0 0 var(--color-border-strong);
+      transition: transform 0.1s ease;
+      flex-shrink: 0;
+    }
+
+    .theme-toggle-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 0 0 0 transparent;
+    }
+
+    /* Hồ sơ tài khoản sinh viên (Minh Anh) */
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 14px 6px 6px;
+      background-color: var(--color-surface-subtle);
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--color-border-hairline);
+    }
+
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-pill);
+      background-color: var(--deco-sky);
+      color: #111118;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--font-size-16);
+      border: 1px solid #111118;
+    }
+
+    .user-name {
+      font-size: var(--font-size-16);
+      line-height: 1;
+      color: var(--color-ink);
+    }
+
+    /* Dải tab phụ cho mobile (390px) */
+    .mobile-tab-strip {
+      display: none;
+      background-color: var(--color-card);
+      border-bottom: 1px solid var(--color-border-hairline);
+      padding: 8px 16px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    /* ==========================================================================
+       6. BUTTONS & CONTROLS (PILL 48PX, HARD SHADOW ONLY)
+       ========================================================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px 24px;
+      border-radius: var(--radius-btn);
+      font-size: var(--font-size-20);
+      line-height: var(--line-height-20);
+      cursor: pointer;
+      text-align: center;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    /* Nút chính: Xanh ngọc DUY NHẤT, bóng đặc 0 4px 0 0 #111118, kèm mũi tên → */
+    .btn-primary {
+      background-color: var(--color-action);
+      color: var(--color-action-text);
+      box-shadow: var(--shadow-primary-btn);
+      border: 1px solid var(--color-border-strong);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--color-action-hover);
+    }
+
+    .btn-primary:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 0 #111118;
+    }
+
+    /* Nút phụ tối: Nền #000000, chữ trắng, bóng đặc 0 4px 0 0 #0b7a75 */
+    .btn-dark {
+      background-color: var(--color-dark-button-bg);
+      color: var(--color-dark-button-text);
+      box-shadow: var(--shadow-dark-btn);
+      border: 1px solid var(--color-border-strong);
+    }
+
+    .btn-dark:hover {
+      opacity: 0.95;
+    }
+
+    .btn-dark:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 0 var(--color-dark-button-shadow);
+    }
+
+    /* Nút hành động vào phòng trên thẻ (cỡ 16px, pill 48px, có mũi tên →) */
+    .btn-card-action {
+      padding: 8px 18px;
+      border-radius: var(--radius-btn);
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      background-color: var(--color-action);
+      color: var(--color-action-text);
+      box-shadow: 0 3px 0 0 var(--color-border-strong);
+      border: 1px solid var(--color-border-strong);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-card-action:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 0 var(--color-border-strong);
+    }
+
+    /* Nút icon tròn */
+    .btn-icon-subtle {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-pill);
+      background-color: var(--color-surface-subtle);
+      border: 1px solid var(--color-border-hairline);
+      color: var(--color-ink);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 0 0 var(--color-border-strong);
+      transition: transform 0.1s ease;
+      flex-shrink: 0;
+    }
+
+    .btn-icon-subtle:active {
+      transform: translateY(2px);
+      box-shadow: 0 0 0 0 transparent;
+    }
+
+    /* ==========================================================================
+       7. PAGE HEADER SECTION (GREETING & ACTIONS)
+       ========================================================================== */
+    .rooms-hero-section {
+      padding-top: 48px;
+      padding-bottom: 40px;
+    }
+
+    .hero-flex-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    @media (min-width: 880px) {
+      .hero-flex-wrapper {
+        flex-direction: row;
+        align-items: flex-end;
+        justify-content: space-between;
+      }
+    }
+
+    .hero-text-block {
+      max-width: 680px;
+    }
+
+    .greeting-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      color: var(--color-ink);
+      margin-bottom: 12px;
+      letter-spacing: 0.02em;
+    }
+
+    .kicker-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: var(--radius-pill);
+      background-color: var(--deco-green);
+      border: 1px solid #111118;
+    }
+
+    .page-title {
+      font-size: var(--font-size-42);
+      line-height: var(--line-height-42);
+      letter-spacing: var(--tracking-title);
+      color: var(--color-ink);
+      margin-bottom: 16px;
+    }
+
+    @media (min-width: 1024px) {
+      .page-title {
+        font-size: var(--font-size-52);
+        line-height: var(--line-height-52);
+      }
+    }
+
+    .page-subtitle {
+      font-size: var(--font-size-20);
+      line-height: var(--line-height-20);
+      color: var(--color-ink);
+      opacity: 0.9;
+    }
+
+    .hero-cta-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* ==========================================================================
+       8. QUICK HIGHLIGHTS / COMMUNITY STRIP (YẾU TỐ CON NGƯỜI)
+       ========================================================================== */
+    .community-strip {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    @media (min-width: 768px) {
+      .community-strip {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .metric-pill-card {
+      background-color: var(--color-card);
+      border: 1px solid var(--color-border-hairline);
+      border-radius: var(--radius-card);
+      padding: var(--card-padding);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .metric-icon-box {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-pill);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #111118;
+      flex-shrink: 0;
+      color: #111118;
+    }
+
+    .metric-label {
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      opacity: 0.75;
+    }
+
+    .metric-value {
+      font-size: var(--font-size-20);
+      line-height: var(--line-height-20);
+      color: var(--color-ink);
+      margin-top: 4px;
+    }
+
+    /* ==========================================================================
+       9. SEARCH & FILTER CONTROLS BAR
+       ========================================================================== */
+    .controls-panel {
+      background-color: var(--color-card);
+      border: 1px solid var(--color-border-hairline);
+      border-radius: var(--radius-card);
+      padding: var(--card-padding);
+      box-shadow: var(--shadow-card);
+      margin-bottom: 32px;
+    }
+
+    .controls-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    @media (min-width: 840px) {
+      .controls-inner {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+
+    /* Ô nhập tìm kiếm bo tròn 5000px */
+    .search-wrapper {
+      position: relative;
+      flex: 1;
+      max-width: 460px;
+    }
+
+    .search-input-field {
+      width: 100%;
+      height: 48px;
+      padding: 12px 20px 12px 48px;
+      border-radius: var(--radius-pill);
+      background-color: var(--color-surface-subtle);
+      border: 1px solid var(--color-border-hairline);
+      color: var(--color-ink);
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .search-input-field:focus {
+      border-color: var(--color-action);
+      background-color: var(--color-card);
+    }
+
+    .search-icon-inside {
+      position: absolute;
+      left: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--color-ink);
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    /* Bộ lọc dạng viên thuốc (Filter Chips) */
+    .filter-pills-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-pill {
+      height: 44px;
+      padding: 0 20px;
+      border-radius: var(--radius-pill);
+      background-color: var(--color-surface-subtle);
+      color: var(--color-ink);
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background-color 0.15s ease, color 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .filter-pill:hover {
+      border-color: var(--color-border-hairline);
+    }
+
+    /* Active filter: Nền màu hành động xanh ngọc */
+    .filter-pill.active {
+      background-color: var(--color-action);
+      color: var(--color-action-text);
+      box-shadow: 0 2px 0 0 var(--color-border-strong);
+    }
+
+    /* ==========================================================================
+       10. ROOM CARDS GRID (DANH SÁCH PHÒNG CỦA TÔI)
+       ========================================================================== */
+    .room-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+      margin-bottom: var(--section-gap);
+    }
+
+    @media (min-width: 880px) {
+      .room-grid {
+        grid-template-columns: repeat(2, 1fr); /* 2 cột cân xứng và thoáng đãng */
+      }
+    }
+
+    /* Thẻ phòng học: Bo 24px, nền trắng, viền hairline, bóng đặc 0 2px 0 0 #111118 */
+    .room-card {
+      background-color: var(--color-card);
+      border: 1px solid var(--color-border-hairline);
+      border-radius: var(--radius-card);
+      padding: var(--card-padding);
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .room-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 0 0 #111118;
+    }
+
+    [data-theme="dark"] .room-card:hover {
+      box-shadow: 0 4px 0 0 #000000;
+    }
+
+    .room-card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    /* Icon container theo môn học: Nền màu trang trí cố định, viền 1px đen */
+    .subject-icon-container {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-pill);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #111118;
+      border: 1px solid #111118;
+      flex-shrink: 0;
+      box-shadow: 0 2px 0 0 #111118;
+    }
+
+    .room-meta-group {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .subject-tag-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    /* Tag môn học: Nền màu trang trí, chữ KHÔNG mang màu trang trí */
+    .subject-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 14px;
+      border-radius: var(--radius-pill);
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      color: #111118;
+      border: 1px solid #111118;
+    }
+
+    .live-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      background-color: var(--color-surface-subtle);
+      color: var(--color-ink);
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-pill);
+      background-color: var(--deco-green);
+      display: inline-block;
+    }
+
+    .live-dot.idle {
+      background-color: #888888;
+    }
+
+    .room-title {
+      font-size: var(--font-size-20);
+      line-height: var(--line-height-20);
+      letter-spacing: var(--tracking-title);
+      color: var(--color-ink);
+      word-break: break-word;
+    }
+
+    /* Dòng thông tin mã phòng & lịch học */
+    .room-details-block {
+      background-color: var(--color-surface-subtle);
+      border-radius: 20px; /* Không có góc dưới 16px */
+      padding: 16px;
+      margin: 18px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .code-display-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .code-badge {
+      font-family: var(--font-mono);
+      font-size: var(--font-size-16);
+      line-height: 1;
+      letter-spacing: 0.18em;
+      color: var(--color-ink);
+      background-color: var(--color-card);
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--color-border-hairline);
+      box-shadow: 0 1px 0 0 var(--color-border-strong);
+    }
+
+    .schedule-text {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      color: var(--color-ink);
+      opacity: 0.9;
+    }
+
+    /* Yếu tố con người: Nhóm sinh viên & Avatars tròn */
+    .room-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 8px;
+      padding-top: 16px;
+      border-top: 1px solid var(--color-border-hairline);
+    }
+
+    .avatar-stack-group {
+      display: flex;
+      align-items: center;
+    }
+
+    .stacked-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-pill);
+      border: 2px solid var(--color-card);
+      background-color: var(--color-surface-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--font-size-16);
+      line-height: 1;
+      color: #111118;
+      margin-left: -8px;
+      box-shadow: 0 1px 0 0 #111118;
+    }
+
+    .stacked-avatar:first-child {
+      margin-left: 0;
+    }
+
+    .members-online-hint {
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      color: var(--color-ink);
+      opacity: 0.8;
+      margin-left: 10px;
+    }
+
+    .card-actions-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ==========================================================================
+       11. QUICK QUIZ CHALLENGE BANNER (DEMONSTRATING QUIZ TOKEN REQUIREMENTS)
+       ========================================================================== */
+    .quiz-preview-section {
+      background-color: var(--color-card);
+      border: 1px solid var(--color-border-hairline);
+      border-radius: var(--radius-card);
+      padding: var(--card-padding);
+      box-shadow: var(--shadow-card);
+      margin-bottom: var(--section-gap);
+      position: relative;
+    }
+
+    .quiz-preview-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    @media (min-width: 860px) {
+      .quiz-preview-inner {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+
+    .quiz-title-box h3 {
+      font-size: var(--font-size-24);
+      line-height: var(--line-height-24);
+      letter-spacing: var(--tracking-title);
+      margin-bottom: 8px;
+    }
+
+    .quiz-title-box p {
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      opacity: 0.85;
+    }
+
+    /* Trắc nghiệm đúng/sai: nền #16ab59 / #ff4141, viền đặc 2px #111118, icon ✓ / ✗ */
+    .quiz-token-demo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .quiz-pill-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: var(--radius-btn);
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      border: 2px solid var(--color-border-strong); /* Viền đặc 2px bắt buộc */
+    }
+
+    /* Đúng: Nền #16ab59, chữ trắng, icon ✓, phân biệt rõ với nút ngọc #0b7a75 */
+    .quiz-pill-correct {
+      background-color: var(--quiz-correct-bg);
+      color: var(--quiz-correct-text);
+      box-shadow: 0 3px 0 0 #111118;
+    }
+
+    /* Sai: Nền #ff4141, chữ trắng, icon ✗ */
+    .quiz-pill-incorrect {
+      background-color: var(--quiz-incorrect-bg);
+      color: var(--quiz-incorrect-text);
+      box-shadow: 0 3px 0 0 #111118;
+    }
+
+    /* ==========================================================================
+       12. INTERACTIVE MODALS (JOIN ROOM & CREATE ROOM)
+       ========================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(17, 17, 24, 0.6);
+      backdrop-filter: blur(2px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    .modal-dialog {
+      background-color: var(--color-card);
+      border: 2px solid var(--color-border-strong);
+      border-radius: var(--radius-card);
+      padding: 32px;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: var(--shadow-modal);
+      position: relative;
+      animation: modalPop 0.15s ease-out;
+    }
+
+    @keyframes modalPop {
+      from {
+        transform: scale(0.96) translateY(8px);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .modal-title {
+      font-size: var(--font-size-24);
+      line-height: var(--line-height-24);
+      letter-spacing: var(--tracking-title);
+      color: var(--color-ink);
+    }
+
+    .modal-desc {
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      color: var(--color-ink);
+      opacity: 0.85;
+      margin-top: 6px;
+    }
+
+    .modal-close-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-pill);
+      background-color: var(--color-surface-subtle);
+      border: 1px solid var(--color-border-hairline);
+      color: var(--color-ink);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 0 0 var(--color-border-strong);
+      flex-shrink: 0;
+    }
+
+    .modal-close-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 0 0 0 transparent;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      color: var(--color-ink);
+      margin-bottom: 8px;
+    }
+
+    .form-control-pill {
+      width: 100%;
+      height: 48px;
+      padding: 12px 20px;
+      border-radius: var(--radius-pill);
+      background-color: var(--color-surface-subtle);
+      border: 1px solid var(--color-border-hairline);
+      color: var(--color-ink);
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      transition: border-color 0.15s ease;
+    }
+
+    .form-control-pill:focus {
+      border-color: var(--color-action);
+      background-color: var(--color-card);
+    }
+
+    .code-input-large {
+      font-family: var(--font-mono);
+      font-size: var(--font-size-24);
+      line-height: 1;
+      text-align: center;
+      letter-spacing: 0.35em;
+    }
+
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    /* Toast thông báo nhẹ */
+    .toast-pill {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background-color: #111118;
+      color: #ffffff;
+      padding: 12px 24px;
+      border-radius: var(--radius-btn);
+      box-shadow: 0 4px 0 0 var(--color-action);
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 200;
+      opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      pointer-events: none;
+    }
+
+    .toast-pill.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* ==========================================================================
+       13. FOOTER
+       ========================================================================== */
+    .site-footer {
+      margin-top: auto;
+      border-top: 1px solid var(--color-border-hairline);
+      background-color: var(--color-card);
+      padding: 32px 0;
+    }
+
+    .footer-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      text-align: center;
+    }
+
+    @media (min-width: 640px) {
+      .footer-inner {
+        flex-direction: row;
+        text-align: left;
+      }
+    }
+
+    .footer-text {
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      color: var(--color-ink);
+      opacity: 0.85;
+    }
+
+    .font-verification-tag {
+      font-size: var(--font-size-16);
+      line-height: var(--line-height-16);
+      padding: 6px 16px;
+      border-radius: var(--radius-pill);
+      background-color: var(--color-surface-subtle);
+      border: 1px solid var(--color-border-hairline);
+      color: var(--color-ink);
+    }
+
+    /* ==========================================================================
+       14. RESPONSIVE TUNING DÀNH RIÊNG CHO 390PX (MOBILE VIEWPORT)
+       ========================================================================== */
+    @media (max-width: 640px) {
+      .container {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+
+      .nav-inner {
+        min-height: 64px;
+      }
+
+      .nav-tabs {
+        display: none; /* Ẩn ở header chính, đưa xuống dải tab phụ mượt mà */
+      }
+
+      .mobile-tab-strip {
+        display: flex;
+        gap: 8px;
+      }
+
+      .rooms-hero-section {
+        padding-top: 32px;
+        padding-bottom: 28px;
+      }
+
+      .page-title {
+        font-size: var(--font-size-42);
+        line-height: var(--line-height-42);
+      }
+
+      .hero-cta-group {
+        flex-direction: column;
+        width: 100%;
+        gap: 12px;
+      }
+
+      .hero-cta-group .btn {
+        width: 100%;
+      }
+
+      .controls-panel {
+        padding: 16px;
+      }
+
+      .filter-pills-row {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .room-card {
+        padding: 20px;
+      }
+
+      .room-card-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+      }
+
+      .card-actions-group {
+        width: 100%;
+      }
+
+      .btn-card-action {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .modal-dialog {
+        padding: 24px;
+      }
+
+      .modal-footer {
+        flex-direction: column-reverse;
+      }
+
+      .modal-footer .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==========================================================================
+       EMBEDDED PHOSPHOR SVG SYMBOLS (ĐẢM BẢO HOẠT ĐỘNG 100% OFFLINE VÀ ONLINE)
+       ========================================================================== -->
+  <svg style="display: none;" aria-hidden="true">
+    <defs>
+      <!-- Sparkle -->
+      <g id="ph-sparkle">
+        <path d="M128,24V232M24,128H232M54.4,54.4l147.2,147.2M54.4,201.6,201.6,54.4"/>
+      </g>
+      <!-- Books -->
+      <g id="ph-books">
+        <path d="M48,40H88a16,16,0,0,1,16,16V208a0,0,0,0,1,0,0H56a24,24,0,0,1-24-24V56A16,16,0,0,1,48,40Z"/>
+        <path d="M104,40h40a16,16,0,0,1,16,16V208a0,0,0,0,1,0,0H120a24,24,0,0,1-24-24V56A16,16,0,0,1,104,40Z"/>
+        <path d="M160,48l40,12a16,16,0,0,1,11,19L176,212"/>
+      </g>
+      <!-- Video Camera -->
+      <g id="ph-video-camera">
+        <rect x="24" y="64" width="144" height="128" rx="20"/>
+        <polygon points="168,104 232,64 232,192 168,152"/>
+      </g>
+      <!-- Trophy -->
+      <g id="ph-trophy">
+        <path d="M64,48H192v56a64,64,0,0,1-128,0Z"/>
+        <path d="M64,72H32a16,16,0,0,0-16,16v8a40,40,0,0,0,40,40h8"/>
+        <path d="M192,72h32a16,16,0,0,1,16,16v8a40,40,0,0,1-40,40h-8"/>
+        <line x1="128" y1="168" x2="128" y2="208"/>
+        <line x1="88" y1="208" x2="168" y2="208"/>
+      </g>
+      <!-- Moon -->
+      <g id="ph-moon">
+        <path d="M216.5,152A96,96,0,1,1,104,39.5,88,88,0,0,0,216.5,152Z"/>
+      </g>
+      <!-- Sun -->
+      <g id="ph-sun">
+        <circle cx="128" cy="128" r="56"/>
+        <line x1="128" y1="24" x2="128" y2="48"/>
+        <line x1="128" y1="208" x2="128" y2="232"/>
+        <line x1="24" y1="128" x2="48" y2="128"/>
+        <line x1="208" y1="128" x2="232" y2="128"/>
+        <line x1="54.4" y1="54.4" x2="71.4" y2="71.4"/>
+        <line x1="184.6" y1="184.6" x2="201.6" y2="201.6"/>
+        <line x1="54.4" y1="201.6" x2="71.4" y2="184.6"/>
+        <line x1="184.6" y1="71.4" x2="201.6" y2="54.4"/>
+      </g>
+      <!-- Sign In -->
+      <g id="ph-sign-in">
+        <polyline points="128 168 168 128 128 88"/>
+        <line x1="40" y1="128" x2="168" y2="128"/>
+        <path d="M112,40h88a16,16,0,0,1,16,16V200a16,16,0,0,1-16,16H112"/>
+      </g>
+      <!-- Plus -->
+      <g id="ph-plus">
+        <line x1="40" y1="128" x2="216" y2="128"/>
+        <line x1="128" y1="40" x2="128" y2="216"/>
+      </g>
+      <!-- Arrow Right -->
+      <g id="ph-arrow-right">
+        <line x1="40" y1="128" x2="216" y2="128"/>
+        <polyline points="144 56 216 128 144 200"/>
+      </g>
+      <!-- Users -->
+      <g id="ph-users">
+        <circle cx="88" cy="104" r="32"/>
+        <path d="M24,192a64,64,0,0,1,128,0"/>
+        <circle cx="176" cy="96" r="24"/>
+        <path d="M168,144a48,48,0,0,1,64,48"/>
+      </g>
+      <!-- Calendar Check -->
+      <g id="ph-calendar-check">
+        <rect x="40" y="40" width="176" height="176" rx="20"/>
+        <line x1="88" y1="24" x2="88" y2="56"/>
+        <line x1="168" y1="24" x2="168" y2="56"/>
+        <line x1="40" y1="88" x2="216" y2="88"/>
+        <polyline points="92 144 116 168 164 120"/>
+      </g>
+      <!-- Chats Circle -->
+      <g id="ph-chats-circle">
+        <circle cx="104" cy="116" r="68"/>
+        <path d="M152,72a68,68,0,0,1,68,68,67.6,67.6,0,0,1-20,48l16,36-39.6-11.9A68.3,68.3,0,0,1,152,216"/>
+      </g>
+      <!-- Magnifying Glass -->
+      <g id="ph-magnifying-glass">
+        <circle cx="112" cy="112" r="64"/>
+        <line x1="160" y1="160" x2="216" y2="216"/>
+      </g>
+      <!-- Function (Math) -->
+      <g id="ph-function">
+        <path d="M160,40H136a32,32,0,0,0-32,32V184a32,32,0,0,1-32,32H48"/>
+        <line x1="64" y1="128" x2="144" y2="128"/>
+      </g>
+      <!-- Tree Structure (CS) -->
+      <g id="ph-tree-structure">
+        <circle cx="128" cy="56" r="24"/>
+        <circle cx="64" cy="192" r="24"/>
+        <circle cx="192" cy="192" r="24"/>
+        <path d="M128,80V128H64v40M128,128h64v40"/>
+      </g>
+      <!-- Kanban (Project) -->
+      <g id="ph-kanban">
+        <rect x="40" y="48" width="48" height="160" rx="16"/>
+        <rect x="104" y="48" width="48" height="112" rx="16"/>
+        <rect x="168" y="48" width="48" height="144" rx="16"/>
+      </g>
+      <!-- Network -->
+      <g id="ph-network">
+        <circle cx="128" cy="64" r="24"/>
+        <circle cx="56" cy="192" r="24"/>
+        <circle cx="200" cy="192" r="24"/>
+        <line x1="112" y1="80" x2="72" y2="176"/>
+        <line x1="144" y1="80" x2="184" y2="176"/>
+        <line x1="80" y1="192" x2="176" y2="192"/>
+      </g>
+      <!-- Hash -->
+      <g id="ph-hash">
+        <line x1="48" y1="96" x2="208" y2="96"/>
+        <line x1="48" y1="160" x2="208" y2="160"/>
+        <line x1="104" y1="40" x2="80" y2="216"/>
+        <line x1="176" y1="40" x2="152" y2="216"/>
+      </g>
+      <!-- Clock -->
+      <g id="ph-clock">
+        <circle cx="128" cy="128" r="96"/>
+        <polyline points="128 72 128 128 168 152"/>
+      </g>
+      <!-- Copy -->
+      <g id="ph-copy">
+        <rect x="80" y="80" width="136" height="136" rx="20"/>
+        <path d="M176,40H56a16,16,0,0,0-16,16V176"/>
+      </g>
+      <!-- Check -->
+      <g id="ph-check">
+        <polyline points="48 136 96 184 208 72"/>
+      </g>
+      <!-- Close / X -->
+      <g id="ph-x">
+        <line x1="56" y1="56" x2="200" y2="200"/>
+        <line x1="200" y1="56" x2="56" y2="200"/>
+      </g>
+      <!-- Arrows Clockwise -->
+      <g id="ph-arrows-clockwise">
+        <polyline points="176 40 216 80 176 120"/>
+        <path d="M216,80A88,88,0,0,0,72,60L40,88"/>
+        <polyline points="80 216 40 176 80 136"/>
+        <path d="M40,176a88,88,0,0,0,144,20l32-28"/>
+      </g>
+    </defs>
+  </svg>
+
+  <!-- ==========================================================================
+       HÌNH KHỐI TRANG TRÍ PHẲNG Ở MÉP (1-2 hình theo SuperHi: vàng & hồng)
+       ========================================================================== -->
+  <div class="bg-shape bg-shape-top-right" aria-hidden="true"></div>
+  <div class="bg-shape bg-shape-bottom-left" aria-hidden="true"></div>
+
+  <div class="page-wrapper">
+    
+    <!-- ==========================================================================
+       HEADER ĐIỀU HƯỚNG CHÍNH
+       ========================================================================== -->
+    <header class="site-nav">
+      <div class="container nav-inner">
+        
+        <div class="nav-left">
+          <!-- Logo PeerMind -->
+          <a href="#" class="brand-logo" title="PeerMind — Học tập nhóm cùng AI">
+            <div class="brand-mark">
+              <svg class="ph-icon" style="color: #ffffff;"><use href="#ph-sparkle"/></svg>
+            </div>
+            <span>PeerMind</span>
+          </a>
+
+          <!-- 3 Phân khu chính của nền tảng (Desktop) -->
+          <nav class="nav-tabs" aria-label="Các phân khu chính">
+            <a href="#documents" class="nav-tab-item" title="Tài liệu & Trợ lý AI hỏi đáp (kiểu NotebookLM)">
+              <svg class="ph-icon"><use href="#ph-books"/></svg>
+              <span>Tài liệu</span>
+            </a>
+            <a href="#classrooms" class="nav-tab-item active" title="Phòng học nhóm họp video (kiểu Google Meet)">
+              <svg class="ph-icon"><use href="#ph-video-camera"/></svg>
+              <span>Phòng học</span>
+            </a>
+            <a href="#tests" class="nav-tab-item" title="Bài kiểm tra trực tuyến có xếp hạng">
+              <svg class="ph-icon"><use href="#ph-trophy"/></svg>
+              <span>Kiểm tra</span>
+            </a>
+          </nav>
+        </div>
+
+        <div class="nav-right">
+          <!-- Nút chuyển Dark/Light Mode -->
+          <button id="themeToggleBtn" class="theme-toggle-btn" aria-label="Chuyển chế độ sáng/tối" title="Đổi giao diện Sáng / Tối">
+            <svg class="ph-icon" id="themeIconSvg"><use href="#ph-moon"/></svg>
+          </button>
+
+          <!-- Avatar & Tài khoản sinh viên -->
+          <div class="user-pill" title="Tài khoản đang đăng nhập">
+            <div class="user-avatar">MA</div>
+            <span class="user-name">Minh Anh</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Dải tab cho màn hình di động (390px) -->
+      <nav class="mobile-tab-strip" aria-label="Điều hướng mobile">
+        <a href="#documents" class="nav-tab-item">
+          <svg class="ph-icon"><use href="#ph-books"/></svg>
+          <span>Tài liệu</span>
+        </a>
+        <a href="#classrooms" class="nav-tab-item active">
+          <svg class="ph-icon"><use href="#ph-video-camera"/></svg>
+          <span>Phòng học</span>
+        </a>
+        <a href="#tests" class="nav-tab-item">
+          <svg class="ph-icon"><use href="#ph-trophy"/></svg>
+          <span>Kiểm tra</span>
+        </a>
+      </nav>
+    </header>
+
+    <!-- ==========================================================================
+       MAIN CONTENT: PHÒNG HỌC – DANH SÁCH PHÒNG CỦA TÔI
+       ========================================================================== -->
+    <main class="container">
+      
+      <!-- HERO / TIÊU ĐỀ TRANG & CẶP NÚT HÀNH ĐỘNG -->
+      <section class="rooms-hero-section">
+        <div class="hero-flex-wrapper">
+          
+          <div class="hero-text-block">
+            <div class="greeting-kicker">
+              <span class="kicker-dot"></span>
+              <span>Chào bạn Minh Anh, hôm nay bạn muốn học môn nào?</span>
+            </div>
+            <h1 class="page-title">Phòng học của bạn</h1>
+            <p class="page-subtitle">
+              Vào lại các nhóm học quen thuộc, cùng đồng bộ slide thời gian thực và ôn thi trực tuyến.
+            </p>
+          </div>
+
+          <!-- NÚT HÀNH ĐỘNG: Nút chính có mũi tên →; nút phụ tối có bóng xanh ngọc -->
+          <div class="hero-cta-group">
+            <button id="openJoinBtn" class="btn btn-dark" title="Nhập mã 6 số để tham gia phòng">
+              <svg class="ph-icon"><use href="#ph-sign-in"/></svg>
+              <span>Tham gia bằng mã</span>
+            </button>
+            <button id="openCreateBtn" class="btn btn-primary" title="Tạo không gian học nhóm mới">
+              <svg class="ph-icon"><use href="#ph-plus"/></svg>
+              <span>Tạo phòng học mới →</span>
+            </button>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- 3 CHỈ SỐ NHANH / YẾU TỐ CON NGƯỜI & HỌC TẬP -->
+      <section class="community-strip" aria-label="Tổng quan hoạt động nhóm của bạn">
+        <div class="metric-pill-card">
+          <div class="metric-icon-box" style="background-color: var(--deco-yellow);">
+            <svg class="ph-icon"><use href="#ph-users"/></svg>
+          </div>
+          <div>
+            <div class="metric-label">Bạn học đang online</div>
+            <div class="metric-value">3 bạn đang học nhóm</div>
+          </div>
+        </div>
+
+        <div class="metric-pill-card">
+          <div class="metric-icon-box" style="background-color: var(--deco-sky);">
+            <svg class="ph-icon"><use href="#ph-calendar-check"/></svg>
+          </div>
+          <div>
+            <div class="metric-label">Lịch học sắp tới</div>
+            <div class="metric-value">19:30 tối nay · Giải tích 1</div>
+          </div>
+        </div>
+
+        <div class="metric-pill-card">
+          <div class="metric-icon-box" style="background-color: var(--deco-pink);">
+            <svg class="ph-icon"><use href="#ph-chats-circle"/></svg>
+          </div>
+          <div>
+            <div class="metric-label">Nhóm đồ án & môn học</div>
+            <div class="metric-value">4 phòng đang hoạt động</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- THANH TÌM KIẾM & BỘ LỌC MÔN HỌC -->
+      <section class="controls-panel">
+        <div class="controls-inner">
+          
+          <div class="search-wrapper">
+            <div class="search-icon-inside">
+              <svg class="ph-icon"><use href="#ph-magnifying-glass"/></svg>
+            </div>
+            <input 
+              type="text" 
+              id="roomSearchInput" 
+              class="search-input-field" 
+              placeholder="Tìm theo tên môn, mã phòng 6 số..."
+              autocomplete="off"
+            >
+          </div>
+
+          <div class="filter-pills-row" role="tablist">
+            <button class="filter-pill active" data-filter="all">Tất cả (4)</button>
+            <button class="filter-pill" data-filter="online">Đang online (2)</button>
+            <button class="filter-pill" data-filter="math">Toán đại cương</button>
+            <button class="filter-pill" data-filter="cs">Công nghệ thông tin</button>
+            <button class="filter-pill" data-filter="project">Đồ án nhóm</button>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- DANH SÁCH PHÒNG CỦA TÔI (ROOM CARDS) -->
+      <section class="room-grid" id="roomCardsContainer">
+
+        <!-- THẺ 1: Giải tích 1 (Toán: Màu trang trí Vàng #ffda00) -->
+        <article class="room-card" data-category="math" data-online="true">
+          <div>
+            <div class="room-card-header">
+              <div class="subject-icon-container" style="background-color: var(--deco-yellow);" title="Môn Toán">
+                <svg class="ph-icon"><use href="#ph-function"/></svg>
+              </div>
+              <div class="room-meta-group">
+                <div class="subject-tag-row">
+                  <span class="subject-tag" style="background-color: var(--deco-yellow);">Toán đại cương</span>
+                  <span class="live-status-pill">
+                    <span class="live-dot"></span>
+                    2 bạn đang học
+                  </span>
+                </div>
+                <h2 class="room-title">Giải tích 1 – Ôn thi cuối kỳ & Chuỗi số</h2>
+              </div>
+            </div>
+
+            <!-- Khối chi tiết mã phòng & lịch học -->
+            <div class="room-details-block">
+              <div class="code-display-row">
+                <span class="schedule-text">
+                  <svg class="ph-icon"><use href="#ph-hash"/></svg> Mã phòng:
+                </span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="code-badge">482 913</span>
+                  <button class="btn-icon-subtle copy-code-btn" data-code="482913" title="Sao chép mã phòng">
+                    <svg class="ph-icon"><use href="#ph-copy"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="schedule-text">
+                <svg class="ph-icon"><use href="#ph-clock"/></svg>
+                <span>Hôm nay, 19:30 · Mục tiêu giải đề thi năm 2025</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer của thẻ: Avatar bạn học & Nút hành động -->
+          <div class="room-card-footer">
+            <div class="avatar-stack-group">
+              <div class="stacked-avatar" style="background-color: var(--deco-sky);" title="Minh Anh (Bạn)">MA</div>
+              <div class="stacked-avatar" style="background-color: var(--deco-yellow);" title="Tuấn Dũng">TD</div>
+              <div class="stacked-avatar" style="background-color: var(--deco-pink);" title="Thuý Trang">TT</div>
+              <span class="members-online-hint">+3 bạn khác</span>
+            </div>
+
+            <div class="card-actions-group">
+              <button class="btn-card-action enter-room-btn" data-room-name="Giải tích 1" data-code="482913">
+                <span>Vào phòng học →</span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- THẺ 2: Cấu trúc dữ liệu & Giải thuật (CS: Màu trang trí Xanh da trời #91d8ec) -->
+        <article class="room-card" data-category="cs" data-online="true">
+          <div>
+            <div class="room-card-header">
+              <div class="subject-icon-container" style="background-color: var(--deco-sky);" title="Khoa học máy tính">
+                <svg class="ph-icon"><use href="#ph-tree-structure"/></svg>
+              </div>
+              <div class="room-meta-group">
+                <div class="subject-tag-row">
+                  <span class="subject-tag" style="background-color: var(--deco-sky);">Công nghệ thông tin</span>
+                  <span class="live-status-pill">
+                    <span class="live-dot"></span>
+                    1 bạn đang mở slide
+                  </span>
+                </div>
+                <h2 class="room-title">Cấu trúc dữ liệu & Giải thuật – Cây AVL & Đồ thị</h2>
+              </div>
+            </div>
+
+            <div class="room-details-block">
+              <div class="code-display-row">
+                <span class="schedule-text">
+                  <svg class="ph-icon"><use href="#ph-hash"/></svg> Mã phòng:
+                </span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="code-badge">730 256</span>
+                  <button class="btn-icon-subtle copy-code-btn" data-code="730256" title="Sao chép mã phòng">
+                    <svg class="ph-icon"><use href="#ph-copy"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="schedule-text">
+                <svg class="ph-icon"><use href="#ph-clock"/></svg>
+                <span>Tối mai, 20:00 · Minh hoạ bài toán Dijkstra</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="room-card-footer">
+            <div class="avatar-stack-group">
+              <div class="stacked-avatar" style="background-color: var(--deco-green);" title="Đức Huy">ĐH</div>
+              <div class="stacked-avatar" style="background-color: var(--deco-sky);" title="Minh Anh">MA</div>
+              <span class="members-online-hint">Đức Huy đang online</span>
+            </div>
+
+            <div class="card-actions-group">
+              <button class="btn-card-action enter-room-btn" data-room-name="Cấu trúc dữ liệu & Giải thuật" data-code="730256">
+                <span>Vào phòng học →</span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- THẺ 3: Đồ án Kỹ thuật phần mềm (Đồ án: Màu trang trí Hồng #ffbac4) -->
+        <article class="room-card" data-category="project" data-online="false">
+          <div>
+            <div class="room-card-header">
+              <div class="subject-icon-container" style="background-color: var(--deco-pink);" title="Đồ án nhóm">
+                <svg class="ph-icon"><use href="#ph-kanban"/></svg>
+              </div>
+              <div class="room-meta-group">
+                <div class="subject-tag-row">
+                  <span class="subject-tag" style="background-color: var(--deco-pink);">Đồ án nhóm</span>
+                  <span class="live-status-pill">
+                    <span class="live-dot idle"></span>
+                    Chưa có ai online
+                  </span>
+                </div>
+                <h2 class="room-title">Nhóm đồ án KTPM – Sprint Review & Kiến trúc PeerMind</h2>
+              </div>
+            </div>
+
+            <div class="room-details-block">
+              <div class="code-display-row">
+                <span class="schedule-text">
+                  <svg class="ph-icon"><use href="#ph-hash"/></svg> Mã phòng:
+                </span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="code-badge">159 847</span>
+                  <button class="btn-icon-subtle copy-code-btn" data-code="159847" title="Sao chép mã phòng">
+                    <svg class="ph-icon"><use href="#ph-copy"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="schedule-text">
+                <svg class="ph-icon"><use href="#ph-clock"/></svg>
+                <span>Thứ Sáu, 14:00 · Báo cáo tiến độ với Giảng viên</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="room-card-footer">
+            <div class="avatar-stack-group">
+              <div class="stacked-avatar" style="background-color: var(--deco-yellow);" title="Hoàng Nam">HN</div>
+              <div class="stacked-avatar" style="background-color: var(--deco-pink);" title="Bảo Châu">BC</div>
+              <div class="stacked-avatar" style="background-color: var(--deco-sky);" title="Minh Anh">MA</div>
+              <span class="members-online-hint">Hẹn gặp 14:00</span>
+            </div>
+
+            <div class="card-actions-group">
+              <button class="btn-card-action enter-room-btn" data-room-name="Đồ án KTPM" data-code="159847">
+                <span>Vào phòng học →</span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- THẺ 4: Mạng máy tính & An toàn thông tin (Mạng: Màu trang trí Đỏ #ff4141) -->
+        <article class="room-card" data-category="cs" data-online="false">
+          <div>
+            <div class="room-card-header">
+              <div class="subject-icon-container" style="background-color: var(--deco-red);" title="Mạng máy tính">
+                <svg class="ph-icon" style="color: #ffffff;"><use href="#ph-network"/></svg>
+              </div>
+              <div class="room-meta-group">
+                <div class="subject-tag-row">
+                  <span class="subject-tag" style="background-color: var(--deco-red); color: #ffffff;">Công nghệ thông tin</span>
+                  <span class="live-status-pill">
+                    <span class="live-dot idle"></span>
+                    Học lúc 09:00 CN
+                  </span>
+                </div>
+                <h2 class="room-title">Mạng máy tính – Thực hành phân tích gói tin Wireshark</h2>
+              </div>
+            </div>
+
+            <div class="room-details-block">
+              <div class="code-display-row">
+                <span class="schedule-text">
+                  <svg class="ph-icon"><use href="#ph-hash"/></svg> Mã phòng:
+                </span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="code-badge">904 128</span>
+                  <button class="btn-icon-subtle copy-code-btn" data-code="904128" title="Sao chép mã phòng">
+                    <svg class="ph-icon"><use href="#ph-copy"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="schedule-text">
+                <svg class="ph-icon"><use href="#ph-clock"/></svg>
+                <span>Chủ nhật, 09:00 · Phòng Lab Mô phỏng mạng TCP/IP</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="room-card-footer">
+            <div class="avatar-stack-group">
+              <div class="stacked-avatar" style="background-color: var(--deco-red); color: #fff;" title="Quang Minh">QM</div>
+              <div class="stacked-avatar" style="background-color: var(--deco-sky);" title="Minh Anh">MA</div>
+              <span class="members-online-hint">2 tài liệu đính kèm</span>
+            </div>
+
+            <div class="card-actions-group">
+              <button class="btn-card-action enter-room-btn" data-room-name="Mạng máy tính" data-code="904128">
+                <span>Vào phòng học →</span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+      </section>
+
+      <!-- KHU VỰC MINH HOẠ QUIZ ĐÚNG/SAI CỦA PHÒNG HỌC (ĐÁP ỨNG TRỌN VẸN TOKEN QUIZ) -->
+      <section class="quiz-preview-section">
+        <div class="quiz-preview-inner">
+          <div class="quiz-title-box">
+            <h3>Câu hỏi khởi động trước giờ học</h3>
+            <p>Phòng Giải tích 1 có bài kiểm tra trắc nghiệm 3 phút để điểm danh và khởi động.</p>
+          </div>
+
+          <!-- Các trạng thái Quiz: Viền đặc 2px #111118, icon kèm theo, chữ tương phản >= 4.5:1 -->
+          <div class="quiz-token-demo">
+            <div class="quiz-pill-badge quiz-pill-correct" title="Đáp án đúng có icon check và viền đặc 2px">
+              <svg class="ph-icon" style="color: #ffffff;"><use href="#ph-check"/></svg>
+              <span>Đáp án đúng (Chuỗi hội tụ)</span>
+            </div>
+            <div class="quiz-pill-badge quiz-pill-incorrect" title="Đáp án sai có icon X và viền đặc 2px">
+              <svg class="ph-icon" style="color: #ffffff;"><use href="#ph-x"/></svg>
+              <span>Đáp án sai (Phân kỳ)</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ==========================================================================
+       FOOTER
+       ========================================================================== -->
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <div class="footer-text">
+          <span>PeerMind © 2026 — Nền tảng học tập cộng tác thời gian thực cho sinh viên</span>
+        </div>
+        <!-- Thẻ kiểm tra dấu tiếng Việt theo yêu cầu đề bài -->
+        <div class="font-verification-tag" title="Kiểm tra tương thích hiển thị toàn bộ dấu phụ tiếng Việt">
+          <span>Phông chữ chuẩn: Ắng ễ ượ Ẩ Ỡ Ộ · 400 Regular</span>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- ==========================================================================
+       MODAL 1: THAM GIA PHÒNG HỌC (NHẬP MÃ 6 SỐ)
+       ========================================================================== -->
+  <div id="joinModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="joinModalTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h2 id="joinModalTitle" class="modal-title">Tham gia phòng học</h2>
+          <p class="modal-desc">Nhập mã phòng 6 số do bạn bè chia sẻ để cùng vào học.</p>
+        </div>
+        <button class="modal-close-btn close-modal-trigger" aria-label="Đóng popup">
+          <svg class="ph-icon"><use href="#ph-x"/></svg>
+        </button>
+      </div>
+
+      <form id="joinRoomForm">
+        <div class="form-group">
+          <label for="joinRoomCode" class="form-label">Mã phòng 6 số:</label>
+          <input 
+            type="text" 
+            id="joinRoomCode" 
+            class="form-control-pill code-input-large" 
+            placeholder="482 913" 
+            maxlength="6" 
+            inputmode="numeric" 
+            required
+            autocomplete="off"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="joinRoomPassword" class="form-label">Mật khẩu phòng (nếu có):</label>
+          <input 
+            type="password" 
+            id="joinRoomPassword" 
+            class="form-control-pill" 
+            placeholder="Nhập mật khẩu..." 
+            autocomplete="current-password"
+          >
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-dark close-modal-trigger">
+            <span>Huỷ</span>
+          </button>
+          <button type="submit" class="btn btn-primary">
+            <span>Vào phòng ngay →</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL 2: TẠO PHÒNG HỌC MỚI
+       ========================================================================== -->
+  <div id="createModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="createModalTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h2 id="createModalTitle" class="modal-title">Tạo phòng học mới</h2>
+          <p class="modal-desc">Khởi tạo không gian học nhóm có video và tài liệu đồng bộ.</p>
+        </div>
+        <button class="modal-close-btn close-modal-trigger" aria-label="Đóng popup">
+          <svg class="ph-icon"><use href="#ph-x"/></svg>
+        </button>
+      </div>
+
+      <form id="createRoomForm">
+        <div class="form-group">
+          <label for="newRoomName" class="form-label">Tên phòng học hoặc môn học:</label>
+          <input 
+            type="text" 
+            id="newRoomName" 
+            class="form-control-pill" 
+            placeholder="Ví dụ: Ôn thi Giải tích 1..." 
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mã phòng ngẫu nhiên (6 số):</label>
+          <div style="display: flex; gap: 8px;">
+            <input 
+              type="text" 
+              id="newGeneratedCode" 
+              class="form-control-pill code-input-large" 
+              value="829 104" 
+              readonly
+            >
+            <button type="button" id="refreshCodeBtn" class="btn-icon-subtle" style="height: 48px; width: 48px;" title="Đổi mã khác">
+              <svg class="ph-icon"><use href="#ph-arrows-clockwise"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="newRoomPassword" class="form-label">Đặt mật khẩu phòng:</label>
+          <input 
+            type="password" 
+            id="newRoomPassword" 
+            class="form-control-pill" 
+            placeholder="Tối thiểu 4 ký tự..." 
+            required
+          >
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-dark close-modal-trigger">
+            <span>Huỷ</span>
+          </button>
+          <button type="submit" class="btn btn-primary">
+            <span>Khởi tạo phòng →</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST FEEDBACK -->
+  <div id="toastNotification" class="toast-pill" role="status" aria-live="polite">
+    <svg class="ph-icon" style="color: var(--color-action);"><use href="#ph-check"/></svg>
+    <span id="toastMessage">Đã sao chép mã phòng thành công!</span>
+  </div>
+
+  <!-- ==========================================================================
+       JAVASCRIPT: TƯƠNG TÁC TỰ CHỨA (CHUYỂN THEME, MODALS, SEARCH, COPY)
+       ========================================================================== -->
+  <script>
+    (function() {
+      // 1. CHUYỂN CHẾ ĐỘ SÁNG / TỐI (DARK MODE TOGGLE)
+      const htmlEl = document.documentElement;
+      const themeToggleBtn = document.getElementById('themeToggleBtn');
+      const themeIconSvg = document.getElementById('themeIconSvg');
+
+      function updateTheme(theme) {
+        htmlEl.setAttribute('data-theme', theme);
+        if (theme === 'dark') {
+          themeIconSvg.innerHTML = '<use href="#ph-sun"/>';
+          themeToggleBtn.setAttribute('title', 'Chuyển sang chế độ Sáng');
+        } else {
+          themeIconSvg.innerHTML = '<use href="#ph-moon"/>';
+          themeToggleBtn.setAttribute('title', 'Chuyển sang chế độ Tối');
+        }
+        try {
+          localStorage.setItem('peermind_theme', theme);
+        } catch (e) {}
+      }
+
+      // Đọc tuỳ chọn đã lưu hoặc mặc định sáng
+      const savedTheme = localStorage.getItem('peermind_theme') || 'light';
+      updateTheme(savedTheme);
+
+      themeToggleBtn.addEventListener('click', () => {
+        const currentTheme = htmlEl.getAttribute('data-theme') || 'light';
+        const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
+        updateTheme(nextTheme);
+      });
+
+      // 2. TOAST THÔNG BÁO NHẸ
+      const toastEl = document.getElementById('toastNotification');
+      const toastMsgEl = document.getElementById('toastMessage');
+      let toastTimer = null;
+
+      function showToast(text) {
+        toastMsgEl.textContent = text;
+        toastEl.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          toastEl.classList.remove('show');
+        }, 2600);
+      }
+
+      // 3. SAO CHÉP MÃ PHÒNG (COPY ROOM CODE)
+      document.querySelectorAll('.copy-code-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const code = btn.getAttribute('data-code');
+          if (navigator.clipboard && code) {
+            navigator.clipboard.writeText(code).then(() => {
+              showToast(`Đã sao chép mã phòng ${code}!`);
+            }).catch(() => {
+              showToast(`Mã phòng: ${code}`);
+            });
+          } else {
+            showToast(`Mã phòng: ${code}`);
+          }
+        });
+      });
+
+      // 4. QUẢN LÝ MODAL (POPUP)
+      const joinModal = document.getElementById('joinModal');
+      const createModal = document.getElementById('createModal');
+      const openJoinBtn = document.getElementById('openJoinBtn');
+      const openCreateBtn = document.getElementById('openCreateBtn');
+
+      function openModal(modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        const firstInput = modal.querySelector('input');
+        if (firstInput) setTimeout(() => firstInput.focus(), 80);
+      }
+
+      function closeModal(modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+
+      openJoinBtn.addEventListener('click', () => openModal(joinModal));
+      openCreateBtn.addEventListener('click', () => openModal(createModal));
+
+      document.querySelectorAll('.close-modal-trigger').forEach(btn => {
+        btn.addEventListener('click', () => {
+          closeModal(joinModal);
+          closeModal(createModal);
+        });
+      });
+
+      // Đóng khi click backdrop hoặc phím Esc
+      window.addEventListener('click', (e) => {
+        if (e.target === joinModal) closeModal(joinModal);
+        if (e.target === createModal) closeModal(createModal);
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeModal(joinModal);
+          closeModal(createModal);
+        }
+      });
+
+      // 5. TẠO MÃ PHÒNG 6 SỐ NGẪU NHIÊN
+      const newGeneratedCode = document.getElementById('newGeneratedCode');
+      const refreshCodeBtn = document.getElementById('refreshCodeBtn');
+
+      function generateCode() {
+        const rand = Math.floor(100000 + Math.random() * 900000);
+        return rand.toString().replace(/(\d{3})(\d{3})/, '$1 $2');
+      }
+
+      if (refreshCodeBtn) {
+        refreshCodeBtn.addEventListener('click', () => {
+          newGeneratedCode.value = generateCode();
+        });
+      }
+
+      // Xử lý form Tham gia phòng
+      document.getElementById('joinRoomForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const code = document.getElementById('joinRoomCode').value.trim();
+        closeModal(joinModal);
+        showToast(`Đang kết nối vào phòng ${code}...`);
+      });
+
+      // Xử lý form Tạo phòng
+      document.getElementById('createRoomForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = document.getElementById('newRoomName').value.trim();
+        const code = newGeneratedCode.value;
+        closeModal(createModal);
+        showToast(`Đã tạo thành công phòng "${name}" (${code})!`);
+      });
+
+      // 6. NÚT VÀO PHÒNG TRÊN TỪNG THẺ
+      document.querySelectorAll('.enter-room-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const roomName = btn.getAttribute('data-room-name');
+          const code = btn.getAttribute('data-code');
+          showToast(`Đang mở không gian học "${roomName}" (${code})...`);
+        });
+      });
+
+      // 7. TÌM KIẾM PHÒNG HỌC THỜI GIAN THỰC & BỘ LỌC
+      const searchInput = document.getElementById('roomSearchInput');
+      const roomCards = document.querySelectorAll('.room-card');
+      const filterPills = document.querySelectorAll('.filter-pill');
+      let currentFilter = 'all';
+
+      function applyFilterAndSearch() {
+        const query = searchInput.value.toLowerCase().trim();
+
+        roomCards.forEach(card => {
+          const text = card.textContent.toLowerCase();
+          const category = card.getAttribute('data-category');
+          const isOnline = card.getAttribute('data-online') === 'true';
+
+          let matchesFilter = false;
+          if (currentFilter === 'all') matchesFilter = true;
+          else if (currentFilter === 'online') matchesFilter = isOnline;
+          else if (currentFilter === category) matchesFilter = true;
+
+          const matchesSearch = !query || text.includes(query);
+
+          if (matchesFilter && matchesSearch) {
+            card.style.display = 'flex';
+          } else {
+            card.style.display = 'none';
+          }
+        });
+      }
+
+      searchInput.addEventListener('input', applyFilterAndSearch);
+
+      filterPills.forEach(pill => {
+        pill.addEventListener('click', () => {
+          filterPills.forEach(p => p.classList.remove('active'));
+          pill.classList.add('active');
+          currentFilter = pill.getAttribute('data-filter');
+          applyFilterAndSearch();
+        });
+      });
+
+    })();
+  </script>
+</body>
+</html>

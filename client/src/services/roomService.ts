@@ -1,5 +1,6 @@
 // services/roomService.ts — Service quản lý phòng học & dữ liệu Supabase Realtime
 import { supabase } from "./supabaseClient";
+import { isValidUUID } from "../utils";
 
 export type RoomItem = {
   id: number;
@@ -24,7 +25,7 @@ export const COLORS = ["#0ea5e9", "#8b5cf6", "#10b981", "#f59e0b", "#ec4899", "#
 export async function fetchRoomsApi(userId?: string): Promise<RoomItem[]> {
   try {
     let query = supabase.from("rooms").select("*").eq("is_active", true);
-    if (userId) {
+    if (isValidUUID(userId)) {
       query = query.eq("host_user_id", userId);
     }
     const { data: rooms, error } = await query.order("created_at", { ascending: false });
@@ -152,7 +153,7 @@ export async function createRoomApi({
       password_hash: roomPassword,
       is_active: true,
     };
-    if (hostUserId) {
+    if (isValidUUID(hostUserId)) {
       payload.host_user_id = hostUserId;
     }
 

@@ -1,9 +1,10 @@
 // pages/LibraryPage.tsx — Trang quản lý thư viện tài liệu cá nhân kết nối Supabase trực tiếp
 import { useState, useEffect, useCallback } from "react";
-import { DocumentItem } from "../services/aiService";
+import { DocumentItem, INITIAL_DOCS } from "../services/aiService";
 import { DocumentStore } from "../components/documents/DocumentStore";
 import { AIChat } from "../components/documents/AIChat";
 import { supabase } from "../services/supabaseClient";
+import { isValidUUID } from "../utils";
 
 interface SupabaseDoc {
   id: number;
@@ -69,9 +70,9 @@ interface LibraryPageProps {
 
 export default function LibraryPage({ userId }: LibraryPageProps) {
   const currentCache = userId ? userDocsCache.get(userId) || null : null;
-  const [docs, setDocs] = useState<DocumentItem[]>(currentCache || []);
+  const [docs, setDocs] = useState<DocumentItem[]>(currentCache || INITIAL_DOCS);
   const [selectedId, setSelectedId] = useState<number | null>(
-    currentCache && currentCache.length > 0 ? currentCache[0].id : null
+    (currentCache && currentCache.length > 0 ? currentCache[0].id : null) || INITIAL_DOCS[0]?.id || null
   );
   const [isLoading, setIsLoading] = useState<boolean>(!currentCache);
   const [isAIChatOpen, setIsAIChatOpen] = useState<boolean>(false);
@@ -83,33 +84,62 @@ export default function LibraryPage({ userId }: LibraryPageProps) {
         setIsLoading(true);
       }
 
-      // 1. Truy vấn tài liệu riêng của user + các tài liệu Public mẫu chung (owner_user_id IS NULL)
+      // 1. Truy vấn tài liệu Supabase:
+      // - Nếu là user thật đăng nhập bằng Supabase Auth (UUID hợp lệ): Lấy tài liệu của user + tài liệu Public (owner_user_id IS NULL)
+      // - Nếu là tài khoản Demo / Khách (không phải UUID): Chỉ truy vấn tài liệu Public hệ thống (owner_user_id IS NULL)
       let query = supabase.from("documents").select("*");
-      if (userId) {
+      if (isValidUUID(userId)) {
         query = query.or(`owner_user_id.eq.${userId},owner_user_id.is.null`);
+      } else {
+        query = query.is("owner_user_id", null);
       }
       const { data, error } = await query.order("created_at", { ascending: false });
 
-      // Nếu cột owner_user_id chưa có trong database Supabase (trước khi chạy script SQL)
-      if (error && (error.message.includes("owner_user_id") || error.code === "42703")) {
-        console.warn("Cột owner_user_id chưa được kích hoạt trên Supabase. Sử dụng lưu trữ cục bộ cho tài khoản:", userId);
+      // Nếu có lỗi từ Supabase (ví dụ offline hoặc chưa cấu hình)
+      if (error) {
+        console.warn("Lỗi tải tài liệu từ Supabase:", error);
         const localKey = `peermind_docs_${userId || "guest"}`;
         const stored = localStorage.getItem(localKey);
         if (stored) {
           try {
             const parsed = JSON.parse(stored);
-            if (userId) userDocsCache.set(userId, parsed);
-            setDocs(parsed);
-            setSelectedId((prev) => (prev && parsed.some((m: DocumentItem) => m.id === prev) ? prev : (parsed[0]?.id ?? null)));
-            return;
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              if (userId) userDocsCache.set(userId, parsed);
+              setDocs(parsed);
+              setSelectedId((prev) => (prev && parsed.some((m: DocumentItem) => m.id === prev) ? prev : (parsed[0]?.id ?? null)));
+              return;
+            }
           } catch {}
         }
-        setDocs([]);
+        // Fallback sang INITIAL_DOCS
+        setDocs(INITIAL_DOCS);
+        setSelectedId((prev) => (prev && INITIAL_DOCS.some((m) => m.id === prev) ? prev : (INITIAL_DOCS[0]?.id ?? null)));
         return;
       }
 
       if (!error && Array.isArray(data)) {
-        const mapped = data.map(mapSupabaseDoc);
+        let mapped = data.map(mapSupabaseDoc);
+
+        // Đối với tài khoản Demo/Khách, hợp nhất thêm các tài liệu do khách upload lưu cục bộ
+        if (!isValidUUID(userId)) {
+          const localKey = `peermind_docs_${userId || "guest"}`;
+          const stored = localStorage.getItem(localKey);
+          if (stored) {
+            try {
+              const localDocs = JSON.parse(stored);
+              if (Array.isArray(localDocs) && localDocs.length > 0) {
+                const localIds = new Set(localDocs.map((d: DocumentItem) => d.id));
+                mapped = [...localDocs, ...mapped.filter((d) => !localIds.has(d.id))];
+              }
+            } catch {}
+          }
+        }
+
+        // Nếu database chưa có tài liệu nào, fallback sang INITIAL_DOCS
+        if (mapped.length === 0) {
+          mapped = INITIAL_DOCS;
+        }
+
         if (userId) userDocsCache.set(userId, mapped);
         setDocs(mapped);
         setSelectedId((prev) =>
@@ -119,6 +149,7 @@ export default function LibraryPage({ userId }: LibraryPageProps) {
       }
     } catch (err) {
       console.warn("Không thể tải tài liệu từ Supabase:", err);
+      setDocs(INITIAL_DOCS);
     } finally {
       setIsLoading(false);
     }
@@ -147,38 +178,36 @@ export default function LibraryPage({ userId }: LibraryPageProps) {
           created_at: new Date().toISOString(),
         };
 
-        if (userId) {
+        // Nếu là user thật có UUID thì lưu lên Supabase DB
+        if (isValidUUID(userId)) {
           docPayload.owner_user_id = userId;
-        }
-
-        const { error: insErr } = await supabase.from("documents").insert([docPayload]);
-
-        // Nếu cột owner_user_id chưa có trên DB, fallback lưu an toàn vào local
-        if (insErr && (insErr.message.includes("owner_user_id") || insErr.code === "42703")) {
-          delete docPayload.owner_user_id;
           await supabase.from("documents").insert([docPayload]);
+        } else {
+          // Lưu vào localStorage cho tài khoản Demo / Khách trải nghiệm
           const localKey = `peermind_docs_${userId || "guest"}`;
           const currentLocal = JSON.parse(localStorage.getItem(localKey) || "[]");
           currentLocal.unshift({
-            id: Date.now(),
+            id: Date.now() + Math.floor(Math.random() * 1000),
             subject: customSubject,
             title: file.name.replace(/\.[^/.]+$/, ""),
             progress: 0,
             color: "#0ea5e9",
             icon: "📄",
             pagesCount: totalPages,
-            fileSize: "2.4 MB",
+            fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
             fileType: "PDF",
             updatedAt: "Vừa xong",
             pagesContent: docPayload.pages_content,
+            isPublic: false,
+            ownerUserId: userId || null,
           });
           localStorage.setItem(localKey, JSON.stringify(currentLocal));
         }
       } catch (err) {
-        console.error("Lỗi khi upload tài liệu lên Supabase:", err);
+        console.error("Lỗi khi upload tài liệu:", err);
       }
     }
-    // Refresh danh sách tài liệu từ Supabase
+    // Refresh danh sách tài liệu
     await fetchDocs();
   };
 
@@ -190,8 +219,8 @@ export default function LibraryPage({ userId }: LibraryPageProps) {
   const handleDeleteDoc = async (id: number) => {
     try {
       const docToDelete = docs.find((d) => d.id === id);
-      // Nếu là tài liệu cá nhân thì xóa trên DB, tài liệu mẫu chung chỉ ẩn ở phía cá nhân
-      if (!docToDelete?.isPublic) {
+      // Chỉ gửi lệnh DELETE lên Supabase nếu là user thật sở hữu tài liệu này
+      if (isValidUUID(userId) && docToDelete?.ownerUserId === userId && !docToDelete?.isPublic) {
         await supabase.from("documents").delete().eq("id", id);
       }
       setDocs((prev) => {
@@ -202,13 +231,14 @@ export default function LibraryPage({ userId }: LibraryPageProps) {
         }
         return next;
       });
-      if (userId) {
-        const localKey = `peermind_docs_${userId}`;
-        const currentLocal = JSON.parse(localStorage.getItem(localKey) || "[]");
+      // Nếu có lưu trong localStorage của khách thì xóa khỏi localStorage
+      const localKey = `peermind_docs_${userId || "guest"}`;
+      const currentLocal = JSON.parse(localStorage.getItem(localKey) || "[]");
+      if (Array.isArray(currentLocal)) {
         localStorage.setItem(localKey, JSON.stringify(currentLocal.filter((d: any) => d.id !== id)));
       }
     } catch (err) {
-      console.error("Lỗi khi xóa tài liệu trên Supabase:", err);
+      console.error("Lỗi khi xóa tài liệu:", err);
     }
   };
 

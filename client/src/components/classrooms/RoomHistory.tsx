@@ -1,5 +1,22 @@
 import { useState, useMemo } from "react";
-import { X, Plus, LogIn } from "lucide-react";
+import {
+  Users,
+  CalendarCheck,
+  ChatsCircle,
+  MagnifyingGlass,
+  Copy,
+  Check,
+  Plus,
+  SignIn,
+  X,
+  Clock,
+  Hash,
+  Function as FunctionIcon,
+  TreeStructure,
+  Kanban,
+  Network,
+  ArrowRight,
+} from "@phosphor-icons/react";
 import { RoomItem } from "../../services/roomService";
 
 interface RoomHistoryProps {
@@ -8,6 +25,33 @@ interface RoomHistoryProps {
   onRemove: (id: number) => void;
   onOpenJoin: () => void;
   onOpenCreate: () => void;
+  userName?: string;
+}
+
+// Màu trang trí SuperHi theo môn học (cố định)
+const SUBJECT_COLORS: Record<string, { bg: string; name: string; icon: typeof FunctionIcon }> = {
+  math: { bg: "#ffda00", name: "Toán đại cương", icon: FunctionIcon },
+  cs: { bg: "#91d8ec", name: "Khoa học máy tính", icon: TreeStructure },
+  project: { bg: "#ffbac4", name: "Đồ án nhóm", icon: Kanban },
+  network: { bg: "#ff4141", name: "Mạng máy tính", icon: Network },
+};
+
+function getSubjectInfo(name: string, index: number) {
+  const lower = name.toLowerCase();
+  if (lower.includes("toán") || lower.includes("giải tích") || lower.includes("đại số")) {
+    return SUBJECT_COLORS.math;
+  }
+  if (lower.includes("mạng") || lower.includes("an toàn") || lower.includes("bảo mật")) {
+    return SUBJECT_COLORS.network;
+  }
+  if (lower.includes("đồ án") || lower.includes("nhóm") || lower.includes("kỹ thuật phần mềm")) {
+    return SUBJECT_COLORS.project;
+  }
+  if (lower.includes("cấu trúc") || lower.includes("giải thuật") || lower.includes("web") || lower.includes("lập trình") || lower.includes("ai")) {
+    return SUBJECT_COLORS.cs;
+  }
+  const fallbackKeys = ["math", "cs", "project", "network"] as const;
+  return SUBJECT_COLORS[fallbackKeys[index % fallbackKeys.length]];
 }
 
 export function RoomHistory({
@@ -16,102 +60,308 @@ export function RoomHistory({
   onRemove,
   onOpenJoin,
   onOpenCreate,
+  userName = "Minh Anh",
 }: RoomHistoryProps) {
   const [q, setQ] = useState("");
-  const filtered = useMemo(
-    () => rooms.filter((r) => (r.name + r.code).toLowerCase().includes(q.toLowerCase())),
-    [rooms, q]
-  );
+  const [currentFilter, setCurrentFilter] = useState<string>("all");
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const handleCopyCode = (code: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    }
+  };
+
+  const filtered = useMemo(() => {
+    return rooms.filter((r, idx) => {
+      const query = q.toLowerCase().trim();
+      const matchesSearch = !query || (r.name + r.code).toLowerCase().includes(query);
+      if (!matchesSearch) return false;
+
+      if (currentFilter === "all") return true;
+      if (currentFilter === "online") return idx % 2 === 0; // mẫu: phòng chẵn có người online
+      const subject = getSubjectInfo(r.name, idx);
+      if (currentFilter === "math") return subject.name === "Toán đại cương";
+      if (currentFilter === "cs") return subject.name === "Khoa học máy tính";
+      if (currentFilter === "project") return subject.name === "Đồ án nhóm";
+      return true;
+    });
+  }, [rooms, q, currentFilter]);
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6">
-      {/* Header section */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
-            XIN CHÀO, MINH ANH
-          </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 sm:text-3xl">
-            Phòng học của bạn
-          </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Vào lại phòng cũ hoặc tham gia phòng mới bằng mã 6 số.
-          </p>
-        </div>
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            onClick={onOpenJoin}
-            className="inline-flex items-center justify-center gap-1.5 h-9 px-4 py-2 rounded-md bg-white dark:bg-slate-800 text-slate-700 dark:text-white border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-medium shadow-2xs transition-colors duration-150 cursor-pointer"
-          >
-            <LogIn className="h-4 w-4" strokeWidth={1.75} />
-            Tham gia phòng
-          </button>
-          <button
-            onClick={onOpenCreate}
-            className="inline-flex items-center justify-center gap-1.5 h-9 px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs shadow-indigo-500/20 active:translate-y-[1px] text-sm font-medium transition-all duration-150 cursor-pointer"
-          >
-            <Plus className="h-4 w-4" strokeWidth={1.75} />
-            Tạo phòng học
-          </button>
-        </div>
-      </div>
+    <div className="relative w-full max-w-[1200px] mx-auto space-y-12">
+      {/* Decorative shapes behind content (SuperHi flat paper-cut) */}
+      <div
+        className="pointer-events-none fixed -top-24 -right-28 w-[420px] h-[420px] bg-[#ffda00] opacity-80 dark:opacity-25 z-0"
+        style={{
+          clipPath: "polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)",
+          transform: "rotate(12deg)",
+        }}
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none fixed -bottom-28 -left-28 w-[440px] h-[440px] bg-[#ffbac4] opacity-80 dark:opacity-25 z-0"
+        style={{
+          clipPath: "polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%)",
+          transform: "rotate(-10deg)",
+        }}
+        aria-hidden="true"
+      />
 
-      {/* Room list section */}
-      <div className="rounded-2xl bg-white dark:bg-slate-900 p-6 border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-        <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">Phòng đã tham gia</h2>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Tìm theo tên hoặc mã…"
-            className="h-9 w-full sm:w-64 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-1.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors duration-150"
-          />
-        </div>
+      <div className="relative z-10 space-y-10">
+        {/* ==========================================================================
+            HERO / GREETING SECTION
+           ========================================================================== */}
+        <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 pt-4">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 text-base text-[#111118] dark:text-[#f0f6ff] mb-3">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#16ab59] border border-[#111118] inline-block" />
+              <span>Chào bạn {userName}, hôm nay bạn muốn học môn nào?</span>
+            </div>
+            <h1 className="text-4xl lg:text-5xl font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff] leading-tight">
+              Phòng học của bạn
+            </h1>
+            <p className="mt-3 text-lg sm:text-xl font-normal text-[#111118]/85 dark:text-[#f0f6ff]/85 leading-relaxed">
+              Vào lại các nhóm học quen thuộc, cùng đồng bộ slide thời gian thực và ôn thi trực tuyến.
+            </p>
+          </div>
 
+          {/* Hero CTAs */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 shrink-0">
+            <button
+              onClick={onOpenJoin}
+              className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-[48px] bg-[#000000] dark:bg-[#2a2a3a] text-white dark:text-[#f0f6ff] text-lg font-normal border border-[#111118] dark:border-[#2dd4bf] shadow-[0_4px_0_0_#0b7a75] dark:shadow-[0_4px_0_0_#2dd4bf] active:translate-y-[2px] transition-transform cursor-pointer"
+            >
+              <SignIn size={22} weight="regular" />
+              <span>Tham gia bằng mã</span>
+            </button>
+            <button
+              onClick={onOpenCreate}
+              className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-[48px] bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white text-lg font-normal border border-[#111118] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] active:translate-y-[2px] transition-transform cursor-pointer"
+            >
+              <Plus size={22} weight="regular" />
+              <span>Tạo phòng học mới →</span>
+            </button>
+          </div>
+        </section>
+
+        {/* ==========================================================================
+            3 CHỈ SỐ NHANH / YẾU TỐ CON NGƯỜI
+           ========================================================================== */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-4" aria-label="Thống kê học tập">
+          <div className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-[24px] p-5 flex items-center gap-4 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+            <div className="w-12 h-12 rounded-full bg-[#ffda00] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0">
+              <Users size={24} weight="regular" />
+            </div>
+            <div>
+              <div className="text-sm text-[#111118]/75 dark:text-[#f0f6ff]/75">Bạn học đang online</div>
+              <div className="text-lg font-normal text-[#111118] dark:text-[#f0f6ff] mt-0.5">3 bạn đang học nhóm</div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-[24px] p-5 flex items-center gap-4 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+            <div className="w-12 h-12 rounded-full bg-[#91d8ec] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0">
+              <CalendarCheck size={24} weight="regular" />
+            </div>
+            <div>
+              <div className="text-sm text-[#111118]/75 dark:text-[#f0f6ff]/75">Lịch học sắp tới</div>
+              <div className="text-lg font-normal text-[#111118] dark:text-[#f0f6ff] mt-0.5">19:30 tối nay · Giải tích 1</div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-[24px] p-5 flex items-center gap-4 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+            <div className="w-12 h-12 rounded-full bg-[#ffbac4] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0">
+              <ChatsCircle size={24} weight="regular" />
+            </div>
+            <div>
+              <div className="text-sm text-[#111118]/75 dark:text-[#f0f6ff]/75">Nhóm đồ án & môn học</div>
+              <div className="text-lg font-normal text-[#111118] dark:text-[#f0f6ff] mt-0.5">{rooms.length} phòng đang tham gia</div>
+            </div>
+          </div>
+        </section>
+
+        {/* ==========================================================================
+            SEARCH & FILTER CONTROLS BAR
+           ========================================================================== */}
+        <section className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-[24px] p-6 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-5">
+            <div className="relative flex-1 max-w-md">
+              <MagnifyingGlass
+                size={20}
+                weight="regular"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-[#111118]/60 dark:text-[#f0f6ff]/60 pointer-events-none"
+              />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Tìm theo tên môn, mã phòng 6 số…"
+                className="w-full h-12 pl-12 pr-5 rounded-[5000px] bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a] text-[#111118] dark:text-[#f0f6ff] text-base placeholder:text-[#111118]/50 dark:placeholder:text-[#f0f6ff]/50 outline-none focus:border-[#0b7a75] dark:focus:border-[#2dd4bf] focus:ring-2 focus:ring-[#0b7a75] dark:focus:ring-[#2dd4bf] transition-colors"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-2 px-2 sm:mx-0 sm:px-0">
+              {[
+                { id: "all", label: `Tất cả (${rooms.length})` },
+                { id: "online", label: "Đang online" },
+                { id: "math", label: "Toán đại cương" },
+                { id: "cs", label: "Khoa học máy tính" },
+                { id: "project", label: "Đồ án nhóm" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setCurrentFilter(tab.id)}
+                  className={`h-10 px-4 rounded-[5000px] text-base font-normal whitespace-nowrap transition-colors cursor-pointer ${
+                    currentFilter === tab.id
+                      ? "bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]"
+                      : "bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#d0e2ff] dark:hover:bg-[#2e2e42]"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ==========================================================================
+            ROOM CARDS GRID
+           ========================================================================== */}
         {filtered.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-200 dark:border-slate-800 py-12 text-center text-sm text-slate-400">
-            {rooms.length === 0
-              ? 'Bạn chưa tham gia phòng nào. Bấm "Tham gia phòng" hoặc "Tạo phòng học" để bắt đầu.'
-              : "Không tìm thấy phòng phù hợp."}
+          <div className="bg-white dark:bg-[#1b1b26] border border-dashed border-[#e1edff] dark:border-[#2a2a3a] rounded-[24px] p-12 text-center shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+            <p className="text-base text-[#111118]/70 dark:text-[#f0f6ff]/70">
+              {rooms.length === 0
+                ? 'Bạn chưa tham gia phòng nào. Bấm "Tạo phòng học mới" hoặc "Tham gia bằng mã" để bắt đầu nhé!'
+                : "Không tìm thấy phòng phù hợp với từ khoá tìm kiếm."}
+            </p>
+            <div className="mt-5 flex justify-center gap-3">
+              <button
+                onClick={onOpenCreate}
+                className="h-10 px-5 rounded-[48px] bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] text-base font-normal shadow-[0_3px_0_0_#111118] active:translate-y-[1px] cursor-pointer"
+              >
+                Tạo phòng học mới →
+              </button>
+            </div>
           </div>
         ) : (
-          <ul className="space-y-2.5">
-            {filtered.map((r) => (
-              <li
-                key={r.id}
-                className="flex items-center gap-3.5 rounded-xl p-4 border border-slate-200/80 dark:border-slate-700/60 bg-slate-50/70 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-indigo-300 dark:hover:border-indigo-500/50 transition-all shadow-2xs"
-              >
-                <div
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white shadow-2xs"
-                  style={{ background: r.color }}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {filtered.map((r, idx) => {
+              const subject = getSubjectInfo(r.name, idx);
+              const SubjectIcon = subject.icon;
+              const isOnline = idx % 2 === 0;
+
+              return (
+                <article
+                  key={r.id}
+                  className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-[24px] p-6 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] hover:-translate-y-0.5 hover:shadow-[0_4px_0_0_#111118] dark:hover:shadow-[0_4px_0_0_#000000] transition-all flex flex-col justify-between"
                 >
-                  {r.name.slice(0, 2).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold text-slate-900 dark:text-slate-100 text-sm">{r.name}</div>
-                  <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
-                    Mã <span className="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-[11px] font-bold text-slate-700 dark:text-indigo-400 border border-slate-200 dark:border-slate-800">{r.code}</span> · Vào gần nhất: {r.lastVisit}
+                  <div>
+                    {/* Header: Icon môn học & Tiêu đề */}
+                    <div className="flex items-start gap-4">
+                      <div
+                        className="w-13 h-13 rounded-full flex items-center justify-center text-[#111118] border border-[#111118] shadow-[0_2px_0_0_#111118] shrink-0"
+                        style={{ backgroundColor: subject.bg }}
+                      >
+                        <SubjectIcon size={26} weight="regular" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <span
+                            className="inline-flex items-center px-3 py-1 rounded-[5000px] text-xs font-normal border border-[#111118] text-[#111118]"
+                            style={{ backgroundColor: subject.bg }}
+                          >
+                            {subject.name}
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[5000px] bg-[#e1edff] dark:bg-[#242436] text-xs text-[#111118] dark:text-[#f0f6ff]">
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                isOnline ? "bg-[#16ab59]" : "bg-slate-400"
+                              }`}
+                            />
+                            {isOnline ? "2 bạn đang học" : "Chưa có ai online"}
+                          </span>
+                        </div>
+                        <h2 className="text-xl font-normal text-[#111118] dark:text-[#f0f6ff] line-clamp-2 leading-snug">
+                          {r.name}
+                        </h2>
+                      </div>
+
+                      <button
+                        onClick={() => onRemove(r.id)}
+                        aria-label={`Xoá ${r.name} khỏi danh sách`}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-[#111118]/60 dark:text-[#f0f6ff]/60 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer shrink-0"
+                      >
+                        <X size={16} weight="regular" />
+                      </button>
+                    </div>
+
+                    {/* Khối chi tiết: Mã phòng & Lịch học */}
+                    <div className="mt-4 bg-[#e1edff] dark:bg-[#242436] rounded-[20px] p-4 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex items-center gap-1.5 text-sm text-[#111118]/85 dark:text-[#f0f6ff]/85">
+                          <Hash size={16} weight="regular" /> Mã phòng:
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-base tracking-[0.18em] bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] px-3 py-1 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_1px_0_0_#111118] dark:shadow-[0_1px_0_0_#000000]">
+                            {r.code}
+                          </span>
+                          <button
+                            onClick={(e) => handleCopyCode(r.code, e)}
+                            className="w-8 h-8 rounded-full bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_1px_0_0_#111118] hover:bg-[#f0f6ff] active:translate-y-[1px] transition-transform cursor-pointer"
+                            title="Sao chép mã phòng"
+                          >
+                            {copiedCode === r.code ? (
+                              <Check size={16} weight="regular" className="text-[#16ab59]" />
+                            ) : (
+                              <Copy size={16} weight="regular" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-sm text-[#111118]/80 dark:text-[#f0f6ff]/80">
+                        <Clock size={16} weight="regular" />
+                        <span>Vào gần nhất: {r.lastVisit || "Vừa xong"}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <button
-                  onClick={() => onRejoin(r)}
-                  className="h-8 px-3 rounded-md bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-500/30 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-500/25 text-xs font-medium shadow-2xs transition-colors duration-150 cursor-pointer"
-                >
-                  Vào lại
-                </button>
-                <button
-                  onClick={() => onRemove(r.id)}
-                  aria-label={`Xoá ${r.name} khỏi lịch sử`}
-                  className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                >
-                  <X className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </li>
-            ))}
-          </ul>
+
+                  {/* Card Footer: Avatars thành viên & Nút vào phòng */}
+                  <div className="mt-5 pt-4 border-t border-[#e1edff] dark:border-[#2a2a3a] flex items-center justify-between gap-4">
+                    <div className="flex items-center">
+                      <div className="flex -space-x-2">
+                        <div className="w-8 h-8 rounded-full bg-[#91d8ec] text-[#111118] border-2 border-white dark:border-[#1b1b26] flex items-center justify-center text-xs shadow-[0_1px_0_0_#111118]">
+                          {userName.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-[#ffda00] text-[#111118] border-2 border-white dark:border-[#1b1b26] flex items-center justify-center text-xs shadow-[0_1px_0_0_#111118]">
+                          TD
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-[#ffbac4] text-[#111118] border-2 border-white dark:border-[#1b1b26] flex items-center justify-center text-xs shadow-[0_1px_0_0_#111118]">
+                          TT
+                        </div>
+                      </div>
+                      <span className="ml-3 text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70">
+                        +3 bạn khác
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => onRejoin(r)}
+                      className="inline-flex items-center gap-1.5 h-10 px-5 rounded-[48px] bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white text-sm font-normal border border-[#111118] shadow-[0_3px_0_0_#111118] dark:shadow-[0_3px_0_0_#000000] active:translate-y-[1px] transition-transform cursor-pointer"
+                    >
+                      <span>Vào lại</span>
+                      <ArrowRight size={14} weight="regular" />
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
   );
 }
-

@@ -1,6 +1,78 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=Space+Mono:wght@400&display=swap");
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* ==========================================================================
+   SUPERHI DESIGN TOKENS (PEERMIND CLASSROOM & SYSTEM)
+   ========================================================================== */
+:root {
+  /* Palette bề mặt & chữ */
+  --color-canvas: #f0f6ff;
+  --color-card: #ffffff;
+  --color-surface-subtle: #e1edff;
+  --color-ink: #111118;
+  --color-border-hairline: #e1edff;
+  --color-border-strong: #111118;
+
+  /* Màu hành động DUY NHẤT */
+  --color-action: #0b7a75;
+  --color-action-hover: #08635f;
+  --color-action-text: #ffffff;
+  --color-focus-ring: #0b7a75;
+
+  /* Màu trang trí (chỉ làm màu nền khối & tag/icon) */
+  --deco-yellow: #ffda00;
+  --deco-red: #ff4141;
+  --deco-pink: #ffbac4;
+  --deco-sky: #91d8ec;
+  --deco-green: #16ab59;
+
+  /* Trạng thái Quiz */
+  --quiz-correct-bg: #16ab59;
+  --quiz-correct-text: #ffffff;
+  --quiz-incorrect-bg: #ff4141;
+  --quiz-incorrect-text: #ffffff;
+
+  /* Nút phụ tối */
+  --color-dark-button-bg: #000000;
+  --color-dark-button-text: #ffffff;
+  --color-dark-button-shadow: #0b7a75;
+
+  /* Đổ bóng đặc */
+  --shadow-primary-btn: 0 4px 0 0 #111118;
+  --shadow-dark-btn: 0 4px 0 0 #0b7a75;
+  --shadow-card: 0 2px 0 0 #111118;
+  --shadow-modal: 0 8px 0 0 #111118;
+
+  /* Bo góc */
+  --radius-btn: 48px;
+  --radius-card: 24px;
+  --radius-pill: 5000px;
+  --radius-shape: 0px;
+}
+
+[data-theme="dark"], html.dark {
+  --color-canvas: #111118;
+  --color-card: #1b1b26;
+  --color-surface-subtle: #242436;
+  --color-ink: #f0f6ff;
+  --color-border-hairline: #2a2a3a;
+  --color-border-strong: #2a2a3a;
+
+  --color-action: #2dd4bf;
+  --color-action-hover: #14b8a6;
+  --color-action-text: #111118;
+  --color-focus-ring: #2dd4bf;
+
+  --color-dark-button-bg: #2a2a3a;
+  --color-dark-button-text: #f0f6ff;
+  --color-dark-button-shadow: #2dd4bf;
+
+  --shadow-primary-btn: 0 4px 0 0 #000000;
+  --shadow-dark-btn: 0 4px 0 0 #2dd4bf;
+  --shadow-card: 0 2px 0 0 #000000;
+  --shadow-modal: 0 8px 0 0 #000000;
+}
 
 @theme {
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;

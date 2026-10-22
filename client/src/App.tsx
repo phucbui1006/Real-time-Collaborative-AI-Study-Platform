@@ -1120,7 +1120,7 @@ function Dashboard({
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         {activeTab === "documents" && <LibraryPage userId={userId} />}
-        {activeTab === "classrooms" && <ClassroomsPage userId={userId} />}
+        {activeTab === "classrooms" && <ClassroomsPage userId={userId} userName={userName} />}
         {activeTab === "tests" && <TestsPage userId={userId} userName={userName} />}
       </div>
 

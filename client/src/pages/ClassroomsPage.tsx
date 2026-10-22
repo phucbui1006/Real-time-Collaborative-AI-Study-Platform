@@ -14,11 +14,13 @@ import {
 
 interface ClassroomsPageProps {
   userId?: string;
+  userName?: string;
   onEnterRoom?: (room: { name: string; code: string }) => void;
 }
 
 export default function ClassroomsPage({
   userId,
+  userName,
   onEnterRoom = (room) => console.log("Vào phòng", room),
 }: ClassroomsPageProps) {
   const localKey = `peermind_rooms_${userId || "guest"}`;
@@ -128,6 +130,7 @@ export default function ClassroomsPage({
         onRemove={(id) => setRooms((r) => r.filter((x) => x.id !== id))}
         onOpenJoin={handleOpenJoinNew}
         onOpenCreate={() => setCreateOpen(true)}
+        userName={userName}
       />
 
       <JoinRoomModal

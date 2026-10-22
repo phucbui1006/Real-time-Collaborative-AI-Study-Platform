@@ -45,7 +45,7 @@ export function Header({ activeTab, onSelectTab, onLogout, userName, userEmail }
                 onClick={() => onSelectTab(item.id)}
                 className={`h-16 inline-flex items-center px-1 text-sm transition-colors duration-150 cursor-pointer ${
                   isActive
-                    ? "border-b-2 border-indigo-600 dark:border-indigo-400 font-semibold text-indigo-950 dark:text-indigo-300"
+                    ? "border-b-2 border-[#0b7a75] dark:border-[#2dd4bf] font-semibold text-[#0b7a75] dark:text-[#2dd4bf]"
                     : "border-b-2 border-transparent font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700"
                 }`}
               >
