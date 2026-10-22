@@ -10,7 +10,7 @@ export type DocumentItem = {
   id: number;
   subject: string;
   title: string;
-  progress: number;
+  progress?: number;
   color: string;
   icon: string;
   pagesCount?: number;

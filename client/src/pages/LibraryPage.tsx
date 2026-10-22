@@ -35,21 +35,6 @@ function mapSupabaseDoc(d: SupabaseDoc, index: number): DocumentItem {
   const colors = ["#ffda00", "#91d8ec", "#ffbac4", "#16ab59", "#ffda00"];
   const color = colors[index % colors.length];
 
-  // Tính tiến độ ổn định, không thay đổi ngẫu nhiên giữa các lần tải lại
-  const progressKey = `peermind_doc_progress_${d.id}`;
-  let progress = 65;
-  try {
-    const stored = localStorage.getItem(progressKey);
-    if (stored !== null) {
-      progress = parseInt(stored, 10);
-    } else {
-      progress = 35 + ((Math.abs(d.id) * 19 + 7) % 55);
-      localStorage.setItem(progressKey, progress.toString());
-    }
-  } catch {
-    progress = 35 + ((Math.abs(d.id) * 19 + 7) % 55);
-  }
-
   // Dung lượng file đa dạng thực tế dựa trên số trang và id
   const pagesCount = d.total_pages || (16 + (Math.abs(d.id) % 28));
   const fileSizeMb = (pagesCount * 0.11 + 1.2 + (Math.abs(d.id) % 5) * 0.5).toFixed(1);
@@ -74,7 +59,6 @@ function mapSupabaseDoc(d: SupabaseDoc, index: number): DocumentItem {
     id: d.id,
     subject: d.subject || "CHUNG",
     title: filename.replace(/\.[^/.]+$/, ""),
-    progress,
     color,
     icon: fileType === "DOCX" ? "📝" : fileType === "PPTX" ? "📊" : "📄",
     pagesCount,
@@ -288,7 +272,6 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
             id: Date.now() + Math.floor(Math.random() * 1000),
             subject: customSubject,
             title: cleanName.replace(/\.[^/.]+$/, ""),
-            progress: 0,
             color: "#0ea5e9",
             icon: "📄",
             pagesCount: totalPages,

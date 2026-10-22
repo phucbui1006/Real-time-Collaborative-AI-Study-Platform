@@ -104,7 +104,7 @@ export function DocumentStore({
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("TẤT CẢ");
-  const [sortBy, setSortBy] = useState<"newest" | "progress" | "name">("newest");
+  const [sortBy, setSortBy] = useState<"newest" | "name">("newest");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState("TOÁN HỌC");
   const [dragging, setDragging] = useState(false);
@@ -144,7 +144,6 @@ export function DocumentStore({
         return matchesSearch && matchesCategory;
       })
       .sort((a, b) => {
-        if (sortBy === "progress") return b.progress - a.progress;
         if (sortBy === "name") return a.title.localeCompare(b.title);
         return b.id - a.id;
       });
@@ -238,7 +237,6 @@ export function DocumentStore({
             className="h-12 shrink-0 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-5 text-sm font-normal text-[#111118] dark:text-[#f0f6ff] outline-none cursor-pointer focus:border-[#0b7a75]"
           >
             <option value="newest">Mới nhất</option>
-            <option value="progress">Tiến độ cao nhất</option>
             <option value="name">Tên A-Z</option>
           </select>
         </div>
@@ -419,25 +417,10 @@ export function DocumentStore({
                     </h3>
                   </div>
 
-                  {/* Progress & Bottom Metadata */}
-                  <div className="mt-5 pt-3 border-t border-[#e1edff] dark:border-[#2a2a3a]">
-                    <div className="flex justify-between items-center text-xs mb-1.5">
-                      <span className="font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">Tiến độ</span>
-                      <span className="font-mono tabular-nums font-normal text-[#111118] dark:text-[#2dd4bf]">
-                        {doc.progress}%
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-[#e1edff] dark:bg-[#242436] overflow-hidden">
-                      <div
-                        className="h-2 rounded-full bg-[#0b7a75] dark:bg-[#2dd4bf] transition-[width] duration-300 ease-out"
-                        style={{ width: `${doc.progress}%` }}
-                      />
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums">
-                      <span>{doc.pagesCount ? `${doc.pagesCount} trang` : "PDF"} · {doc.fileSize || "3 MB"}</span>
-                      <span>{doc.updatedAt || "Gần đây"}</span>
-                    </div>
+                  {/* Bottom Metadata */}
+                  <div className="mt-5 pt-3 border-t border-[#e1edff] dark:border-[#2a2a3a] flex items-center justify-between text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums">
+                    <span>{doc.pagesCount ? `${doc.pagesCount} trang` : "PDF"} · {doc.fileSize || "3 MB"}</span>
+                    <span>{doc.updatedAt || "Gần đây"}</span>
                   </div>
                 </div>
               );
