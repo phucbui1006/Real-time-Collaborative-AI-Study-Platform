@@ -308,19 +308,34 @@ export function DocumentStore({
             ))}
           </div>
         ) : filteredDocs.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center">
-            <FileText className="mx-auto h-8 w-8 text-slate-400" strokeWidth={1.75} />
-            <h3 className="mt-3 font-semibold text-slate-900 dark:text-slate-50 text-sm">Không tìm thấy tài liệu nào</h3>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Thử thay đổi từ khóa tìm kiếm hoặc lọc danh mục khác.</p>
-            <button
-              onClick={() => {
-                setSearchQuery("");
-                setActiveCategory("TẤT CẢ");
-              }}
-              className="mt-4 inline-flex items-center h-8 px-3 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-2xs transition-colors cursor-pointer"
-            >
-              Xóa bộ lọc
-            </button>
+          <div className="rounded-[24px] border border-dashed border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] p-12 text-center shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+            <FileText className="mx-auto h-10 w-10 text-[#0b7a75] dark:text-[#2dd4bf]" strokeWidth={1.75} />
+            <h3 className="mt-3 text-base font-normal text-[#111118] dark:text-[#f0f6ff]">
+              {docs.length === 0 ? "Kho tài liệu của bạn đang trống" : "Không tìm thấy tài liệu phù hợp"}
+            </h3>
+            <p className="mt-1 text-sm font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70 max-w-md mx-auto">
+              {docs.length === 0
+                ? "Hãy tải lên giáo trình PDF, DOCX hoặc Slide bài giảng để bắt đầu khai phá kiến thức cùng Trợ lý AI nhé!"
+                : "Thử thay đổi từ khóa tìm kiếm hoặc chọn danh mục khác."}
+            </p>
+            {docs.length === 0 ? (
+              <button
+                onClick={() => setIsUploadModalOpen(true)}
+                className="primary-button mt-5 mx-auto cursor-pointer"
+              >
+                Tải tài liệu mới lên →
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setActiveCategory("TẤT CẢ");
+                }}
+                className="secondary-button mt-4 mx-auto cursor-pointer text-xs"
+              >
+                Xóa bộ lọc
+              </button>
+            )}
           </div>
         ) : (
           <div

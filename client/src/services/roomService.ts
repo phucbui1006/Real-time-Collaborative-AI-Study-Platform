@@ -24,64 +24,68 @@ export const COLORS = ["#0ea5e9", "#8b5cf6", "#10b981", "#f59e0b", "#ec4899", "#
  */
 export async function fetchRoomsApi(userId?: string): Promise<RoomItem[]> {
   try {
-    // Chỉ chọn các trường an toàn, KHÔNG select password_hash tránh rò rỉ dữ liệu
-    const SAFE_ROOM_FIELDS = "id, name, code, document_id, is_active, created_at";
-    let query = supabase.from("rooms").select(SAFE_ROOM_FIELDS).eq("is_active", true);
-    if (isValidUUID(userId)) {
-      query = query.eq("host_user_id", userId);
-    }
-    const { data: rooms, error } = await query.order("created_at", { ascending: false });
+    const SAFE_ROOM_FIELDS = "id, name, code, document_id, is_active, created_at, host_user_id";
+    const isRealUser = isValidUUID(userId);
 
-    // Nếu cột host_user_id chưa có trên DB, fallback query bình thường
-    if (error && (error.message.includes("host_user_id") || error.code === "42703")) {
-      const { data: allRooms, error: errAll } = await supabase
+    if (isRealUser) {
+      // Tài khoản thật: CHỈ lấy phòng do chính user tạo
+      const { data: rooms, error } = await supabase
         .from("rooms")
         .select(SAFE_ROOM_FIELDS)
+        .eq("host_user_id", userId)
         .eq("is_active", true)
         .order("created_at", { ascending: false });
-      if (!errAll && Array.isArray(allRooms)) {
-        return allRooms.map((r, i) => ({
-          id: r.id,
-          name: r.name,
-          code: r.code,
-          lastVisit: "Gần đây",
-          color: COLORS[i % COLORS.length],
-          documentId: r.document_id,
-        }));
+
+      if (!error && Array.isArray(rooms)) {
+        return rooms.map((r, i) => {
+          let lastVisit = "Vừa xong";
+          if (r.created_at) {
+            try {
+              const d = new Date(r.created_at);
+              lastVisit = d.toLocaleDateString("vi-VN", {
+                day: "2-digit",
+                month: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+            } catch {}
+          }
+          return {
+            id: r.id,
+            name: r.name,
+            code: r.code,
+            lastVisit,
+            color: COLORS[i % COLORS.length],
+            documentId: r.document_id,
+          };
+        });
       }
       return [];
     }
 
-    if (!error && Array.isArray(rooms)) {
-      return rooms.map((r, i) => {
-        let lastVisit = "Gần đây";
-        if (r.created_at) {
-          try {
-            const d = new Date(r.created_at);
-            lastVisit = d.toLocaleDateString("vi-VN", {
-              day: "2-digit",
-              month: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-            });
-          } catch {
-            lastVisit = "Vừa xong";
-          }
-        }
-        return {
-          id: r.id,
-          name: r.name,
-          code: r.code,
-          lastVisit,
-          color: COLORS[i % COLORS.length],
-          documentId: r.document_id,
-        };
-      });
+    // Tài khoản Demo / Khách: lấy phòng mẫu hệ thống (host_user_id IS NULL)
+    const { data: allRooms } = await supabase
+      .from("rooms")
+      .select(SAFE_ROOM_FIELDS)
+      .is("host_user_id", null)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
+    if (Array.isArray(allRooms) && allRooms.length > 0) {
+      return allRooms.map((r, i) => ({
+        id: r.id,
+        name: r.name,
+        code: r.code,
+        lastVisit: "Gần đây",
+        color: COLORS[i % COLORS.length],
+        documentId: r.document_id,
+      }));
     }
+    return INITIAL_HISTORY;
   } catch (err) {
     console.warn("Lỗi tải phòng từ Supabase:", err);
+    return isValidUUID(userId) ? [] : INITIAL_HISTORY;
   }
-  return [];
 }
 
 /**

@@ -12,6 +12,8 @@ import {
   RoomItem,
 } from "../services/roomService";
 import { idleService } from "../services/idleService";
+import { supabase } from "../services/supabaseClient";
+import { isValidUUID } from "../utils";
 
 interface ClassroomsPageProps {
   userId?: string;
@@ -24,13 +26,17 @@ export default function ClassroomsPage({
   userName,
   onEnterRoom = (room) => console.log("Vào phòng", room),
 }: ClassroomsPageProps) {
+  const isRealUser = isValidUUID(userId);
   const localKey = `peermind_rooms_${userId || "guest"}`;
+
+  // Với tài khoản thật: khởi tạo danh sách rỗng (hoặc từ local cache của chính user)
+  // Với tài khoản demo/khách: nạp INITIAL_HISTORY
   const [rooms, setRooms] = useState<RoomItem[]>(() => {
     try {
       const stored = localStorage.getItem(localKey);
       if (stored) return JSON.parse(stored);
     } catch {}
-    return INITIAL_HISTORY;
+    return isRealUser ? [] : INITIAL_HISTORY;
   });
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinCode, setJoinCode] = useState("");
@@ -39,24 +45,32 @@ export default function ClassroomsPage({
   useEffect(() => {
     async function load() {
       const data = await fetchRoomsApi(userId);
-      if (data && data.length > 0) {
-        setRooms((prev) => {
-          // Merge phòng do host tạo trên Supabase với lịch sử đã tham gia
-          const merged = [...data];
-          prev.forEach((p) => {
-            if (!merged.some((m) => m.code === p.code)) {
-              merged.push(p);
-            }
+      if (isRealUser) {
+        // Tài khoản thật: CHỈ lấy các phòng do user tạo trên Supabase hoặc phòng đã tham gia
+        setRooms(data);
+        try {
+          localStorage.setItem(localKey, JSON.stringify(data));
+        } catch {}
+      } else {
+        // Tài khoản demo: merge với INITIAL_HISTORY
+        if (data && data.length > 0) {
+          setRooms((prev) => {
+            const merged = [...data];
+            prev.forEach((p) => {
+              if (!merged.some((m) => m.code === p.code)) {
+                merged.push(p);
+              }
+            });
+            try {
+              localStorage.setItem(localKey, JSON.stringify(merged));
+            } catch {}
+            return merged;
           });
-          try {
-            localStorage.setItem(localKey, JSON.stringify(merged));
-          } catch {}
-          return merged;
-        });
+        }
       }
     }
     load();
-  }, [userId, localKey]);
+  }, [userId, localKey, isRealUser]);
 
   // Trạng thái phòng hiện tại đang vào (nếu có)
   const [activeRoom, setActiveRoom] = useState<{
@@ -131,12 +145,27 @@ export default function ClassroomsPage({
     );
   }
 
+  const handleRemoveRoom = async (id: number) => {
+    if (isValidUUID(userId)) {
+      try {
+        await supabase.from("rooms").delete().eq("id", id).eq("host_user_id", userId);
+      } catch {}
+    }
+    setRooms((r) => {
+      const updated = r.filter((x) => x.id !== id);
+      try {
+        localStorage.setItem(localKey, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
   return (
     <main className="w-full py-2 sm:py-6">
       <RoomHistory
         rooms={rooms}
         onRejoin={handleRejoin}
-        onRemove={(id) => setRooms((r) => r.filter((x) => x.id !== id))}
+        onRemove={handleRemoveRoom}
         onOpenJoin={handleOpenJoinNew}
         onOpenCreate={() => setCreateOpen(true)}
         userName={userName}

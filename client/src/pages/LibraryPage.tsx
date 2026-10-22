@@ -123,11 +123,23 @@ interface LibraryPageProps {
 }
 
 export default function LibraryPage({ userId, userName }: LibraryPageProps) {
+  const isRealUser = isValidUUID(userId);
   const currentCache = userId ? userDocsCache.get(userId) || null : null;
-  const [docs, setDocs] = useState<DocumentItem[]>(currentCache || INITIAL_DOCS);
-  const [selectedId, setSelectedId] = useState<number | null>(
-    (currentCache && currentCache.length > 0 ? currentCache[0].id : null) || INITIAL_DOCS[0]?.id || null
-  );
+
+  // Với tài khoản thật: khởi tạo rỗng (không nạp tài liệu mẫu demo)
+  // Với tài khoản demo/khách: nạp INITIAL_DOCS mẫu
+  const [docs, setDocs] = useState<DocumentItem[]>(() => {
+    if (isRealUser) return currentCache || [];
+    return currentCache || INITIAL_DOCS;
+  });
+
+  const [selectedId, setSelectedId] = useState<number | null>(() => {
+    if (isRealUser) {
+      return currentCache && currentCache.length > 0 ? currentCache[0].id : null;
+    }
+    return (currentCache && currentCache.length > 0 ? currentCache[0].id : null) || INITIAL_DOCS[0]?.id || null;
+  });
+
   const [isLoading, setIsLoading] = useState<boolean>(!currentCache);
   const [isAIChatOpen, setIsAIChatOpen] = useState<boolean>(false);
 
@@ -139,40 +151,42 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
       }
 
       // 1. Truy vấn tài liệu Supabase:
-      // - Nếu là user thật đăng nhập bằng Supabase Auth (UUID hợp lệ): Lấy tài liệu của user + tài liệu Public (owner_user_id IS NULL)
-      // - Nếu là tài khoản Demo / Khách (không phải UUID): Chỉ truy vấn tài liệu Public hệ thống (owner_user_id IS NULL)
+      // - Nếu là user thật: CHỈ lấy tài liệu do chính user đó tải lên (owner_user_id = userId), TUYỆT ĐỐI KHÔNG lấy tài liệu mẫu (owner_user_id IS NULL)
+      // - Nếu là tài khoản Demo / Khách: lấy tài liệu mẫu hệ thống (owner_user_id IS NULL)
       let query = supabase.from("documents").select("*");
       if (isValidUUID(userId)) {
-        query = query.or(`owner_user_id.eq.${userId},owner_user_id.is.null`);
+        query = query.eq("owner_user_id", userId);
       } else {
         query = query.is("owner_user_id", null);
       }
       const { data, error } = await query.order("created_at", { ascending: false });
 
-      // Nếu có lỗi từ Supabase (ví dụ offline hoặc chưa cấu hình)
+      // Nếu có lỗi từ Supabase
       if (error) {
         console.warn("Lỗi tải tài liệu từ Supabase:", error);
-        const localKey = `peermind_docs_${userId || "guest"}`;
-        const stored = localStorage.getItem(localKey);
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              if (userId) userDocsCache.set(userId, parsed);
-              setDocs(parsed);
-              setSelectedId((prev) => (prev && parsed.some((m: DocumentItem) => m.id === prev) ? prev : (parsed[0]?.id ?? null)));
-              return;
-            }
-          } catch {}
+        if (!isValidUUID(userId)) {
+          const localKey = `peermind_docs_${userId || "guest"}`;
+          const stored = localStorage.getItem(localKey);
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setDocs(parsed);
+                setSelectedId((prev) => (prev && parsed.some((m: DocumentItem) => m.id === prev) ? prev : (parsed[0]?.id ?? null)));
+                return;
+              }
+            } catch {}
+          }
+          setDocs(INITIAL_DOCS);
+          setSelectedId((prev) => (prev && INITIAL_DOCS.some((m) => m.id === prev) ? prev : (INITIAL_DOCS[0]?.id ?? null)));
+        } else {
+          setDocs([]);
+          setSelectedId(null);
         }
-        // Fallback sang INITIAL_DOCS
-        setDocs(INITIAL_DOCS);
-        setSelectedId((prev) => (prev && INITIAL_DOCS.some((m) => m.id === prev) ? prev : (INITIAL_DOCS[0]?.id ?? null)));
         return;
       }
 
       if (!error && Array.isArray(data)) {
-        // Loại bỏ tài liệu test / dữ liệu thử
         const cleanData = data.filter((d) => !isTestDoc(d));
         let mapped = cleanData.map(mapSupabaseDoc);
 
@@ -190,12 +204,11 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
               }
             } catch {}
           }
+          if (mapped.length === 0) {
+            mapped = INITIAL_DOCS;
+          }
         }
-
-        // Nếu database chưa có tài liệu nào, fallback sang INITIAL_DOCS
-        if (mapped.length === 0) {
-          mapped = INITIAL_DOCS;
-        }
+        // Với user thật: nếu mapped rỗng ([]), giữ nguyên rỗng, KHÔNG nạp INITIAL_DOCS!
 
         if (userId) userDocsCache.set(userId, mapped);
         setDocs(mapped);
@@ -206,7 +219,13 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
       }
     } catch (err) {
       console.warn("Không thể tải tài liệu từ Supabase:", err);
-      setDocs(INITIAL_DOCS);
+      if (isValidUUID(userId)) {
+        setDocs([]);
+        setSelectedId(null);
+      } else {
+        setDocs(INITIAL_DOCS);
+        setSelectedId(INITIAL_DOCS[0]?.id ?? null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -297,10 +316,9 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
 
   const handleDeleteDoc = async (id: number) => {
     try {
-      const docToDelete = docs.find((d) => d.id === id);
       // Chỉ gửi lệnh DELETE lên Supabase nếu là user thật sở hữu tài liệu này
-      if (isValidUUID(userId) && docToDelete?.ownerUserId === userId && !docToDelete?.isPublic) {
-        await supabase.from("documents").delete().eq("id", id);
+      if (isValidUUID(userId)) {
+        await supabase.from("documents").delete().eq("id", id).eq("owner_user_id", userId);
       }
       setDocs((prev) => {
         const next = prev.filter((d) => d.id !== id);

@@ -24,6 +24,7 @@ import { ResultView } from "../components/quiz/ResultView";
 import { getSubjectStyle } from "../components/documents/DocumentStore";
 import { Radio, ArrowRight, PlayCircle, Plus } from "lucide-react";
 import { idleService } from "../services/idleService";
+import { isValidUUID } from "../utils";
 
 function useNow(ms = 1000) {
   const [n, setN] = useState(Date.now());
@@ -57,33 +58,37 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     };
   }, [view.name]);
 
+  const isRealUser = isValidUUID(userId);
   const setsKey = `peermind_exam_sets_${userId || "guest"}`;
   const historyKey = `peermind_exam_history_${userId || "guest"}`;
 
   const [tab, setTab] = useState<"sets" | "history">("sets");
+
+  // Tài khoản thật: ban đầu rỗng (0 bộ đề, 0 lịch sử thi), người dùng tự thêm/tự xóa
+  // Tài khoản demo/khách: nạp SEED_SETS và SEED_HISTORY mẫu
   const [sets, setSets] = useState<ExamSet[]>(() => {
     try {
       const stored = localStorage.getItem(setsKey);
       if (stored) return JSON.parse(stored);
     } catch {}
-    return SEED_SETS;
+    return isRealUser ? [] : SEED_SETS;
   });
   const [history, setHistory] = useState<ExamHistory[]>(() => {
     try {
       const stored = localStorage.getItem(historyKey);
       if (stored) return JSON.parse(stored);
     } catch {}
-    return SEED_HISTORY;
+    return isRealUser ? [] : SEED_HISTORY;
   });
 
   useEffect(() => {
     try {
       const storedSets = localStorage.getItem(setsKey);
-      setSets(storedSets ? JSON.parse(storedSets) : SEED_SETS);
+      setSets(storedSets ? JSON.parse(storedSets) : (isRealUser ? [] : SEED_SETS));
       const storedHistory = localStorage.getItem(historyKey);
-      setHistory(storedHistory ? JSON.parse(storedHistory) : SEED_HISTORY);
+      setHistory(storedHistory ? JSON.parse(storedHistory) : (isRealUser ? [] : SEED_HISTORY));
     } catch {}
-  }, [userId, setsKey, historyKey]);
+  }, [userId, setsKey, historyKey, isRealUser]);
 
   const [live, setLive] = useState<LiveExam | null>(null);
   const [mine, setMine] = useState<MyExamState | null>(null);
@@ -480,6 +485,10 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
               })}
             </ul>
           )
+        ) : history.length === 0 ? (
+          <p className="py-10 text-center text-sm font-normal text-[#111118]/60 dark:text-[#f0f6ff]/60">
+            Chưa có lịch sử làm bài kiểm tra nào. Hãy tham gia hoặc mở phòng thi để xem xếp hạng nhé!
+          </p>
         ) : (
           <ul className="divide-y divide-[#e1edff] dark:divide-[#2a2a3a]">
             {history.map((h) => {
