@@ -137,10 +137,12 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
         setIsLoading(true);
       }
 
-      // 1. Truy vấn tài liệu Supabase:
-      // - Nếu là user thật: CHỈ lấy tài liệu do chính user đó tải lên (owner_user_id = userId), TUYỆT ĐỐI KHÔNG lấy tài liệu mẫu (owner_user_id IS NULL)
-      // - Nếu là tài khoản Demo / Khách: lấy tài liệu mẫu hệ thống (owner_user_id IS NULL)
-      let query = supabase.from("documents").select("*");
+      // 1. Truy vấn danh sách tài liệu Supabase siêu nhanh (Chỉ lấy metadata, KHÔNG tải hàng chục MB pages_content của tất cả file)
+      // pages_content sẽ được lazy-load khi người dùng mở chi tiết tài liệu đó trong Studio.
+      let query = supabase
+        .from("documents")
+        .select("id, filename, original_name, subject, total_pages, file_url, created_at, owner_user_id");
+
       if (isValidUUID(userId)) {
         query = query.eq("owner_user_id", userId);
       } else {
@@ -329,11 +331,30 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
     }
   };
 
-  const handleSelectDoc = (id: number) => {
+  const handleSelectDoc = async (id: number) => {
     setSelectedId(id);
     const target = docs.find((d) => d.id === id);
-    if (target) {
-      setStudioDoc(target);
+    if (!target) return;
+
+    setStudioDoc(target);
+
+    // Nếu tài liệu chưa nạp sẵn pagesContent (do cơ chế tải nhẹ danh sách), nạp ngay cho tài liệu này
+    if (!target.pagesContent || target.pagesContent.length === 0) {
+      try {
+        const { data: detail } = await supabase
+          .from("documents")
+          .select("pages_content")
+          .eq("id", id)
+          .single();
+
+        if (detail && Array.isArray(detail.pages_content) && detail.pages_content.length > 0) {
+          const enriched = { ...target, pagesContent: detail.pages_content };
+          setStudioDoc(enriched);
+          setDocs((prev) => prev.map((d) => (d.id === id ? enriched : d)));
+        }
+      } catch (e) {
+        console.warn("Lỗi tải chi tiết trang tài liệu:", e);
+      }
     }
   };
 

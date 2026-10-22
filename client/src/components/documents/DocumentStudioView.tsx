@@ -60,7 +60,26 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 
   useEffect(() => {
     setActiveDoc(doc);
-  }, [doc]);
+    // Nếu doc chưa có pagesContent thì tải ngay cho riêng tài liệu này
+    if (!doc.pagesContent || doc.pagesContent.length === 0) {
+      (async () => {
+        try {
+          const { data: detail } = await supabase
+            .from("documents")
+            .select("pages_content")
+            .eq("id", doc.id)
+            .single();
+
+          if (detail && Array.isArray(detail.pages_content) && detail.pages_content.length > 0) {
+            setActiveDoc((prev) => ({ ...prev, pagesContent: detail.pages_content }));
+            onUpdateDoc?.({ ...doc, pagesContent: detail.pages_content });
+          }
+        } catch (e) {
+          console.warn("Lỗi tải chi tiết trang trong Studio:", e);
+        }
+      })();
+    }
+  }, [doc, onUpdateDoc]);
 
   const pages = activeDoc.pagesContent && activeDoc.pagesContent.length > 0
     ? activeDoc.pagesContent
