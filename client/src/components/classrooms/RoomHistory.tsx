@@ -117,15 +117,17 @@ export function RoomHistory({
            ========================================================================== */}
         <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 pt-4">
           <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 text-base text-[#111118] dark:text-[#f0f6ff] mb-3">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#16ab59] border border-[#111118] inline-block" />
-              <span>Chào bạn {userName}, hôm nay bạn muốn học môn nào?</span>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#16ab59] border border-[#111118]" />
+              <span className="text-xs font-normal tracking-wide text-[#111118]/70 dark:text-[#f0f6ff]/70 uppercase">
+                XIN CHÀO, {userName.toUpperCase()}
+              </span>
             </div>
-            <h1 className="text-4xl lg:text-5xl font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff] leading-tight">
-              Phòng học của bạn
+            <h1 className="mt-1 text-3xl sm:text-[42px] font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff]">
+              Phòng học của tôi
             </h1>
-            <p className="mt-3 text-lg sm:text-xl font-normal text-[#111118]/85 dark:text-[#f0f6ff]/85 leading-relaxed">
-              Vào lại các nhóm học quen thuộc, cùng đồng bộ slide thời gian thực và ôn thi trực tuyến.
+            <p className="mt-1 text-base font-normal text-[#111118]/75 dark:text-[#f0f6ff]/75">
+              Các phòng học nhóm bạn đã tạo hoặc từng tham gia gần đây.
             </p>
           </div>
 

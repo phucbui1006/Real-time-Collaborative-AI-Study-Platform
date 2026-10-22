@@ -22,6 +22,7 @@ type DocumentStoreProps = {
   onUpload: (files: File[], customSubject?: string) => void;
   isAIChatOpen: boolean;
   isLoading?: boolean;
+  userName?: string;
 };
 
 // Helper function ánh xạ màu sắc và icon theo môn học (chuẩn SuperHi)
@@ -96,6 +97,7 @@ export function DocumentStore({
   onUpload,
   isAIChatOpen,
   isLoading = false,
+  userName = "Minh Anh",
 }: DocumentStoreProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalFileInputRef = useRef<HTMLInputElement>(null);
@@ -121,13 +123,20 @@ export function DocumentStore({
   }, [activeMenuId]);
 
   const categories = useMemo(() => {
-    const subs = Array.from(new Set(docs.map((d) => d.subject)));
+    const subs = Array.from(new Set(docs.map((d) => d.subject))).filter(
+      (s) => s && s.trim().toUpperCase() !== "TEST"
+    );
     return ["TẤT CẢ", ...subs];
   }, [docs]);
 
   const filteredDocs = useMemo(() => {
     return docs
       .filter((d) => {
+        // Loại bỏ tài liệu test / dữ liệu thử
+        const tLower = d.title.trim().toLowerCase();
+        const sLower = d.subject.trim().toLowerCase();
+        if (tLower === "test" || tLower.startsWith("test ") || sLower === "test") return false;
+
         const matchesSearch =
           d.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           d.subject.toLowerCase().includes(searchQuery.toLowerCase());
@@ -149,36 +158,61 @@ export function DocumentStore({
   };
 
   return (
-    <section className={`${isAIChatOpen ? "lg:col-span-8" : "lg:col-span-12"} min-w-0`}>
-      {/* ── 1. Top Header ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-[#16ab59] border border-[#111118]" />
-            <span className="text-xs font-normal tracking-wider text-[#111118]/70 dark:text-[#f0f6ff]/70 uppercase">Thư viện cá nhân</span>
-          </div>
-          <h1 className="mt-1 text-3xl sm:text-4xl font-normal text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">Kho tài liệu học tập</h1>
-          <p className="mt-1 text-base text-[#111118]/75 dark:text-[#f0f6ff]/75">Quản lý, học tập và tương tác AI trực tiếp trên tài liệu của bạn.</p>
-        </div>
+    <section className={`${isAIChatOpen ? "lg:col-span-8" : "lg:col-span-12"} min-w-0 relative`}>
+      {/* Hình trang trí cắt giấy phẳng (SuperHi decorative paper cutouts) */}
+      <div
+        className="pointer-events-none fixed -top-24 -right-24 w-[380px] h-[380px] bg-[#91d8ec] opacity-75 dark:opacity-20 z-0"
+        style={{
+          clipPath: "polygon(50% 0%, 100% 100%, 0% 100%)",
+          transform: "rotate(14deg)",
+        }}
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none fixed -bottom-24 -left-20 w-[400px] h-[400px] bg-[#ffda00] opacity-75 dark:opacity-20 z-0"
+        style={{
+          clipPath: "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)",
+          transform: "rotate(-8deg)",
+        }}
+        aria-hidden="true"
+      />
 
-        <div className="flex items-center gap-3 shrink-0">
-          <button
-            onClick={() => setIsUploadModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-[48px] bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white font-normal border border-[#111118] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] active:translate-y-[2px] transition-transform cursor-pointer text-base"
-          >
-            <Upload className="h-5 w-5" strokeWidth={1.75} />
-            <span>Tải tài liệu lên →</span>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept=".pdf,.docx,.pptx,image/*"
-            className="hidden"
-            onChange={(e) => handleFileChange(e.target.files)}
-          />
+      <div className="relative z-10">
+        {/* ── 1. Top Header (Chuẩn hóa thống nhất 3 trang) ───────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#16ab59] border border-[#111118]" />
+              <span className="text-xs font-normal tracking-wide text-[#111118]/70 dark:text-[#f0f6ff]/70 uppercase">
+                XIN CHÀO, {userName.toUpperCase()}
+              </span>
+            </div>
+            <h1 className="mt-1 text-3xl sm:text-[42px] font-normal text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">
+              Tài liệu &amp; Hỏi đáp AI
+            </h1>
+            <p className="mt-1 text-base font-normal text-[#111118]/75 dark:text-[#f0f6ff]/75">
+              Hỏi đáp, tóm tắt và ghi nhớ kiến thức trên giáo trình của bạn.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={() => setIsUploadModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-[48px] bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white font-normal border border-[#111118] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] active:translate-y-[2px] transition-transform cursor-pointer text-base"
+            >
+              <Upload className="h-5 w-5" strokeWidth={1.75} />
+              <span>Tải tài liệu lên →</span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.docx,.pptx,image/*"
+              className="hidden"
+              onChange={(e) => handleFileChange(e.target.files)}
+            />
+          </div>
         </div>
-      </div>
 
       {/* ── 2. Thanh Tìm Kiếm & Bộ Lọc ────────────────────────────────────────── */}
       <div className="mt-8 space-y-4 rounded-[24px] bg-white dark:bg-[#1b1b26] p-5 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
@@ -395,6 +429,7 @@ export function DocumentStore({
             })}
           </div>
         )}
+      </div>
       </div>
 
       {/* ── 4. Modal Tải File ────────────────────────────────────────────────── */}

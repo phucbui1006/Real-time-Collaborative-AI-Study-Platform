@@ -244,107 +244,151 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   const running = live?.status === "running";
 
   return (
-    <div className="mx-auto max-w-[1200px] px-4 sm:px-8 py-8">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-normal tracking-wide text-[#111118]/70 dark:text-[#f0f6ff]/70 uppercase">
-            XIN CHÀO, {userName.toUpperCase()}
-          </p>
-          <h1 className="mt-1 text-3xl sm:text-[42px] font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff]">
-            Bài kiểm tra trực tuyến
-          </h1>
-          <p className="mt-1 text-base font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">
-            Tạo bộ câu hỏi, mở bài kiểm tra cho mọi người và theo dõi điểm số, xếp hạng.
-          </p>
-        </div>
-        <button
-          onClick={() =>
-            setView({
-              name: "edit",
-              set: {
-                id: uid(),
-                isNew: true,
-                title: "",
-                subject: "",
-                minutes: 10,
-                questions: [newQ()],
-              },
-            })
-          }
-          className="inline-flex items-center justify-center gap-2 rounded-[5000px] h-12 px-6 text-base font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer shrink-0"
-        >
-          <Plus className="h-5 w-5" strokeWidth={1.75} />
-          <span>Tạo bộ câu hỏi</span>
-          <span aria-hidden="true">→</span>
-        </button>
-      </div>
+    <div className="relative min-w-0">
+      {/* Hình trang trí cắt giấy phẳng (SuperHi decorative paper cutouts) */}
+      <div
+        className="pointer-events-none fixed -top-24 -right-24 w-[380px] h-[380px] bg-[#ffbac4] opacity-75 dark:opacity-20 z-0"
+        style={{
+          clipPath: "polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)",
+          transform: "rotate(-12deg)",
+        }}
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none fixed -bottom-24 -left-24 w-[380px] h-[380px] bg-[#91d8ec] opacity-75 dark:opacity-20 z-0"
+        style={{
+          clipPath: "circle(50% at 50% 50%)",
+          transform: "rotate(6deg)",
+        }}
+        aria-hidden="true"
+      />
 
-      {/* Bài đang mở + tham gia bằng mã */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Thẻ tham gia bài kiểm tra */}
-        <div className="rounded-[24px] p-6 border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
-          <h2 className="font-normal text-[#111118] dark:text-[#f0f6ff] text-xl tracking-[-0.015em]">Tham gia bài kiểm tra</h2>
-          <p className="mt-1 text-xs font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">Nhập mã phòng 6 số do bạn bè hoặc người tạo phòng gửi cho bạn.</p>
-          <form
-            className="mt-4 flex gap-3 items-center"
-            onSubmit={(e) => {
-              e.preventDefault();
-              joinExam(joinCode);
-            }}
-          >
-            <input
-              className="flex-1 h-12 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-5 text-base font-mono tracking-[0.25em] uppercase text-[#111118] dark:text-[#f0f6ff] placeholder:font-sans placeholder:tracking-normal placeholder:font-normal placeholder:text-[#111118]/40 dark:placeholder:text-[#f0f6ff]/40 outline-none focus:border-[#0b7a75] transition-colors"
-              inputMode="numeric"
-              maxLength={6}
-              value={joinCode}
-              placeholder="Nhập mã 6 số"
-              onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            />
-            <button
-              type="submit"
-              disabled={joinCode.length !== 6}
-              className="whitespace-nowrap shrink-0 px-6 h-12 bg-[#0b7a75] hover:bg-[#09635f] text-white font-normal rounded-[5000px] border-2 border-[#111118] shadow-[0_4px_0_0_#111118] text-base transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none active:translate-y-[2px]"
-            >
-              Vào thi →
-            </button>
-          </form>
-          {joinErr && <p className="mt-2 text-xs text-[#ff4141] font-normal">{joinErr}</p>}
-        </div>
-
-        {/* Khung bài kiểm tra đang mở */}
-        <div className="rounded-[24px] bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] flex flex-col justify-between">
+      <div className="relative z-10 mx-auto max-w-[1200px]">
+        {/* ── 1. Top Header (Chuẩn hóa thống nhất 3 trang) ───────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <h2 className="font-normal text-[#111118] dark:text-[#f0f6ff] text-xl tracking-[-0.015em]">Bài kiểm tra bạn đang mở</h2>
-            {live ? (
-              <div className="mt-4 flex items-center justify-between gap-3 p-4 rounded-[20px] bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a]">
-                <div className="min-w-0">
-                  <div className="truncate text-base font-normal text-[#111118] dark:text-[#f0f6ff]">{live.set.title}</div>
-                  <div className="text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-mono tabular-nums mt-0.5">
-                    Mã <strong className="text-[#0b7a75] dark:text-[#2dd4bf] font-mono">{live.code}</strong> · {running ? `còn ${fmt(remaining)}` : "đã kết thúc"}
-                  </div>
-                </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#16ab59] border border-[#111118]" />
+              <span className="text-xs font-normal tracking-wide text-[#111118]/70 dark:text-[#f0f6ff]/70 uppercase">
+                XIN CHÀO, {userName.toUpperCase()}
+              </span>
+            </div>
+            <h1 className="mt-1 text-3xl sm:text-[42px] font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff]">
+              Bài kiểm tra trực tuyến
+            </h1>
+            <p className="mt-1 text-base font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">
+              Tạo bộ câu hỏi, mở bài kiểm tra cho mọi người và theo dõi bảng điểm trực tiếp.
+            </p>
+          </div>
+          <button
+            onClick={() =>
+              setView({
+                name: "edit",
+                set: {
+                  id: uid(),
+                  isNew: true,
+                  title: "",
+                  subject: "",
+                  minutes: 10,
+                  questions: [newQ()],
+                },
+              })
+            }
+            className="inline-flex items-center justify-center gap-2 rounded-[5000px] h-12 px-6 text-base font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer shrink-0"
+          >
+            <Plus className="h-5 w-5" strokeWidth={1.75} />
+            <span>Tạo bộ câu hỏi</span>
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+
+        {/* Bài đang mở + tham gia bằng mã (Cân đối không gian & nút rõ ràng) */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Thẻ tham gia bài kiểm tra */}
+          <div className="rounded-[24px] p-6 border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] flex flex-col justify-between">
+            <div>
+              <h2 className="font-normal text-[#111118] dark:text-[#f0f6ff] text-xl tracking-[-0.015em]">Tham gia bài kiểm tra</h2>
+              <p className="mt-1 text-xs font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">Nhập mã phòng 6 số do bạn bè hoặc người tạo phòng gửi cho bạn.</p>
+              <form
+                className="mt-4 flex gap-3 items-center"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  joinExam(joinCode);
+                }}
+              >
+                <input
+                  className="flex-1 h-12 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-5 text-base font-mono tracking-[0.25em] uppercase text-[#111118] dark:text-[#f0f6ff] placeholder:font-sans placeholder:tracking-normal placeholder:font-normal placeholder:text-[#111118]/40 dark:placeholder:text-[#f0f6ff]/40 outline-none focus:border-[#0b7a75] transition-colors"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={joinCode}
+                  placeholder="Nhập mã 6 số"
+                  onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                />
                 <button
-                  onClick={() => setView({ name: "host" })}
-                  className="inline-flex items-center gap-1.5 h-10 px-4 rounded-[5000px] bg-white dark:bg-[#1b1b26] border border-[#111118] text-xs font-normal text-[#111118] dark:text-[#f0f6ff] hover:bg-[#f0f6ff] dark:hover:bg-[#2a2a3a] transition-all shadow-[0_2px_0_0_#111118] cursor-pointer"
+                  type="submit"
+                  disabled={joinCode.length !== 6}
+                  className={`whitespace-nowrap shrink-0 px-6 h-12 font-normal rounded-[5000px] border-2 border-[#111118] text-base transition-all active:translate-y-[2px] ${
+                    joinCode.length === 6
+                      ? "bg-[#0b7a75] hover:bg-[#09635f] text-white shadow-[0_4px_0_0_#111118] cursor-pointer"
+                      : "bg-[#e1edff] dark:bg-[#242436] text-[#111118]/60 dark:text-[#f0f6ff]/60 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] cursor-not-allowed"
+                  }`}
                 >
-                  <span>Xem bảng điểm</span>
-                  <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Vào thi →
                 </button>
-              </div>
-            ) : (
-              <div className="py-5 flex flex-col items-center justify-center text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#91d8ec] text-[#111118] border border-[#111118] mb-2 shadow-[0_2px_0_0_#111118]">
-                  <Radio className="h-5 w-5" strokeWidth={1.75} />
+              </form>
+              {joinErr && <p className="mt-2 text-xs text-[#ff4141] font-normal">{joinErr}</p>}
+            </div>
+
+            <div className="mt-6 pt-3 border-t border-[#e1edff] dark:border-[#2a2a3a] flex items-center justify-between text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-normal">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#16ab59]" />
+                Chấm điểm tự động &amp; Xếp hạng tức thì
+              </span>
+              <span className="font-mono text-[11px] text-[#111118]/60 dark:text-[#f0f6ff]/60">Mã 6 chữ số</span>
+            </div>
+          </div>
+
+          {/* Khung bài kiểm tra đang mở */}
+          <div className="rounded-[24px] bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] flex flex-col justify-between">
+            <div>
+              <h2 className="font-normal text-[#111118] dark:text-[#f0f6ff] text-xl tracking-[-0.015em]">Bài kiểm tra bạn đang mở</h2>
+              {live ? (
+                <div className="mt-4 flex items-center justify-between gap-3 p-4 rounded-[20px] bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a]">
+                  <div className="min-w-0">
+                    <div className="truncate text-base font-normal text-[#111118] dark:text-[#f0f6ff]">{live.set.title}</div>
+                    <div className="text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-mono tabular-nums mt-0.5">
+                      Mã <strong className="text-[#0b7a75] dark:text-[#2dd4bf] font-mono">{live.code}</strong> · {running ? `còn ${fmt(remaining)}` : "đã kết thúc"}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setView({ name: "host" })}
+                    className="inline-flex items-center gap-1.5 h-10 px-4 rounded-[5000px] bg-white dark:bg-[#1b1b26] border border-[#111118] text-xs font-normal text-[#111118] dark:text-[#f0f6ff] hover:bg-[#f0f6ff] dark:hover:bg-[#2a2a3a] transition-all shadow-[0_2px_0_0_#111118] cursor-pointer"
+                  >
+                    <span>Xem bảng điểm</span>
+                    <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  </button>
                 </div>
-                <p className="text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">Chưa có phòng thi nào đang hoạt động</p>
-                <p className="text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 mt-0.5 max-w-xs font-normal">
-                  Chọn "Mở bài kiểm tra" ở danh sách bên dưới để lấy mã phòng cho bạn bè.
-                </p>
-              </div>
-            )}
+              ) : (
+                <div className="py-5 flex flex-col items-center justify-center text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#91d8ec] text-[#111118] border border-[#111118] mb-2 shadow-[0_2px_0_0_#111118]">
+                    <Radio className="h-5 w-5" strokeWidth={1.75} />
+                  </div>
+                  <p className="text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">Chưa có phòng thi nào đang hoạt động</p>
+                  <p className="text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 mt-0.5 max-w-xs font-normal">
+                    Chọn "Mở bài kiểm tra" ở danh sách bên dưới để lấy mã phòng cho bạn bè.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 pt-3 border-t border-[#e1edff] dark:border-[#2a2a3a] flex items-center justify-between text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-normal">
+              <span>Trạng thái phòng thi</span>
+              <span className="font-mono text-[11px] text-[#0b7a75] dark:text-[#2dd4bf] font-normal">
+                {live ? (running ? "Đang diễn ra" : "Đã kết thúc") : "Sẵn sàng mở"}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
 
       {/* Tabs */}
       <div className="mt-10 inline-flex p-1 rounded-[5000px] bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a] gap-1">
@@ -453,6 +497,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       </div>
 
       {openFor && <OpenModal set={openFor} onStart={startExam} onClose={() => setOpenFor(null)} />}
+      </div>
     </div>
   );
 }

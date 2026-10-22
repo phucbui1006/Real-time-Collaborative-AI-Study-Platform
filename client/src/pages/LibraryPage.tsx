@@ -18,6 +18,12 @@ interface SupabaseDoc {
   owner_user_id?: string | null;
 }
 
+function isTestDoc(item: { original_name?: string; filename?: string; title?: string; subject?: string }): boolean {
+  const name = (item.original_name || item.filename || item.title || "").toLowerCase().trim();
+  const subj = (item.subject || "").toLowerCase().trim();
+  return name === "test" || name.startsWith("test.") || name.startsWith("test ") || subj === "test";
+}
+
 function mapSupabaseDoc(d: SupabaseDoc, index: number): DocumentItem {
   const filename = d.original_name || d.filename || `Tài liệu ${d.id}`;
   const ext = filename.split(".").pop()?.toUpperCase() || "PDF";
@@ -26,8 +32,28 @@ function mapSupabaseDoc(d: SupabaseDoc, index: number): DocumentItem {
   else if (ext === "PPTX" || ext === "PPT") fileType = "PPTX";
   else if (["PNG", "JPG", "JPEG", "WEBP"].includes(ext)) fileType = "IMG";
 
-  const colors = ["#0ea5e9", "#8b5cf6", "#f59e0b", "#10b981", "#ec4899"];
+  const colors = ["#ffda00", "#91d8ec", "#ffbac4", "#16ab59", "#ffda00"];
   const color = colors[index % colors.length];
+
+  // Tính tiến độ ổn định, không thay đổi ngẫu nhiên giữa các lần tải lại
+  const progressKey = `peermind_doc_progress_${d.id}`;
+  let progress = 65;
+  try {
+    const stored = localStorage.getItem(progressKey);
+    if (stored !== null) {
+      progress = parseInt(stored, 10);
+    } else {
+      progress = 35 + ((Math.abs(d.id) * 19 + 7) % 55);
+      localStorage.setItem(progressKey, progress.toString());
+    }
+  } catch {
+    progress = 35 + ((Math.abs(d.id) * 19 + 7) % 55);
+  }
+
+  // Dung lượng file đa dạng thực tế dựa trên số trang và id
+  const pagesCount = d.total_pages || (16 + (Math.abs(d.id) % 28));
+  const fileSizeMb = (pagesCount * 0.11 + 1.2 + (Math.abs(d.id) % 5) * 0.5).toFixed(1);
+  const fileSize = `${fileSizeMb} MB`;
 
   let formattedDate = "Vừa xong";
   if (d.created_at) {
@@ -48,11 +74,11 @@ function mapSupabaseDoc(d: SupabaseDoc, index: number): DocumentItem {
     id: d.id,
     subject: d.subject || "CHUNG",
     title: filename.replace(/\.[^/.]+$/, ""),
-    progress: Math.floor(Math.random() * 50) + 40,
+    progress,
     color,
     icon: fileType === "DOCX" ? "📝" : fileType === "PPTX" ? "📊" : "📄",
-    pagesCount: d.total_pages || 15,
-    fileSize: "2.4 MB",
+    pagesCount,
+    fileSize,
     fileType,
     updatedAt: formattedDate,
     pagesContent: Array.isArray(d.pages_content) ? d.pages_content : [],
@@ -66,9 +92,10 @@ const userDocsCache = new Map<string, DocumentItem[]>();
 
 interface LibraryPageProps {
   userId?: string;
+  userName?: string;
 }
 
-export default function LibraryPage({ userId }: LibraryPageProps) {
+export default function LibraryPage({ userId, userName }: LibraryPageProps) {
   const currentCache = userId ? userDocsCache.get(userId) || null : null;
   const [docs, setDocs] = useState<DocumentItem[]>(currentCache || INITIAL_DOCS);
   const [selectedId, setSelectedId] = useState<number | null>(
@@ -118,7 +145,9 @@ export default function LibraryPage({ userId }: LibraryPageProps) {
       }
 
       if (!error && Array.isArray(data)) {
-        let mapped = data.map(mapSupabaseDoc);
+        // Loại bỏ tài liệu test / dữ liệu thử
+        const cleanData = data.filter((d) => !isTestDoc(d));
+        let mapped = cleanData.map(mapSupabaseDoc);
 
         // Đối với tài khoản Demo/Khách, hợp nhất thêm các tài liệu do khách upload lưu cục bộ
         if (!isValidUUID(userId)) {
@@ -128,8 +157,9 @@ export default function LibraryPage({ userId }: LibraryPageProps) {
             try {
               const localDocs = JSON.parse(stored);
               if (Array.isArray(localDocs) && localDocs.length > 0) {
-                const localIds = new Set(localDocs.map((d: DocumentItem) => d.id));
-                mapped = [...localDocs, ...mapped.filter((d) => !localIds.has(d.id))];
+                const cleanLocal = localDocs.filter((d: any) => !isTestDoc(d));
+                const localIds = new Set(cleanLocal.map((d: DocumentItem) => d.id));
+                mapped = [...cleanLocal, ...mapped.filter((d) => !localIds.has(d.id))];
               }
             } catch {}
           }
@@ -255,6 +285,7 @@ export default function LibraryPage({ userId }: LibraryPageProps) {
           onUpload={handleUpload}
           isAIChatOpen={false}
           isLoading={isLoading}
+          userName={userName}
         />
       </div>
 
