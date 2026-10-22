@@ -1,5 +1,5 @@
 // components/documents/DocumentStudioView.tsx — Màn hình Studio chuyên dụng (Split-screen Reader + AI Chatbot)
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -24,7 +24,7 @@ import {
   saveDocConversation,
 } from "../../services/aiService";
 import { getSubjectStyle } from "./DocumentStore";
-import { extractDocumentContent } from "../../services/pdfService";
+import { extractDocumentContent, sanitizeExtractedText } from "../../services/pdfService";
 import { supabase } from "../../services/supabaseClient";
 import { isValidUUID } from "../../utils";
 
@@ -102,19 +102,26 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
   useEffect(() => {
     async function loadHistory() {
       setLoadingHistory(true);
+      const defaultWelcome: ChatMessage = {
+        role: "ai",
+        text: `Chào ${userName}! Mình là Trợ lý AI của tài liệu **"${activeDoc.title}"**. Mình đã đọc hiểu toàn bộ ${totalPages} trang của tài liệu này. Bạn có thể hỏi mình bất kỳ chi tiết nào hoặc bôi đen văn bản bên trái để mình giải thích nha! ✨`,
+        isGemini: true,
+      };
+
       try {
         const history = await fetchDocConversations(activeDoc.id);
         if (history.length > 0) {
-          setMessages(history);
+          // Đồng bộ lại tiêu đề tài liệu trong lời chào đầu tiên nếu tên tài liệu đã được cập nhật
+          const updatedHistory = history.map((msg, idx) => {
+            if (idx === 0 && msg.role === "ai" && (msg.text.includes("Mình là Trợ lý AI của tài liệu") || msg.text.startsWith("Chào "))) {
+              return defaultWelcome;
+            }
+            return msg;
+          });
+          setMessages(updatedHistory);
         } else {
           // Tin nhắn mở đầu mặc định
-          setMessages([
-            {
-              role: "ai",
-              text: `Chào ${userName}! Mình là Trợ lý AI của tài liệu **"${activeDoc.title}"**. Mình đã đọc hiểu toàn bộ ${totalPages} trang của giáo trình này. Bạn có thể hỏi mình bất kỳ chi tiết nào hoặc bôi đen văn bản bên trái để mình giải thích nha! ✨`,
-              isGemini: true,
-            },
-          ]);
+          setMessages([defaultWelcome]);
         }
       } catch (err) {
         console.warn("Lỗi tải lịch sử chat:", err);
@@ -124,6 +131,11 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     }
     loadHistory();
   }, [activeDoc.id, activeDoc.title, totalPages, userName]);
+
+  // Cuộn khung đọc sách về đầu trang mỗi khi chuyển trang
+  useEffect(() => {
+    readerContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [currentPage]);
 
   // Cuộn tin nhắn xuống đáy
   useEffect(() => {
@@ -281,7 +293,11 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     );
   };
 
-  const currentPageText = pages[currentPage - 1] || "Không có nội dung cho trang này.";
+  const rawPageText = pages[currentPage - 1] || "Không có nội dung cho trang này.";
+  // Làm sạch các thẻ HTML bookmark của Word (<a id="_Toc..."></a>) để văn bản luôn sạch đẹp
+  const currentPageText = useMemo(() => {
+    return sanitizeExtractedText(rawPageText);
+  }, [rawPageText]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] w-full overflow-hidden bg-[#f0f6ff] dark:bg-[#111118] transition-colors duration-150">
@@ -410,11 +426,11 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
           <div
             ref={readerContentRef}
             onMouseUp={handleTextSelection}
-            className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center"
+            className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center items-start"
           >
             <div
               style={{ fontSize: `${fontSize}px` }}
-              className="w-full max-w-3xl min-h-[500px] bg-white dark:bg-[#1b1b26] rounded-[24px] border-2 border-[#111118] dark:border-[#2a2a3a] p-6 sm:p-10 shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] leading-relaxed text-[#111118] dark:text-[#f0f6ff] transition-all select-text flex flex-col justify-between"
+              className="w-full max-w-3xl min-h-[550px] h-auto bg-white dark:bg-[#1b1b26] rounded-[24px] border-2 border-[#111118] dark:border-[#2a2a3a] p-6 sm:p-10 shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] leading-relaxed text-[#111118] dark:text-[#f0f6ff] transition-all select-text flex flex-col justify-between break-words mb-10 shrink-0"
             >
               <div>
                 {/* Banner thông báo nếu tài liệu cũ chưa trích xuất DOCX */}
@@ -448,7 +464,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                 </div>
 
                 {/* Nội dung trang định dạng Markdown */}
-                <div className="prose dark:prose-invert max-w-none text-base leading-relaxed selection:bg-[#ffda00] selection:text-[#111118]">
+                <div className="prose dark:prose-invert max-w-none text-base leading-relaxed break-words overflow-x-auto selection:bg-[#ffda00] selection:text-[#111118]">
                   <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
                     {currentPageText}
                   </ReactMarkdown>

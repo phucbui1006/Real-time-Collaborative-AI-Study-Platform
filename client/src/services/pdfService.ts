@@ -59,6 +59,25 @@ export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
 }
 
 /**
+ * Làm sạch mã đánh dấu HTML nội bộ của Word (bookmark <a id="_Toc..."></a>, anchor rỗng, v.v.)
+ */
+export function sanitizeExtractedText(text: string): string {
+  if (!text) return "";
+  return text
+    // 1. Xóa các bookmark anchor rỗng của Word dạng <a id="_Toc..."></a> hoặc <a name="_Toc..."></a>
+    .replace(/<a\s+[^>]*?(?:id|name)=["'][^"']*["'][^>]*>\s*<\/a>/gi, "")
+    // 2. Xóa các thẻ tự đóng <a ... />
+    .replace(/<a\s+[^>]*?\/>/gi, "")
+    // 3. Xóa các thẻ <a></a> rỗng hoàn toàn
+    .replace(/<a\b[^>]*>\s*<\/a>/gi, "")
+    // 4. Nếu thẻ <a> bao quanh tiêu đề hoặc liên kết nội bộ TOC, giữ nguyên nội dung văn bản bên trong
+    .replace(/<a\s+(?:id|name)=["'][^"']*["'][^>]*>([\s\S]*?)<\/a>/gi, "$1")
+    .replace(/<a\s+href=["']#_Toc[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi, "$1")
+    // 5. Chuẩn hóa khoảng trắng thừa do xóa thẻ tạo ra
+    .replace(/[ \t]{2,}/g, " ");
+}
+
+/**
  * Trích xuất nội dung văn bản thực tế từ file Word (.docx) và phân trang thông minh
  */
 export async function extractTextFromDocx(file: File): Promise<ExtractedDoc> {
@@ -86,6 +105,9 @@ export async function extractTextFromDocx(file: File): Promise<ExtractedDoc> {
         pages: ["Tài liệu Word (.docx) này không chứa văn bản hoặc chứa toàn bộ là hình ảnh."],
       };
     }
+
+    // Làm sạch các thẻ Word bookmark HTML trước khi phân trang
+    text = sanitizeExtractedText(text);
 
     // 3. Phân trang thông minh cho tài liệu Word:
     // Tiêu chuẩn 1 trang A4 Word: ~1,400 - 1,800 ký tự (khoảng 250 - 350 từ).
