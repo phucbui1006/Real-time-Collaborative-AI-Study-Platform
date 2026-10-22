@@ -217,17 +217,39 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
   }, [fetchDocs]);
 
   const handleUpload = async (files: File[], customSubject = "MỚI TẢI LÊN") => {
+    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB theo chuẩn Security.md mục 4
+    const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".png", ".jpg", ".jpeg"];
+
     for (const file of files) {
       try {
+        // 1. Kiểm tra dung lượng file (tối đa 20MB)
+        if (file.size > MAX_FILE_SIZE) {
+          alert(`File "${file.name}" vượt quá dung lượng cho phép (tối đa 20 MB).`);
+          continue;
+        }
+
+        // 2. Làm sạch tên file (chống path traversal, ký tự điều khiển, XSS)
+        const cleanName = file.name
+          .replace(/[/\\?%*:|"<>]/g, "_")
+          .replace(/\.\.+/g, ".")
+          .trim()
+          .slice(0, 120);
+
+        const ext = cleanName.substring(cleanName.lastIndexOf(".")).toLowerCase();
+        if (!ALLOWED_EXTENSIONS.includes(ext)) {
+          alert(`Định dạng file "${ext}" không được hỗ trợ. Vui lòng chọn file PDF, DOCX hoặc PPTX.`);
+          continue;
+        }
+
         const totalPages = Math.max(1, Math.floor(file.size / 50000));
         const docPayload: any = {
-          filename: file.name,
-          original_name: file.name,
+          filename: cleanName,
+          original_name: cleanName,
           subject: customSubject,
           total_pages: totalPages,
           file_url: null,
           pages_content: [
-            `Chương 1: Giới thiệu và tổng quan nội dung ${file.name.replace(/\.[^/.]+$/, "")}`,
+            `Chương 1: Giới thiệu và tổng quan nội dung ${cleanName.replace(/\.[^/.]+$/, "")}`,
             `Chương 2: Các khái niệm, định nghĩa và công thức cốt lõi`,
             `Chương 3: Phân tích bài tập mẫu và phương pháp giải nhanh`,
             `Chương 4: Tóm tắt bài học và ngân hàng câu hỏi tự luyện`,
@@ -246,7 +268,7 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
           currentLocal.unshift({
             id: Date.now() + Math.floor(Math.random() * 1000),
             subject: customSubject,
-            title: file.name.replace(/\.[^/.]+$/, ""),
+            title: cleanName.replace(/\.[^/.]+$/, ""),
             progress: 0,
             color: "#0ea5e9",
             icon: "📄",

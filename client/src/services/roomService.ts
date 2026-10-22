@@ -24,7 +24,9 @@ export const COLORS = ["#0ea5e9", "#8b5cf6", "#10b981", "#f59e0b", "#ec4899", "#
  */
 export async function fetchRoomsApi(userId?: string): Promise<RoomItem[]> {
   try {
-    let query = supabase.from("rooms").select("*").eq("is_active", true);
+    // Chỉ chọn các trường an toàn, KHÔNG select password_hash tránh rò rỉ dữ liệu
+    const SAFE_ROOM_FIELDS = "id, name, code, document_id, is_active, created_at";
+    let query = supabase.from("rooms").select(SAFE_ROOM_FIELDS).eq("is_active", true);
     if (isValidUUID(userId)) {
       query = query.eq("host_user_id", userId);
     }
@@ -34,7 +36,7 @@ export async function fetchRoomsApi(userId?: string): Promise<RoomItem[]> {
     if (error && (error.message.includes("host_user_id") || error.code === "42703")) {
       const { data: allRooms, error: errAll } = await supabase
         .from("rooms")
-        .select("*")
+        .select(SAFE_ROOM_FIELDS)
         .eq("is_active", true)
         .order("created_at", { ascending: false });
       if (!errAll && Array.isArray(allRooms)) {
@@ -93,13 +95,14 @@ export async function joinRoomApi({
   password: string;
 }): Promise<{ name: string; code: string; documentId?: number | null }> {
   try {
-    const cleanCode = code.trim();
+    // Làm sạch mã phòng (chỉ chữ và số, tối đa 8 ký tự, tránh injection/bypass)
+    const cleanCode = code.trim().replace(/[^a-zA-Z0-9]/g, "").slice(0, 8);
     const cleanPassword = password.trim();
 
     // 1. Kiểm tra trong Supabase
     const { data: room, error } = await supabase
       .from("rooms")
-      .select("*")
+      .select("id, name, code, document_id, is_active, password_hash")
       .eq("code", cleanCode)
       .eq("is_active", true)
       .maybeSingle();
@@ -121,7 +124,8 @@ export async function joinRoomApi({
       return { name: mockRoom.name, code: mockRoom.code, documentId: mockRoom.documentId };
     }
 
-    throw new Error("Mã phòng không tồn tại trên hệ thống hoặc phòng đã đóng.");
+    // Thông báo lỗi chung bảo mật theo Security.md mục 3.6 (không tiết lộ phòng tồn tại hay đã đóng)
+    throw new Error("Mã phòng không hợp lệ hoặc đã hết hạn.");
   } catch (err: unknown) {
     const e = err as Error;
     throw new Error(e.message || "Có lỗi xảy ra khi xác thực phòng.");
