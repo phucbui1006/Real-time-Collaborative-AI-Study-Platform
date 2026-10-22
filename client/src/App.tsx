@@ -857,6 +857,10 @@ export default function App() {
               <X className="h-4 w-4" strokeWidth={1.75} />
             </button>
 
+            <div className="mb-4">
+              <Logo size="sm" showText={true} />
+            </div>
+
             {authView === "login" && (
               <>
                 <h2 id="login-title" className="text-2xl font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff]">

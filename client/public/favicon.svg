@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <style>
+      .bg { fill: #0b7a75; }
+      .stem { fill: #ffffff; }
+      .loop { fill: #ffffff; }
+      .inner-loop { fill: #0b7a75; }
+      .peer-dot { fill: #ffda00; }
+      @media (prefers-color-scheme: dark) {
+        .bg { fill: #2dd4bf; }
+        .stem { fill: #111118; }
+        .loop { fill: #111118; }
+        .inner-loop { fill: #2dd4bf; }
+        .peer-dot { fill: #ffda00; }
+      }
+    </style>
+  </defs>
+  <!-- Squircle rounded background (fills canvas for high visibility) -->
+  <rect class="bg" width="64" height="64" rx="18" />
+  
+  <!-- Chữ P hình học to bản, nét đậm, rõ nét ngay cả ở 16px -->
+  <!-- Thân đứng (stem) -->
+  <rect class="stem" x="14" y="13" width="10" height="38" rx="2" />
+  <!-- Vòm P (loop) -->
+  <path class="loop" d="M22 13h15c8.284 0 15 6.716 15 15s-6.716 15-15 15H22V13z" />
+  <!-- Lỗ khoét trong vòm P -->
+  <path class="inner-loop" d="M24 21h12c3.866 0 7 3.134 7 7s-3.134 7-7 7H24V21z" />
+  
+  <!-- Chấm vàng 'Peer' (Người bạn đồng hành) - to bản, tách biệt rõ ràng ở góc dưới phải -->
+  <circle class="peer-dot" cx="47" cy="47" r="7.5" />
+</svg>

@@ -1,0 +1,31 @@
+{
+  "name": "PeerMind — Học tập cùng bạn bè & AI",
+  "short_name": "PeerMind",
+  "description": "Nền tảng học nhóm trực tuyến tích hợp AI, đồng bộ slide thời gian thực và thi đấu trắc nghiệm xếp hạng.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0f6ff",
+  "theme_color": "#0b7a75",
+  "icons": [
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
