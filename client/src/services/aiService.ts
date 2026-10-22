@@ -6,6 +6,7 @@ import {
   generateMindmapTextWithGemini,
 } from "./geminiClient";
 import { supabase } from "./supabaseClient";
+import { isValidUUID } from "../utils";
 
 export type DocumentItem = {
   id: number;
@@ -222,16 +223,96 @@ export async function askAI(
   }
 }
 
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 /**
- * Tải lịch sử trò chuyện AI của từng tài liệu từ Supabase bảng ai_conversations
+ * Tải danh sách các phiên trò chuyện (Sessions) của tài liệu
  */
-export async function fetchDocConversations(docId: number): Promise<ChatMessage[]> {
+export async function fetchDocSessions(docId: number, userId?: string): Promise<ChatSession[]> {
+  const localKey = `peermind_sessions_${docId}`;
+  let localSessions: ChatSession[] = [];
   try {
-    const { data, error } = await supabase
+    const raw = localStorage.getItem(localKey);
+    if (raw) localSessions = JSON.parse(raw);
+  } catch {}
+
+  try {
+    let query = supabase
       .from("ai_conversations")
-      .select("question, answer, created_at")
+      .select("session_id, session_title, created_at")
       .eq("document_id", docId)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: false });
+
+    if (isValidUUID(userId)) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data, error } = await query;
+    if (!error && Array.isArray(data) && data.length > 0) {
+      const sessionMap = new Map<string, ChatSession>();
+      data.forEach((row) => {
+        const sId = row.session_id || "default";
+        if (!sessionMap.has(sId)) {
+          sessionMap.set(sId, {
+            id: sId,
+            title: row.session_title || (sId === "default" ? "Cuộc trò chuyện chính" : "Cuộc trò chuyện"),
+            createdAt: row.created_at,
+          });
+        }
+      });
+      const dbSessions = Array.from(sessionMap.values());
+      const merged = [...dbSessions];
+      localSessions.forEach((ls) => {
+        if (!merged.some((ms) => ms.id === ls.id)) {
+          merged.push(ls);
+        }
+      });
+      if (merged.length > 0) return merged;
+    }
+  } catch (err) {
+    console.warn("Lỗi tải sessions từ Supabase:", err);
+  }
+
+  if (localSessions.length > 0) return localSessions;
+
+  const defaultSession: ChatSession = {
+    id: "default",
+    title: "Cuộc trò chuyện chính",
+    createdAt: new Date().toISOString(),
+  };
+  return [defaultSession];
+}
+
+/**
+ * Tải lịch sử trò chuyện AI theo từng phiên (Session) của tài liệu
+ */
+export async function fetchDocConversations(
+  docId: number,
+  sessionId: string = "default",
+  userId?: string
+): Promise<ChatMessage[]> {
+  try {
+    let query = supabase
+      .from("ai_conversations")
+      .select("question, answer, created_at, session_id")
+      .eq("document_id", docId);
+
+    if (sessionId === "default") {
+      query = query.or(`session_id.eq.default,session_id.is.null`);
+    } else {
+      query = query.eq("session_id", sessionId);
+    }
+
+    if (isValidUUID(userId)) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data, error } = await query.order("created_at", { ascending: true });
 
     if (!error && Array.isArray(data) && data.length > 0) {
       const messages: ChatMessage[] = [];
@@ -246,9 +327,11 @@ export async function fetchDocConversations(docId: number): Promise<ChatMessage[
       return messages;
     }
 
-    // Dự phòng local storage
-    const localKey = `peermind_chat_${docId}`;
-    const stored = localStorage.getItem(localKey);
+    // Dự phòng local storage theo session
+    const localKey = `peermind_chat_${docId}_${sessionId}`;
+    const stored =
+      localStorage.getItem(localKey) ||
+      (sessionId === "default" ? localStorage.getItem(`peermind_chat_${docId}`) : null);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -262,28 +345,146 @@ export async function fetchDocConversations(docId: number): Promise<ChatMessage[
 }
 
 /**
- * Lưu cuộc trò chuyện của tài liệu vào CSDL Supabase
+ * Lưu cuộc trò chuyện của tài liệu vào CSDL Supabase theo Session
  */
 export async function saveDocConversation(
   docId: number,
   question: string,
-  answer: string
+  answer: string,
+  userId?: string,
+  sessionId: string = "default",
+  sessionTitle?: string
 ): Promise<void> {
-  try {
-    // 1. Lưu lên Supabase DB
-    await supabase.from("ai_conversations").insert({
-      document_id: docId,
-      question,
-      answer,
-    });
+  const payload: any = {
+    document_id: docId,
+    question,
+    answer,
+  };
+  if (isValidUUID(userId)) {
+    payload.user_id = userId;
+  }
+  if (sessionId) {
+    payload.session_id = sessionId;
+  }
+  if (sessionTitle) {
+    payload.session_title = sessionTitle;
+  }
 
-    // 2. Lưu local cache làm bản dự phòng
-    const localKey = `peermind_chat_${docId}`;
+  try {
+    const { error } = await supabase.from("ai_conversations").insert(payload);
+    if (error) {
+      // Fallback nếu CSDL Supabase chưa chạy migration thêm cột session_id/user_id
+      await supabase.from("ai_conversations").insert({
+        document_id: docId,
+        question,
+        answer,
+      });
+    }
+  } catch (err) {
+    console.warn("Lỗi lưu lịch sử chat vào Supabase:", err);
+  }
+
+  // 2. Lưu local cache theo session
+  try {
+    const localKey = `peermind_chat_${docId}_${sessionId}`;
     const current = JSON.parse(localStorage.getItem(localKey) || "[]");
     current.push({ role: "user", text: question });
     current.push({ role: "ai", text: answer, isGemini: true });
     localStorage.setItem(localKey, JSON.stringify(current.slice(-50)));
-  } catch (err) {
-    console.warn("Lỗi lưu lịch sử chat vào Supabase:", err);
+
+    // Đồng bộ session list trong local storage
+    const sessionsKey = `peermind_sessions_${docId}`;
+    const sessionsList: ChatSession[] = JSON.parse(localStorage.getItem(sessionsKey) || "[]");
+    const existing = sessionsList.find((s) => s.id === sessionId);
+    if (existing) {
+      if (sessionTitle && existing.title !== sessionTitle) {
+        existing.title = sessionTitle;
+      }
+      existing.updatedAt = new Date().toISOString();
+    } else {
+      sessionsList.unshift({
+        id: sessionId,
+        title: sessionTitle || (sessionId === "default" ? "Cuộc trò chuyện chính" : "Cuộc trò chuyện"),
+        createdAt: new Date().toISOString(),
+      });
+    }
+    localStorage.setItem(sessionsKey, JSON.stringify(sessionsList));
+  } catch (e) {
+    console.warn("Lỗi lưu local session:", e);
   }
+}
+
+/**
+ * Xóa một phiên trò chuyện (Session) của tài liệu
+ */
+export async function deleteDocSession(
+  docId: number,
+  sessionId: string,
+  userId?: string
+): Promise<void> {
+  try {
+    let query = supabase.from("ai_conversations").delete().eq("document_id", docId);
+    if (sessionId === "default") {
+      query = query.or(`session_id.eq.default,session_id.is.null`);
+    } else {
+      query = query.eq("session_id", sessionId);
+    }
+    if (isValidUUID(userId)) {
+      query = query.eq("user_id", userId);
+    }
+    await query;
+  } catch (err) {
+    console.warn("Lỗi xóa session từ Supabase:", err);
+  }
+
+  try {
+    localStorage.removeItem(`peermind_chat_${docId}_${sessionId}`);
+    if (sessionId === "default") {
+      localStorage.removeItem(`peermind_chat_${docId}`);
+    }
+    const sessionsKey = `peermind_sessions_${docId}`;
+    const sessionsList: ChatSession[] = JSON.parse(localStorage.getItem(sessionsKey) || "[]");
+    const filtered = sessionsList.filter((s) => s.id !== sessionId);
+    localStorage.setItem(sessionsKey, JSON.stringify(filtered));
+  } catch {}
+}
+
+/**
+ * Đổi tên phiên trò chuyện
+ */
+export async function renameDocSession(
+  docId: number,
+  sessionId: string,
+  newTitle: string,
+  userId?: string
+): Promise<void> {
+  try {
+    let query = supabase
+      .from("ai_conversations")
+      .update({ session_title: newTitle })
+      .eq("document_id", docId);
+
+    if (sessionId === "default") {
+      query = query.or(`session_id.eq.default,session_id.is.null`);
+    } else {
+      query = query.eq("session_id", sessionId);
+    }
+    if (isValidUUID(userId)) {
+      query = query.eq("user_id", userId);
+    }
+    await query;
+  } catch (err) {
+    console.warn("Lỗi đổi tên session trên Supabase:", err);
+  }
+
+  try {
+    const sessionsKey = `peermind_sessions_${docId}`;
+    const sessionsList: ChatSession[] = JSON.parse(localStorage.getItem(sessionsKey) || "[]");
+    const target = sessionsList.find((s) => s.id === sessionId);
+    if (target) {
+      target.title = newTitle;
+      target.updatedAt = new Date().toISOString();
+      localStorage.setItem(sessionsKey, JSON.stringify(sessionsList));
+    }
+  } catch {}
 }

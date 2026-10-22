@@ -1,4 +1,4 @@
-// components/documents/DocumentStudioView.tsx — Màn hình Studio chuyên dụng (Split-screen Reader + AI Chatbot)
+// components/documents/DocumentStudioView.tsx — Màn hình Studio chuyên dụng (Split-screen Reader + AI Chatbot Multi-Sessions)
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   ArrowLeft,
@@ -9,7 +9,12 @@ import {
   Network,
   HelpCircle,
   Send,
-  Upload,
+  Plus,
+  Trash2,
+  Edit2,
+  Check,
+  ChevronDown,
+  MessageSquare,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -19,14 +24,17 @@ import "katex/dist/katex.min.css";
 import {
   DocumentItem,
   ChatMessage,
+  ChatSession,
   askAI,
+  fetchDocSessions,
   fetchDocConversations,
   saveDocConversation,
+  deleteDocSession,
+  renameDocSession,
 } from "../../services/aiService";
 import { getSubjectStyle } from "./DocumentStore";
-import { extractDocumentContent, sanitizeExtractedText } from "../../services/pdfService";
+import { sanitizeExtractedText } from "../../services/pdfService";
 import { supabase } from "../../services/supabaseClient";
-import { isValidUUID } from "../../utils";
 
 interface DocumentStudioViewProps {
   doc: DocumentItem;
@@ -52,9 +60,14 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
   const [fontSize, setFontSize] = useState<number>(16);
   const [selectedText, setSelectedText] = useState<string>("");
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
-  const [isUpdatingFile, setIsUpdatingFile] = useState<boolean>(false);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Quản lý nhiều phiên trò chuyện (Sessions - Phương án 3)
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string>("default");
+  const [isSessionDropdownOpen, setIsSessionDropdownOpen] = useState<boolean>(false);
+  const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
+  const [editTitleInput, setEditTitleInput] = useState<string>("");
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const readerContentRef = useRef<HTMLDivElement>(null);
 
@@ -91,17 +104,23 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 
   const subjectStyle = getSubjectStyle(activeDoc.subject);
 
-  // Phát hiện tài liệu cũ bị lỗi chỉ có placeholder dummy
-  const isDummyContent =
-    pages.length <= 4 &&
-    pages.some(
-      (p) =>
-        p.includes("Chương 1: Giới thiệu") ||
-        p.includes("Chương 1: Các khái niệm cơ bản") ||
-        p.includes("Tài liệu học tập chuyên ngành định dạng")
-    );
+  // 1. Tải danh sách các phiên trò chuyện (Sessions) của tài liệu
+  useEffect(() => {
+    async function loadSessions() {
+      try {
+        const sList = await fetchDocSessions(activeDoc.id, userId);
+        setSessions(sList);
+        if (sList.length > 0 && !sList.some((s) => s.id === currentSessionId)) {
+          setCurrentSessionId(sList[0].id);
+        }
+      } catch (err) {
+        console.warn("Lỗi tải danh sách phiên chat:", err);
+      }
+    }
+    loadSessions();
+  }, [activeDoc.id, userId]);
 
-  // 1. Tải lịch sử trò chuyện của tài liệu này từ Supabase
+  // 2. Tải lịch sử trò chuyện theo Session đang chọn
   useEffect(() => {
     async function loadHistory() {
       setLoadingHistory(true);
@@ -112,9 +131,8 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
       };
 
       try {
-        const history = await fetchDocConversations(activeDoc.id);
+        const history = await fetchDocConversations(activeDoc.id, currentSessionId, userId);
         if (history.length > 0) {
-          // Đồng bộ lại tiêu đề tài liệu trong lời chào đầu tiên nếu tên tài liệu đã được cập nhật
           const updatedHistory = history.map((msg, idx) => {
             if (idx === 0 && msg.role === "ai" && (msg.text.includes("Mình là Trợ lý AI của tài liệu") || msg.text.startsWith("Chào "))) {
               return defaultWelcome;
@@ -123,17 +141,17 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
           });
           setMessages(updatedHistory);
         } else {
-          // Tin nhắn mở đầu mặc định
           setMessages([defaultWelcome]);
         }
       } catch (err) {
         console.warn("Lỗi tải lịch sử chat:", err);
+        setMessages([defaultWelcome]);
       } finally {
         setLoadingHistory(false);
       }
     }
     loadHistory();
-  }, [activeDoc.id, activeDoc.title, totalPages, userName]);
+  }, [activeDoc.id, activeDoc.title, currentSessionId, totalPages, userId, userName]);
 
   // Cuộn khung đọc sách về đầu trang mỗi khi chuyển trang
   useEffect(() => {
@@ -145,7 +163,75 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // 2. Bắt sự kiện bôi đen văn bản để hiển thị Quick Action Tooltip
+  // Tìm thông tin session hiện tại
+  const currentSession = sessions.find((s) => s.id === currentSessionId) || sessions[0] || {
+    id: "default",
+    title: "Cuộc trò chuyện chính",
+    createdAt: new Date().toISOString(),
+  };
+
+  // Tạo phiên trò chuyện mới (+ New Chat)
+  const handleCreateNewSession = () => {
+    const newId = `sess_${Date.now()}`;
+    const newSession: ChatSession = {
+      id: newId,
+      title: "Cuộc trò chuyện mới",
+      createdAt: new Date().toISOString(),
+    };
+    setSessions((prev) => [newSession, ...prev]);
+    setCurrentSessionId(newId);
+    setIsSessionDropdownOpen(false);
+  };
+
+  // Đổi phiên trò chuyện
+  const handleSwitchSession = (sessionId: string) => {
+    setCurrentSessionId(sessionId);
+    setIsSessionDropdownOpen(false);
+  };
+
+  // Xóa phiên trò chuyện
+  const handleDeleteSession = async (sessionId: string) => {
+    const target = sessions.find((s) => s.id === sessionId);
+    const confirmName = target?.title || "phiên trò chuyện này";
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa "${confirmName}" và toàn bộ lịch sử tin nhắn của phiên này?`)) {
+      return;
+    }
+
+    await deleteDocSession(activeDoc.id, sessionId, userId);
+    const remaining = sessions.filter((s) => s.id !== sessionId);
+
+    if (remaining.length > 0) {
+      setSessions(remaining);
+      if (currentSessionId === sessionId) {
+        setCurrentSessionId(remaining[0].id);
+      }
+    } else {
+      const defaultSess: ChatSession = {
+        id: "default",
+        title: "Cuộc trò chuyện chính",
+        createdAt: new Date().toISOString(),
+      };
+      setSessions([defaultSess]);
+      setCurrentSessionId("default");
+    }
+    setIsSessionDropdownOpen(false);
+  };
+
+  // Lưu tên mới cho phiên
+  const handleSaveRename = async () => {
+    const trimmed = editTitleInput.trim();
+    if (!trimmed) {
+      setIsEditingTitle(false);
+      return;
+    }
+    await renameDocSession(activeDoc.id, currentSessionId, trimmed, userId);
+    setSessions((prev) =>
+      prev.map((s) => (s.id === currentSessionId ? { ...s, title: trimmed } : s))
+    );
+    setIsEditingTitle(false);
+  };
+
+  // 3. Bắt sự kiện bôi đen văn bản để hiển thị Quick Action Tooltip
   const handleTextSelection = () => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || !selection.toString().trim()) {
@@ -166,7 +252,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     }
   };
 
-  // 3. Gửi câu hỏi cho AI (kèm lưu CSDL)
+  // 4. Gửi câu hỏi cho AI (kèm lưu CSDL theo phiên và user_id)
   const handleSendQuestion = async (customPrompt?: string) => {
     const q = (customPrompt || input).trim();
     if (!q || loading) return;
@@ -178,13 +264,24 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     setLoading(true);
     setTooltipPos(null);
 
+    // Tự động đặt tên cho phiên nếu còn là tên mặc định
+    let activeTitle = currentSession?.title || "Cuộc trò chuyện chính";
+    if (activeTitle === "Cuộc trò chuyện mới" || activeTitle === "Cuộc trò chuyện") {
+      const autoTitle = q.length > 28 ? q.slice(0, 28) + "..." : q;
+      activeTitle = autoTitle;
+      setSessions((prev) =>
+        prev.map((s) => (s.id === currentSessionId ? { ...s, title: autoTitle } : s))
+      );
+      renameDocSession(activeDoc.id, currentSessionId, autoTitle, userId);
+    }
+
     try {
       const res = await askAI(q, activeDoc, newHistory);
       const aiMsg: ChatMessage = { role: "ai", text: res.text, isGemini: res.isGemini };
       setMessages((prev) => [...prev, aiMsg]);
 
-      // Lưu cuộc trò chuyện vào Supabase DB
-      await saveDocConversation(activeDoc.id, q, res.text);
+      // Lưu cuộc trò chuyện vào Supabase DB kèm session_id và user_id
+      await saveDocConversation(activeDoc.id, q, res.text, userId, currentSessionId, activeTitle);
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -195,64 +292,11 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     }
   };
 
-  // 4. Nhảy đến trang khi bấm vào trích dẫn [Trang X]
+  // 5. Nhảy đến trang khi bấm vào trích dẫn [Trang X]
   const handleJumpToPage = (pageNum: number) => {
     if (pageNum >= 1 && pageNum <= totalPages) {
       setCurrentPage(pageNum);
-      // Cuộn đầu trang khung đọc
       readerContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  };
-
-  // 5. Cập nhật / Tải lại file nguồn trực tiếp trong Studio
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUpdatingFile(true);
-    try {
-      const extracted = await extractDocumentContent(file);
-      const updated: DocumentItem = {
-        ...activeDoc,
-        pagesCount: extracted.totalPages,
-        pagesContent: extracted.pages,
-        fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        updatedAt: "Vừa xong",
-      };
-
-      setActiveDoc(updated);
-      onUpdateDoc?.(updated);
-
-      // Lưu cập nhật vào CSDL Supabase nếu là tài khoản thật
-      if (isValidUUID(userId)) {
-        await supabase
-          .from("documents")
-          .update({
-            total_pages: extracted.totalPages,
-            pages_content: extracted.pages,
-          })
-          .eq("id", activeDoc.id);
-      } else {
-        // Cập nhật cho tài khoản khách trong LocalStorage
-        const localKey = `peermind_docs_${userId || "guest"}`;
-        try {
-          const currentLocal = JSON.parse(localStorage.getItem(localKey) || "[]");
-          const idx = currentLocal.findIndex((d: any) => d.id === activeDoc.id);
-          if (idx !== -1) {
-            currentLocal[idx].pagesCount = extracted.totalPages;
-            currentLocal[idx].pagesContent = extracted.pages;
-            localStorage.setItem(localKey, JSON.stringify(currentLocal));
-          }
-        } catch {}
-      }
-
-      setCurrentPage(1);
-      alert(`Đã trích xuất thành công ${extracted.totalPages} trang từ "${file.name}"!`);
-    } catch (err: any) {
-      alert("Không thể trích xuất nội dung file: " + (err.message || "Lỗi không xác định"));
-    } finally {
-      setIsUpdatingFile(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -304,15 +348,6 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] w-full overflow-hidden bg-[#f0f6ff] dark:bg-[#111118] transition-colors duration-150">
-      {/* Input ẩn để chọn file khi muốn cập nhật / trích xuất lại */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".pdf,.docx,.pptx,.txt,.md"
-        className="hidden"
-        onChange={handleFileChange}
-      />
-
       {/* ── Top Bar Header Studio ─────────────────────────────────────────── */}
       <header className="h-14 shrink-0 bg-white dark:bg-[#1b1b26] border-b border-[#e1edff] dark:border-[#2a2a3a] px-4 sm:px-6 flex items-center justify-between shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] z-20">
         <div className="flex items-center gap-3 min-w-0">
@@ -338,16 +373,6 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 
         {/* Các nút tác vụ nhanh */}
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUpdatingFile}
-            title="Chọn lại file DOCX/PDF để trích xuất lại nội dung"
-            className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 rounded-[5000px] border border-[#111118] bg-white dark:bg-[#242436] hover:bg-[#e1edff] text-xs font-normal text-[#111118] dark:text-[#f0f6ff] shadow-[0_2px_0_0_#111118] active:translate-y-[1px] transition-all cursor-pointer"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>{isUpdatingFile ? "Đang trích xuất..." : "Cập nhật file"}</span>
-          </button>
-
           <button
             onClick={() => handleSendQuestion(`Hãy tóm tắt ngắn gọn các ý cốt lõi nhất của tài liệu "${activeDoc.title}"`)}
             className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3.5 rounded-[5000px] bg-[#ffda00] text-[#111118] border border-[#111118] text-xs font-normal shadow-[0_2px_0_0_#111118] hover:bg-[#ebd000] active:translate-y-[1px] transition-all cursor-pointer"
@@ -436,28 +461,6 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
               className="w-full max-w-3xl min-h-[550px] h-auto bg-white dark:bg-[#1b1b26] rounded-[24px] border-2 border-[#111118] dark:border-[#2a2a3a] p-6 sm:p-10 shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] leading-relaxed text-[#111118] dark:text-[#f0f6ff] transition-all select-text flex flex-col justify-between break-words mb-10 shrink-0"
             >
               <div>
-                {/* Banner thông báo nếu tài liệu cũ chưa trích xuất DOCX */}
-                {isDummyContent && (
-                  <div className="mb-6 p-4 rounded-[16px] border-2 border-[#111118] bg-[#ffda00]/20 text-[#111118] dark:text-[#f0f6ff] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_2px_0_0_#111118]">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <span className="text-xl">⚠️</span>
-                      <div>
-                        <p className="font-semibold">Tài liệu này được tải lên trước khi cập nhật tính năng đọc DOCX</p>
-                        <p className="text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-normal">
-                          Nhấp nút bên cạnh để chọn lại file gốc "{activeDoc.title}.docx" và mở đầy đủ 34 trang nhé!
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUpdatingFile}
-                      className="shrink-0 px-4 py-2 rounded-[5000px] bg-[#0b7a75] hover:bg-[#08635f] text-white text-xs font-medium border border-[#111118] shadow-[0_2px_0_0_#111118] transition-all cursor-pointer"
-                    >
-                      {isUpdatingFile ? "Đang trích xuất..." : "📥 Chọn file đọc ngay →"}
-                    </button>
-                  </div>
-                )}
-
                 {/* Tiêu đề đầu trang */}
                 <div className="flex items-center justify-between pb-4 mb-6 border-b border-[#e1edff] dark:border-[#2a2a3a] text-xs font-mono text-[#111118]/60 dark:text-[#f0f6ff]/60">
                   <span className="truncate max-w-[200px] sm:max-w-md">{activeDoc.title}</span>
@@ -509,7 +512,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
           )}
         </section>
 
-        {/* ─── CỘT PHẢI: AI TUTOR PANEL ────────────────────────────────────── */}
+        {/* ─── CỘT PHẢI: AI TUTOR PANEL (MULTI-SESSIONS CHATBOT) ─────────────── */}
         <section className="w-full lg:w-[450px] xl:w-[500px] flex flex-col h-full bg-white dark:bg-[#1b1b26] border-t lg:border-t-0 border-[#e1edff] dark:border-[#2a2a3a] shadow-[-4px_0_12px_rgba(0,0,0,0.03)] overflow-hidden">
           {/* Header AI Tutor */}
           <div className="h-12 shrink-0 px-4 border-b border-[#e1edff] dark:border-[#2a2a3a] flex items-center justify-between text-xs bg-[#f0f6ff]/50 dark:bg-[#111118]/50">
@@ -517,12 +520,121 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
               <div className="w-6 h-6 rounded-full bg-[#0b7a75] text-white flex items-center justify-center font-mono">
                 <Bot className="w-3.5 h-3.5" />
               </div>
-              <span className="font-normal text-[#111118] dark:text-[#f0f6ff]">Trợ lý AI PeerMind</span>
+              <span className="font-semibold text-[#111118] dark:text-[#f0f6ff]">Trợ lý AI PeerMind</span>
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#16ab59]">
-              <span className="w-2 h-2 rounded-full bg-[#16ab59] animate-pulse" />
-              <span>RAG Active</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCreateNewSession}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[5000px] bg-[#0b7a75] hover:bg-[#08635f] text-white text-[11px] font-medium border border-[#111118] shadow-[0_1px_0_0_#111118] active:translate-y-[1px] transition-all cursor-pointer"
+                title="Tạo cuộc trò chuyện mới (+ New Chat)"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Chat mới</span>
+              </button>
             </div>
+          </div>
+
+          {/* Sub-bar: Thanh quản lý phiên trò chuyện (Sessions Selector) */}
+          <div className="px-3 py-2 bg-white dark:bg-[#1b1b26] border-b border-[#e1edff] dark:border-[#2a2a3a] flex items-center justify-between gap-2 text-xs relative z-30">
+            <div className="relative flex-1 min-w-0">
+              {isEditingTitle ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={editTitleInput}
+                    onChange={(e) => setEditTitleInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveRename();
+                      if (e.key === "Escape") setIsEditingTitle(false);
+                    }}
+                    autoFocus
+                    placeholder="Tên cuộc trò chuyện..."
+                    className="w-full text-xs px-2.5 py-1 rounded-[8px] border-2 border-[#0b7a75] bg-white dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] focus:outline-none"
+                  />
+                  <button
+                    onClick={handleSaveRename}
+                    className="p-1 rounded-[8px] bg-[#0b7a75] text-white hover:bg-[#08635f] cursor-pointer"
+                    title="Lưu tên"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsSessionDropdownOpen(!isSessionDropdownOpen)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-[12px] bg-[#f0f6ff] dark:bg-[#242436] hover:bg-[#e1edff] dark:hover:bg-[#2e2e42] text-[#111118] dark:text-[#f0f6ff] border border-[#111118] dark:border-[#2a2a3a] shadow-[0_1px_0_0_#111118] text-xs transition-colors cursor-pointer text-left"
+                  title="Bấm để xem & đổi danh sách cuộc trò chuyện"
+                >
+                  <span className="truncate font-medium flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5 text-[#0b7a75] dark:text-[#2dd4bf] shrink-0" />
+                    <span className="truncate">{currentSession?.title || "Cuộc trò chuyện chính"}</span>
+                  </span>
+                  <ChevronDown className="w-3.5 h-3.5 text-[#111118]/60 dark:text-[#f0f6ff]/60 shrink-0" />
+                </button>
+              )}
+
+              {/* Menu Dropdown danh sách các phiên */}
+              {isSessionDropdownOpen && (
+                <div className="absolute left-0 top-full mt-1.5 w-full bg-white dark:bg-[#1b1b26] border-2 border-[#111118] dark:border-[#2a2a3a] rounded-[16px] shadow-[0_6px_16px_rgba(0,0,0,0.2)] z-50 p-1.5 max-h-64 overflow-y-auto animate-in fade-in zoom-in-95">
+                  <div className="px-2 py-1 text-[10px] font-mono uppercase text-[#111118]/50 dark:text-[#f0f6ff]/50 border-b border-[#e1edff] dark:border-[#2a2a3a] mb-1 flex items-center justify-between">
+                    <span>Lịch sử các phiên ({sessions.length})</span>
+                    <span className="text-[9px] text-[#0b7a75] dark:text-[#2dd4bf] font-sans">Multi-Chat</span>
+                  </div>
+                  {sessions.map((sess) => {
+                    const isActive = sess.id === currentSessionId;
+                    return (
+                      <div
+                        key={sess.id}
+                        className={`flex items-center justify-between p-2 rounded-[10px] text-xs cursor-pointer transition-colors ${
+                          isActive
+                            ? "bg-[#0b7a75] text-white font-medium"
+                            : "hover:bg-[#f0f6ff] dark:hover:bg-[#242436] text-[#111118] dark:text-[#f0f6ff]"
+                        }`}
+                        onClick={() => handleSwitchSession(sess.id)}
+                      >
+                        <div className="flex items-center gap-2 truncate min-w-0 pr-2">
+                          <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{sess.title}</span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSession(sess.id);
+                          }}
+                          className={`p-1 rounded hover:bg-black/20 ${isActive ? "text-white" : "text-rose-500 hover:text-rose-700"} shrink-0`}
+                          title="Xóa phiên trò chuyện này"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Các nút sửa / xóa phiên hiện tại */}
+            {!isEditingTitle && (
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => {
+                    setEditTitleInput(currentSession?.title || "");
+                    setIsEditingTitle(true);
+                  }}
+                  className="p-1.5 rounded-full hover:bg-[#e1edff] dark:hover:bg-[#242436] text-[#111118]/70 dark:text-[#f0f6ff]/70 transition-colors cursor-pointer"
+                  title="Đổi tên cuộc trò chuyện này"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => handleDeleteSession(currentSessionId)}
+                  className="p-1.5 rounded-full hover:bg-rose-100 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
+                  title="Xóa cuộc trò chuyện này"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Vùng tin nhắn Chat */}
