@@ -248,49 +248,85 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
         );
       }
 
-      // Bóc tách nội dung thực tế từ file (hỗ trợ đọc PDF, DOCX, PPTX từng trang trực tiếp trên trình duyệt)
-      const extracted = await extractDocumentContent(file);
-
-      const docPayload: any = {
-        filename: cleanName,
-        original_name: cleanName,
+      // 3. Tạo ngay ô tài liệu đang load tại thư viện (theo đúng yêu cầu của người dùng)
+      const tempId = -Date.now() - Math.floor(Math.random() * 1000);
+      const tempDoc: DocumentItem = {
+        id: tempId,
         subject: customSubject,
-        total_pages: extracted.totalPages,
-        file_url: null,
-        pages_content: extracted.pages,
-        created_at: new Date().toISOString(),
+        title: cleanName.replace(/\.[^/.]+$/, ""),
+        color: "#0ea5e9",
+        icon: ext === ".docx" ? "📝" : ext === ".pptx" ? "📊" : "📄",
+        pagesCount: 0,
+        fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+        fileType: ext === ".docx" ? "DOCX" : ext === ".pptx" ? "PPTX" : "PDF",
+        updatedAt: "Đang bóc tách...",
+        pagesContent: [],
+        isPublic: false,
+        ownerUserId: userId || null,
+        isUploading: true,
       };
 
-      // Nếu là user thật có UUID thì lưu lên Supabase DB
-      if (isValidUUID(userId)) {
-        docPayload.owner_user_id = userId;
-        const { error: insertError } = await supabase.from("documents").insert([docPayload]);
-        if (insertError) {
-          throw new Error(`Không thể lưu tài liệu lên hệ thống: ${insertError.message}`);
+      setDocs((prev) => [tempDoc, ...prev]);
+
+      // 4. Tiến hành bóc tách và lưu trữ trong nền (hoàn toàn không chặn UI để người dùng thoải mái chuyển tab)
+      (async () => {
+        try {
+          const extracted = await extractDocumentContent(file);
+
+          const docPayload: any = {
+            filename: cleanName,
+            original_name: cleanName,
+            subject: customSubject,
+            total_pages: extracted.totalPages,
+            file_url: null,
+            pages_content: extracted.pages,
+            created_at: new Date().toISOString(),
+          };
+
+          if (isValidUUID(userId)) {
+            docPayload.owner_user_id = userId;
+            const { error: insertError } = await supabase.from("documents").insert([docPayload]);
+            if (insertError) {
+              throw new Error(`Lỗi lưu vào CSDL: ${insertError.message}`);
+            }
+          } else {
+            const localKey = `peermind_docs_${userId || "guest"}`;
+            const currentLocal = JSON.parse(localStorage.getItem(localKey) || "[]");
+            currentLocal.unshift({
+              id: Date.now() + Math.floor(Math.random() * 1000),
+              subject: customSubject,
+              title: cleanName.replace(/\.[^/.]+$/, ""),
+              color: "#0ea5e9",
+              icon: ext === ".docx" ? "📝" : ext === ".pptx" ? "📊" : "📄",
+              pagesCount: extracted.totalPages,
+              fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+              fileType: ext === ".docx" ? "DOCX" : ext === ".pptx" ? "PPTX" : "PDF",
+              updatedAt: "Vừa xong",
+              pagesContent: extracted.pages,
+              isPublic: false,
+              ownerUserId: userId || null,
+            });
+            localStorage.setItem(localKey, JSON.stringify(currentLocal));
+          }
+
+          // Refresh lại dữ liệu thực tế từ DB để thay thế thẻ placeholder
+          await fetchDocs();
+        } catch (err: any) {
+          console.error("Lỗi khi bóc tách tài liệu nền:", err);
+          setDocs((prev) =>
+            prev.map((d) =>
+              d.id === tempId
+                ? {
+                    ...d,
+                    isUploading: false,
+                    uploadError: err.message || "Không thể bóc tách nội dung tài liệu này",
+                  }
+                : d
+            )
+          );
         }
-      } else {
-        // Lưu vào localStorage cho tài khoản Demo / Khách trải nghiệm
-        const localKey = `peermind_docs_${userId || "guest"}`;
-        const currentLocal = JSON.parse(localStorage.getItem(localKey) || "[]");
-        currentLocal.unshift({
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          subject: customSubject,
-          title: cleanName.replace(/\.[^/.]+$/, ""),
-          color: "#0ea5e9",
-          icon: ext === ".docx" ? "📝" : ext === ".pptx" ? "📊" : "📄",
-          pagesCount: extracted.totalPages,
-          fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-          fileType: ext === ".docx" ? "DOCX" : ext === ".pptx" ? "PPTX" : "PDF",
-          updatedAt: "Vừa xong",
-          pagesContent: extracted.pages,
-          isPublic: false,
-          ownerUserId: userId || null,
-        });
-        localStorage.setItem(localKey, JSON.stringify(currentLocal));
-      }
+      })();
     }
-    // Refresh danh sách tài liệu
-    await fetchDocs();
   };
 
   const handleSelectDoc = (id: number) => {
@@ -303,6 +339,10 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
 
   const handleDeleteDoc = async (id: number) => {
     try {
+      if (id < 0) {
+        setDocs((prev) => prev.filter((d) => d.id !== id));
+        return;
+      }
       // Chỉ gửi lệnh DELETE lên Supabase nếu là user thật sở hữu tài liệu này
       if (isValidUUID(userId)) {
         await supabase.from("documents").delete().eq("id", id).eq("owner_user_id", userId);

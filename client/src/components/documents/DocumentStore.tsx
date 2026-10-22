@@ -12,7 +12,6 @@ import {
   Languages,
   Calculator,
   Loader2,
-  CheckCircle2,
   AlertCircle,
 } from "lucide-react";
 import { DocumentItem } from "../../services/aiService";
@@ -113,19 +112,12 @@ export function DocumentStore({
   const [dragging, setDragging] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
 
-  // Trạng thái tiến trình tải lên và bóc tách
-  const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [uploadStage, setUploadStage] = useState<"idle" | "reading" | "extracting" | "success" | "error">("idle");
-  const [uploadStatusMsg, setUploadStatusMsg] = useState<string>("");
+  // Trạng thái thông báo lỗi khi chọn file không hợp lệ
   const [uploadErrorMsg, setUploadErrorMsg] = useState<string | null>(null);
-  const [currentFileMeta, setCurrentFileMeta] = useState<{ name: string; size: string; ext: string } | null>(null);
 
   const handleCloseModal = () => {
-    if (isUploading) return;
     setIsUploadModalOpen(false);
-    setUploadStage("idle");
     setUploadErrorMsg(null);
-    setCurrentFileMeta(null);
   };
 
   const handleFileChange = async (files: FileList | File[] | null, subject = selectedSubject) => {
@@ -135,57 +127,28 @@ export function DocumentStore({
     const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
     const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
 
-    setCurrentFileMeta({
-      name: file.name,
-      size: `${sizeMb} MB`,
-      ext: ext.replace(".", "").toUpperCase() || "FILE",
-    });
-    setUploadErrorMsg(null);
-    setIsUploadModalOpen(true);
-
     // 1. Kiểm tra định dạng sơ bộ
     const allowed = [".pdf", ".docx", ".pptx", ".txt", ".md", ".png", ".jpg", ".jpeg"];
     if (!allowed.includes(ext)) {
-      setUploadStage("error");
       setUploadErrorMsg(`Định dạng file "${ext}" không được hỗ trợ. Vui lòng chọn file PDF, Word (.docx) hoặc PowerPoint (.pptx).`);
-      setIsUploading(false);
       return;
     }
 
     // 2. Kiểm tra dung lượng (tối đa 20MB)
     if (file.size > 20 * 1024 * 1024) {
-      setUploadStage("error");
       setUploadErrorMsg(`File "${file.name}" (${sizeMb} MB) vượt quá dung lượng tối đa cho phép là 20 MB.`);
-      setIsUploading(false);
       return;
     }
 
-    setIsUploading(true);
-    setUploadStage("reading");
-    setUploadStatusMsg("Đang đọc và phân tích cấu trúc file...");
+    // File hợp lệ: Đóng popup ngay lập tức để không cản trở người dùng
+    setIsUploadModalOpen(false);
+    setUploadErrorMsg(null);
 
+    // Bắt đầu quá trình bóc tách trong nền trên ô tài liệu bên dưới
     try {
-      await new Promise((r) => setTimeout(r, 250));
-      setUploadStage("extracting");
-      setUploadStatusMsg("Đang bóc tách từng trang văn bản & công thức học tập...");
-
       await onUpload(fileList, subject);
-
-      setUploadStage("success");
-      setUploadStatusMsg(`Đã tải lên và bóc tách thành công "${file.name}"!`);
-
-      // Giữ hiển thị kết quả thành công 1 giây rồi đóng modal
-      setTimeout(() => {
-        setIsUploadModalOpen(false);
-        setIsUploading(false);
-        setUploadStage("idle");
-        setCurrentFileMeta(null);
-      }, 1000);
     } catch (err: any) {
-      console.error("Lỗi upload:", err);
-      setUploadStage("error");
-      setUploadErrorMsg(err.message || "Không thể tải lên và bóc tách tài liệu này. Vui lòng thử lại!");
-      setIsUploading(false);
+      console.error("Lỗi khi tải file:", err);
     }
   };
 
@@ -418,15 +381,24 @@ export function DocumentStore({
             {filteredDocs.map((doc) => {
               const active = doc.id === selectedId;
               const subjectStyle = getSubjectStyle(doc.subject);
+              const isDocUploading = doc.isUploading;
 
               return (
                 <div
                   key={doc.id}
-                  onClick={() => onSelect(doc.id)}
-                  className={`group relative flex flex-col justify-between rounded-[24px] p-6 border transition-[border-color,box-shadow,transform] duration-200 cursor-pointer ${
-                    active
-                      ? "bg-white dark:bg-[#1b1b26] border-[#0b7a75] dark:border-[#2dd4bf] ring-2 ring-[#0b7a75] dark:ring-[#2dd4bf] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000]"
-                      : "bg-white dark:bg-[#1b1b26] border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] hover:border-[#0b7a75] dark:hover:border-[#2dd4bf] hover:shadow-[0_4px_0_0_#111118] hover:-translate-y-0.5"
+                  onClick={() => {
+                    if (!isDocUploading && !doc.uploadError) {
+                      onSelect(doc.id);
+                    }
+                  }}
+                  className={`group relative flex flex-col justify-between rounded-[24px] p-6 border transition-[border-color,box-shadow,transform] duration-200 ${
+                    isDocUploading
+                      ? "bg-[#f0f6ff] dark:bg-[#1f1f2e] border-2 border-dashed border-[#0b7a75] dark:border-[#2dd4bf] shadow-[0_2px_0_0_#111118] cursor-wait"
+                      : doc.uploadError
+                      ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800 shadow-[0_2px_0_0_#111118]"
+                      : active
+                      ? "bg-white dark:bg-[#1b1b26] border-[#0b7a75] dark:border-[#2dd4bf] ring-2 ring-[#0b7a75] dark:ring-[#2dd4bf] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] cursor-pointer"
+                      : "bg-white dark:bg-[#1b1b26] border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] hover:border-[#0b7a75] dark:hover:border-[#2dd4bf] hover:shadow-[0_4px_0_0_#111118] hover:-translate-y-0.5 cursor-pointer"
                   }`}
                 >
                   {/* Top Info */}
@@ -434,7 +406,11 @@ export function DocumentStore({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className={`flex h-11 w-11 items-center justify-center rounded-full border border-[#111118] shrink-0 shadow-[0_1px_0_0_#111118] ${subjectStyle.box}`}>
-                          {subjectStyle.icon}
+                          {isDocUploading ? (
+                            <Loader2 className="h-5 w-5 animate-spin text-[#0b7a75] dark:text-[#2dd4bf]" />
+                          ) : (
+                            subjectStyle.icon
+                          )}
                         </div>
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
@@ -446,7 +422,16 @@ export function DocumentStore({
                                 {doc.fileType}
                               </span>
                             )}
-                            {doc.isPublic ? (
+                            {isDocUploading ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-[5000px] px-2.5 py-0.5 text-xs font-normal bg-[#ffda00] text-[#111118] border border-[#111118] animate-pulse">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#111118] animate-ping" />
+                                Đang bóc tách...
+                              </span>
+                            ) : doc.uploadError ? (
+                              <span className="rounded-[5000px] px-2.5 py-0.5 text-xs font-normal bg-rose-500 text-white border border-[#111118]">
+                                Lỗi tải lên
+                              </span>
+                            ) : doc.isPublic ? (
                               <span className="rounded-[5000px] px-2.5 py-0.5 text-xs font-normal bg-[#16ab59] text-white border border-[#111118]">
                                 Mẫu chung
                               </span>
@@ -460,41 +445,68 @@ export function DocumentStore({
                       </div>
 
                       {/* Menu 3 chấm */}
-                      <div className="relative doc-menu-container" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => setActiveMenuId(activeMenuId === doc.id ? null : doc.id)}
-                          className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
-                        >
-                          <MoreVertical className="h-4 w-4" strokeWidth={1.75} />
-                        </button>
-                        {activeMenuId === doc.id && (
-                          <div className="absolute right-0 top-9 z-20 w-36 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 shadow-md">
-                            <button
-                              onClick={() => {
-                                onDelete(doc.id);
-                                setActiveMenuId(null);
-                              }}
-                              className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                              {doc.isPublic ? "Ẩn tài liệu" : "Xóa tài liệu"}
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      {!isDocUploading && (
+                        <div className="relative doc-menu-container" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => setActiveMenuId(activeMenuId === doc.id ? null : doc.id)}
+                            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
+                          >
+                            <MoreVertical className="h-4 w-4" strokeWidth={1.75} />
+                          </button>
+                          {activeMenuId === doc.id && (
+                            <div className="absolute right-0 top-9 z-20 w-36 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 shadow-md">
+                              <button
+                                onClick={() => {
+                                  onDelete(doc.id);
+                                  setActiveMenuId(null);
+                                }}
+                                className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                                {doc.isPublic ? "Ẩn tài liệu" : "Xóa tài liệu"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <h3 className="mt-4 font-normal text-[#111118] dark:text-[#f0f6ff] text-lg sm:text-xl line-clamp-2 leading-snug">
                       {doc.title}
                     </h3>
+
+                    {doc.uploadError && (
+                      <p className="mt-2 text-xs text-rose-600 dark:text-rose-400 font-normal">
+                        {doc.uploadError}
+                      </p>
+                    )}
                   </div>
 
                   {/* Bottom Metadata */}
                   <div className="mt-5 pt-3 border-t border-[#e1edff] dark:border-[#2a2a3a] flex items-center justify-between text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums">
-                    <span>{doc.pagesCount ? `${doc.pagesCount} trang` : "PDF"} · {doc.fileSize || "3 MB"}</span>
-                    <span className="text-[#0b7a75] dark:text-[#2dd4bf] font-medium group-hover:underline flex items-center gap-1 transition-colors">
-                      Mở Studio →
+                    <span>
+                      {doc.pagesCount ? `${doc.pagesCount} trang` : isDocUploading ? "Đang đếm trang..." : "PDF"} · {doc.fileSize || "3 MB"}
                     </span>
+                    {isDocUploading ? (
+                      <span className="text-[#0b7a75] dark:text-[#2dd4bf] font-medium flex items-center gap-1.5 animate-pulse">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Đang xử lý...
+                      </span>
+                    ) : doc.uploadError ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(doc.id);
+                        }}
+                        className="text-rose-600 hover:underline cursor-pointer"
+                      >
+                        Xóa thẻ lỗi
+                      </button>
+                    ) : (
+                      <span className="text-[#0b7a75] dark:text-[#2dd4bf] font-medium group-hover:underline flex items-center gap-1 transition-colors">
+                        Mở Studio →
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -504,7 +516,7 @@ export function DocumentStore({
       </div>
       </div>
 
-      {/* ── 4. Modal Tải File ────────────────────────────────────────────────── */}
+      {/* ── 4. Modal Tải File (Gọn gàng, không cản trở khi tải) ──────────────────── */}
       {isUploadModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111118]/60 backdrop-blur-xs"
@@ -514,167 +526,100 @@ export function DocumentStore({
             className="relative w-full max-w-lg rounded-[24px] border-2 border-[#111118] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] p-7 shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000]"
             onClick={(e) => e.stopPropagation()}
           >
-            {!isUploading && (
-              <button
-                onClick={handleCloseModal}
-                className="absolute top-5 right-5 w-9 h-9 rounded-full bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d5e5ff] active:translate-y-[1px] transition-transform cursor-pointer"
-              >
-                <X className="h-4 w-4" strokeWidth={1.75} />
-              </button>
-            )}
+            <button
+              onClick={handleCloseModal}
+              className="absolute top-5 right-5 w-9 h-9 rounded-full bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d5e5ff] active:translate-y-[1px] transition-transform cursor-pointer"
+            >
+              <X className="h-4 w-4" strokeWidth={1.75} />
+            </button>
 
             <h2 className="text-2xl font-normal text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">
               Tải tài liệu mới lên
             </h2>
             <p className="mt-1 text-sm font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">
-              Hỗ trợ định dạng PDF, DOCX, PPTX (tối đa 20 MB). Hệ thống sẽ tự động bóc tách từng trang.
+              Hỗ trợ định dạng PDF, DOCX, PPTX (tối đa 20 MB). Hệ thống sẽ tự động bóc tách từng trang trên thẻ tài liệu bên dưới.
             </p>
 
-            {/* TRẠNG THÁI 1: ĐANG TẢI & BÓC TÁCH */}
-            {isUploading && (
-              <div className="mt-6 rounded-[20px] border-2 border-[#111118] bg-[#f0f6ff] dark:bg-[#242436]/60 p-6 text-center space-y-4 shadow-[0_4px_0_0_#111118]">
-                <div className="w-14 h-14 mx-auto rounded-full bg-[#91d8ec] border border-[#111118] text-[#111118] flex items-center justify-center shadow-[0_2px_0_0_#111118]">
-                  <Loader2 className="h-7 w-7 animate-spin text-[#0b7a75]" strokeWidth={2.2} />
+            {/* Thông báo lỗi nếu chọn file không hợp lệ */}
+            {uploadErrorMsg && (
+              <div className="mt-4 rounded-[16px] border-2 border-[#111118] bg-[#fee2e2] dark:bg-[#7f1d1d]/40 p-4 flex items-start gap-3 shadow-[0_2px_0_0_#111118]">
+                <div className="w-8 h-8 rounded-full bg-rose-500 text-white flex items-center justify-center border border-[#111118] shrink-0">
+                  <AlertCircle className="h-4 w-4" strokeWidth={2} />
                 </div>
-
-                <div>
-                  <h4 className="text-base font-normal text-[#111118] dark:text-[#f0f6ff] truncate max-w-sm mx-auto">
-                    {currentFileMeta?.name}
+                <div className="flex-1">
+                  <h4 className="text-xs font-semibold text-rose-900 dark:text-rose-200">
+                    Không thể chọn file này
                   </h4>
-                  <div className="mt-1 flex items-center justify-center gap-2 text-xs font-mono text-[#111118]/60 dark:text-[#f0f6ff]/60">
-                    <span className="bg-[#ffda00] text-[#111118] px-2 py-0.5 rounded-[5000px] border border-[#111118]">
-                      {currentFileMeta?.ext}
-                    </span>
-                    <span>· {currentFileMeta?.size}</span>
-                  </div>
+                  <p className="mt-0.5 text-xs text-rose-800 dark:text-rose-300">
+                    {uploadErrorMsg}
+                  </p>
                 </div>
-
-                <div className="w-full bg-[#e1edff] dark:bg-[#1b1b26] rounded-full h-2.5 overflow-hidden border border-[#111118]">
-                  <div className="bg-[#0b7a75] dark:bg-[#2dd4bf] h-full rounded-full animate-pulse w-3/4" />
-                </div>
-
-                <p className="text-xs font-normal text-[#0b7a75] dark:text-[#2dd4bf] flex items-center justify-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#0b7a75] dark:bg-[#2dd4bf] animate-ping" />
-                  <span>{uploadStatusMsg}</span>
-                </p>
-                <p className="text-[11px] text-[#111118]/50 dark:text-[#f0f6ff]/50">
-                  Tài liệu nhiều trang sẽ mất vài giây để bóc tách text chuẩn xác. Vui lòng không đóng cửa sổ.
-                </p>
-              </div>
-            )}
-
-            {/* TRẠNG THÁI 2: THÀNH CÔNG */}
-            {!isUploading && uploadStage === "success" && (
-              <div className="mt-6 rounded-[20px] border-2 border-[#111118] bg-[#dcfce7] dark:bg-[#14532d]/40 p-6 text-center space-y-3 shadow-[0_4px_0_0_#111118]">
-                <div className="w-14 h-14 mx-auto rounded-full bg-[#16ab59] text-white flex items-center justify-center border border-[#111118] shadow-[0_2px_0_0_#111118]">
-                  <CheckCircle2 className="h-7 w-7" strokeWidth={2.2} />
-                </div>
-                <h4 className="text-base font-medium text-[#111118] dark:text-[#f0f6ff]">
-                  Tải lên &amp; Bóc tách thành công!
-                </h4>
-                <p className="text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70">
-                  Đang đồng bộ hóa vào thư viện...
-                </p>
-              </div>
-            )}
-
-            {/* TRẠNG THÁI 3: LỖI (File không hợp lệ hoặc vượt dung lượng) */}
-            {!isUploading && uploadStage === "error" && (
-              <div className="mt-6 rounded-[20px] border-2 border-[#111118] bg-[#fee2e2] dark:bg-[#7f1d1d]/40 p-6 space-y-4 shadow-[0_4px_0_0_#111118]">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center border border-[#111118] shrink-0 shadow-[0_1px_0_0_#111118]">
-                    <AlertCircle className="h-5 w-5" strokeWidth={2} />
-                  </div>
-                  <div>
-                    <h4 className="text-base font-medium text-rose-900 dark:text-rose-200">
-                      Không thể tải tài liệu này
-                    </h4>
-                    <p className="mt-1 text-xs text-rose-800 dark:text-rose-300 leading-relaxed">
-                      {uploadErrorMsg}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-2 flex items-center justify-end gap-2 border-t border-rose-300 dark:border-rose-800">
-                  <button
-                    onClick={() => {
-                      setUploadStage("idle");
-                      setUploadErrorMsg(null);
-                    }}
-                    className="px-4 py-2 rounded-[5000px] border border-[#111118] bg-white text-[#111118] text-xs font-normal hover:bg-[#f0f6ff] shadow-[0_2px_0_0_#111118] cursor-pointer"
-                  >
-                    Chọn file khác
-                  </button>
-                  <button
-                    onClick={handleCloseModal}
-                    className="px-4 py-2 rounded-[5000px] border border-[#111118] bg-[#111118] text-white text-xs font-normal hover:bg-[#222230] shadow-[0_2px_0_0_#111118] cursor-pointer"
-                  >
-                    Đóng
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* TRẠNG THÁI 0: CHỌN FILE BÌNH THƯỜNG (KHI IDLE) */}
-            {!isUploading && uploadStage === "idle" && (
-              <div className="mt-6 space-y-4">
-                <div>
-                  <label className="block text-xs font-normal text-[#111118] dark:text-[#f0f6ff] uppercase mb-1.5">
-                    Chọn môn học
-                  </label>
-                  <select
-                    value={selectedSubject}
-                    onChange={(e) => setSelectedSubject(e.target.value)}
-                    className="w-full h-12 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-4 text-base font-normal text-[#111118] dark:text-[#f0f6ff] outline-none focus:border-[#0b7a75]"
-                  >
-                    <option value="TOÁN HỌC">Toán học</option>
-                    <option value="NGOẠI NGỮ">Ngoại ngữ</option>
-                    <option value="VẬT LÝ">Vật lý</option>
-                    <option value="CÔNG NGHỆ">Công nghệ</option>
-                    <option value="TRÍ TUỆ NHÂN TẠO">Trí tuệ nhân tạo</option>
-                  </select>
-                </div>
-
-                {/* Vùng thả file */}
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragging(true);
-                  }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDragging(false);
-                    handleFileChange(e.dataTransfer.files);
-                  }}
-                  onClick={() => modalFileInputRef.current?.click()}
-                  className={`flex flex-col items-center justify-center rounded-[20px] border-2 border-dashed p-8 text-center transition-all cursor-pointer ${
-                    dragging
-                      ? "border-[#0b7a75] bg-[#e1edff] dark:bg-[#242436]"
-                      : "border-[#111118]/30 dark:border-[#2a2a3a] bg-[#f0f6ff] dark:bg-[#242436]/50 hover:border-[#0b7a75] hover:bg-[#e1edff]/60"
-                  }`}
+                <button
+                  onClick={() => setUploadErrorMsg(null)}
+                  className="text-rose-700 dark:text-rose-300 text-xs hover:underline cursor-pointer"
                 >
-                  <div className="w-12 h-12 rounded-full bg-[#91d8ec] border border-[#111118] text-[#111118] flex items-center justify-center mb-2 shadow-[0_2px_0_0_#111118]">
-                    <Upload className="h-5 w-5" strokeWidth={1.75} />
-                  </div>
-                  <span className="font-normal text-[#111118] dark:text-[#f0f6ff] text-sm">
-                    Nhấp để chọn file hoặc kéo thả vào đây
-                  </span>
-                  <span className="mt-1 text-xs font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">
-                    Hỗ trợ PDF, DOCX, PPTX (tối đa 20 MB)
-                  </span>
-                </div>
-
-                <input
-                  ref={modalFileInputRef}
-                  type="file"
-                  multiple
-                  accept=".pdf,.docx,.pptx,image/*"
-                  className="hidden"
-                  onChange={(e) => handleFileChange(e.target.files)}
-                />
+                  Bỏ qua
+                </button>
               </div>
             )}
+
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="block text-xs font-normal text-[#111118] dark:text-[#f0f6ff] uppercase mb-1.5">
+                  Chọn môn học
+                </label>
+                <select
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="w-full h-12 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-4 text-base font-normal text-[#111118] dark:text-[#f0f6ff] outline-none focus:border-[#0b7a75]"
+                >
+                  <option value="TOÁN HỌC">Toán học</option>
+                  <option value="NGOẠI NGỮ">Ngoại ngữ</option>
+                  <option value="VẬT LÝ">Vật lý</option>
+                  <option value="CÔNG NGHỆ">Công nghệ</option>
+                  <option value="TRÍ TUỆ NHÂN TẠO">Trí tuệ nhân tạo</option>
+                </select>
+              </div>
+
+              {/* Vùng thả file */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragging(false);
+                  handleFileChange(e.dataTransfer.files);
+                }}
+                onClick={() => modalFileInputRef.current?.click()}
+                className={`flex flex-col items-center justify-center rounded-[20px] border-2 border-dashed p-8 text-center transition-all cursor-pointer ${
+                  dragging
+                    ? "border-[#0b7a75] bg-[#e1edff] dark:bg-[#242436]"
+                    : "border-[#111118]/30 dark:border-[#2a2a3a] bg-[#f0f6ff] dark:bg-[#242436]/50 hover:border-[#0b7a75] hover:bg-[#e1edff]/60"
+                }`}
+              >
+                <div className="w-12 h-12 rounded-full bg-[#91d8ec] border border-[#111118] text-[#111118] flex items-center justify-center mb-2 shadow-[0_2px_0_0_#111118]">
+                  <Upload className="h-5 w-5" strokeWidth={1.75} />
+                </div>
+                <span className="font-normal text-[#111118] dark:text-[#f0f6ff] text-sm">
+                  Nhấp để chọn file hoặc kéo thả vào đây
+                </span>
+                <span className="mt-1 text-xs font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">
+                  Hỗ trợ PDF, DOCX, PPTX (tối đa 20 MB)
+                </span>
+              </div>
+
+              <input
+                ref={modalFileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.docx,.pptx,image/*"
+                className="hidden"
+                onChange={(e) => handleFileChange(e.target.files)}
+              />
+            </div>
           </div>
         </div>
       )}

@@ -1257,9 +1257,15 @@ function Dashboard({
       </div>
 
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6 py-6">
-        {activeTab === "documents" && <LibraryPage userId={userId} userName={userName} />}
-        {activeTab === "classrooms" && <ClassroomsPage userId={userId} userName={userName} />}
-        {activeTab === "tests" && <TestsPage userId={userId} userName={userName} />}
+        <div style={{ display: activeTab === "documents" ? "block" : "none" }}>
+          <LibraryPage userId={userId} userName={userName} />
+        </div>
+        <div style={{ display: activeTab === "classrooms" ? "block" : "none" }}>
+          <ClassroomsPage userId={userId} userName={userName} />
+        </div>
+        <div style={{ display: activeTab === "tests" ? "block" : "none" }}>
+          <TestsPage userId={userId} userName={userName} />
+        </div>
       </div>
 
     </div>

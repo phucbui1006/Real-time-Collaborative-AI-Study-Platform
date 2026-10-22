@@ -21,6 +21,8 @@ export type DocumentItem = {
   pagesContent?: string[];
   isPublic?: boolean;
   ownerUserId?: string | null;
+  isUploading?: boolean;
+  uploadError?: string;
 };
 
 export type ChartItem = {
