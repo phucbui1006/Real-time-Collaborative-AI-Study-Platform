@@ -334,6 +334,10 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
         onBack={() => setStudioDoc(null)}
         userId={userId}
         userName={userName}
+        onUpdateDoc={(updated) => {
+          setDocs((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+          setStudioDoc(updated);
+        }}
       />
     );
   }
