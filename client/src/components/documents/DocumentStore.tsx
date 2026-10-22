@@ -200,7 +200,7 @@ export function DocumentStore({
               className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-[48px] bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white font-normal border border-[#111118] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] active:translate-y-[2px] transition-transform cursor-pointer text-base"
             >
               <Upload className="h-5 w-5" strokeWidth={1.75} />
-              <span>Tải tài liệu lên →</span>
+              <span>Tải tài liệu lên</span>
             </button>
             <input
               ref={fileInputRef}
@@ -321,7 +321,7 @@ export function DocumentStore({
                 onClick={() => setIsUploadModalOpen(true)}
                 className="primary-button mt-5 mx-auto cursor-pointer"
               >
-                Tải tài liệu mới lên →
+                Tải tài liệu mới lên
               </button>
             ) : (
               <button
