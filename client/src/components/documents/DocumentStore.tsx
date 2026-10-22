@@ -420,7 +420,9 @@ export function DocumentStore({
                   {/* Bottom Metadata */}
                   <div className="mt-5 pt-3 border-t border-[#e1edff] dark:border-[#2a2a3a] flex items-center justify-between text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums">
                     <span>{doc.pagesCount ? `${doc.pagesCount} trang` : "PDF"} · {doc.fileSize || "3 MB"}</span>
-                    <span>{doc.updatedAt || "Gần đây"}</span>
+                    <span className="text-[#0b7a75] dark:text-[#2dd4bf] font-medium group-hover:underline flex items-center gap-1 transition-colors">
+                      Mở Studio →
+                    </span>
                   </div>
                 </div>
               );

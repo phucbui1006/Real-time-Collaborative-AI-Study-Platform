@@ -3,8 +3,10 @@ import { useState, useEffect, useCallback } from "react";
 import { DocumentItem, INITIAL_DOCS } from "../services/aiService";
 import { DocumentStore } from "../components/documents/DocumentStore";
 import { AIChat } from "../components/documents/AIChat";
+import { DocumentStudioView } from "../components/documents/DocumentStudioView";
 import { supabase } from "../services/supabaseClient";
 import { isValidUUID } from "../utils";
+import { extractDocumentContent } from "../services/pdfService";
 
 interface SupabaseDoc {
   id: number;
@@ -126,6 +128,7 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
 
   const [isLoading, setIsLoading] = useState<boolean>(!currentCache);
   const [isAIChatOpen, setIsAIChatOpen] = useState<boolean>(false);
+  const [studioDoc, setStudioDoc] = useState<DocumentItem | null>(null);
 
   const fetchDocs = useCallback(async () => {
     try {
@@ -244,19 +247,16 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
           continue;
         }
 
-        const totalPages = Math.max(1, Math.floor(file.size / 50000));
+        // Bóc tách nội dung thực tế từ file (hỗ trợ đọc PDF từng trang trực tiếp trên trình duyệt)
+        const extracted = await extractDocumentContent(file);
+
         const docPayload: any = {
           filename: cleanName,
           original_name: cleanName,
           subject: customSubject,
-          total_pages: totalPages,
+          total_pages: extracted.totalPages,
           file_url: null,
-          pages_content: [
-            `Chương 1: Giới thiệu và tổng quan nội dung ${cleanName.replace(/\.[^/.]+$/, "")}`,
-            `Chương 2: Các khái niệm, định nghĩa và công thức cốt lõi`,
-            `Chương 3: Phân tích bài tập mẫu và phương pháp giải nhanh`,
-            `Chương 4: Tóm tắt bài học và ngân hàng câu hỏi tự luyện`,
-          ],
+          pages_content: extracted.pages,
           created_at: new Date().toISOString(),
         };
 
@@ -273,12 +273,12 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
             subject: customSubject,
             title: cleanName.replace(/\.[^/.]+$/, ""),
             color: "#0ea5e9",
-            icon: "📄",
-            pagesCount: totalPages,
+            icon: ext === ".docx" ? "📝" : ext === ".pptx" ? "📊" : "📄",
+            pagesCount: extracted.totalPages,
             fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-            fileType: "PDF",
+            fileType: ext === ".docx" ? "DOCX" : ext === ".pptx" ? "PPTX" : "PDF",
             updatedAt: "Vừa xong",
-            pagesContent: docPayload.pages_content,
+            pagesContent: extracted.pages,
             isPublic: false,
             ownerUserId: userId || null,
           });
@@ -294,7 +294,10 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
 
   const handleSelectDoc = (id: number) => {
     setSelectedId(id);
-    if (!isAIChatOpen) setIsAIChatOpen(true);
+    const target = docs.find((d) => d.id === id);
+    if (target) {
+      setStudioDoc(target);
+    }
   };
 
   const handleDeleteDoc = async (id: number) => {
@@ -323,6 +326,17 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
   };
 
   const currentDoc = (selectedId !== null ? docs.find((d) => d.id === selectedId) : null) || docs[0] || null;
+
+  if (studioDoc) {
+    return (
+      <DocumentStudioView
+        doc={studioDoc}
+        onBack={() => setStudioDoc(null)}
+        userId={userId}
+        userName={userName}
+      />
+    );
+  }
 
   return (
     <div className="relative min-w-0">

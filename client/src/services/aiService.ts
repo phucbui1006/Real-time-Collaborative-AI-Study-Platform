@@ -5,6 +5,7 @@ import {
   generateQuizWithGemini,
   generateMindmapTextWithGemini,
 } from "./geminiClient";
+import { supabase } from "./supabaseClient";
 
 export type DocumentItem = {
   id: number;
@@ -216,5 +217,71 @@ export async function askAI(
       text: `Hiện tại chưa thể kết nối đến máy chủ Google Gemini AI (${e.message || "Lỗi mạng"}). Bạn vui lòng kiểm tra kết nối mạng hoặc thử lại sau giây lát nhé!`,
       isGemini: false,
     };
+  }
+}
+
+/**
+ * Tải lịch sử trò chuyện AI của từng tài liệu từ Supabase bảng ai_conversations
+ */
+export async function fetchDocConversations(docId: number): Promise<ChatMessage[]> {
+  try {
+    const { data, error } = await supabase
+      .from("ai_conversations")
+      .select("question, answer, created_at")
+      .eq("document_id", docId)
+      .order("created_at", { ascending: true });
+
+    if (!error && Array.isArray(data) && data.length > 0) {
+      const messages: ChatMessage[] = [];
+      data.forEach((row) => {
+        if (row.question) {
+          messages.push({ role: "user", text: row.question });
+        }
+        if (row.answer) {
+          messages.push({ role: "ai", text: row.answer, isGemini: true });
+        }
+      });
+      return messages;
+    }
+
+    // Dự phòng local storage
+    const localKey = `peermind_chat_${docId}`;
+    const stored = localStorage.getItem(localKey);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+  } catch (err) {
+    console.warn("Lỗi tải lịch sử chat từ Supabase:", err);
+  }
+  return [];
+}
+
+/**
+ * Lưu cuộc trò chuyện của tài liệu vào CSDL Supabase
+ */
+export async function saveDocConversation(
+  docId: number,
+  question: string,
+  answer: string
+): Promise<void> {
+  try {
+    // 1. Lưu lên Supabase DB
+    await supabase.from("ai_conversations").insert({
+      document_id: docId,
+      question,
+      answer,
+    });
+
+    // 2. Lưu local cache làm bản dự phòng
+    const localKey = `peermind_chat_${docId}`;
+    const current = JSON.parse(localStorage.getItem(localKey) || "[]");
+    current.push({ role: "user", text: question });
+    current.push({ role: "ai", text: answer, isGemini: true });
+    localStorage.setItem(localKey, JSON.stringify(current.slice(-50)));
+  } catch (err) {
+    console.warn("Lỗi lưu lịch sử chat vào Supabase:", err);
   }
 }
