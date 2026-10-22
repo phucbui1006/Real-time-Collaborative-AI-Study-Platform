@@ -55,42 +55,42 @@ export function Editor({ initial, docs = AI_DOCS, onSave, onCancel }: EditorProp
   };
 
   return (
-    <div className="mx-auto max-w-3xl px-4 sm:px-8 py-8">
+    <div className="mx-auto max-w-[1200px] px-4 sm:px-8 py-8">
       <button
         onClick={onCancel}
-        className="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+        className="text-sm font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70 hover:text-[#0b7a75] transition-colors cursor-pointer inline-flex items-center gap-1.5"
       >
-        ← Quay lại
+        <span>← Quay lại</span>
       </button>
-      <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-50">
-        {initial.isNew ? "Tạo bộ câu hỏi" : "Chỉnh sửa bộ câu hỏi"}
+      <h1 className="mt-2 text-3xl font-normal text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">
+        {initial.isNew ? "Tạo bộ câu hỏi mới" : "Chỉnh sửa bộ câu hỏi"}
       </h1>
 
-      <div className="mt-6 grid grid-cols-6 gap-4 rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-100 dark:ring-slate-800">
-        <label className="col-span-6 text-sm font-medium text-slate-700 dark:text-slate-300">
+      <div className="mt-6 grid grid-cols-6 gap-4 rounded-[24px] bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+        <label className="col-span-6 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
           Tên bộ câu hỏi
           <input
-            className={INP + " mt-1"}
+            className={INP + " mt-1.5"}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="VD: Kiểm tra Đại số giữa kỳ"
           />
         </label>
-        <label className="col-span-6 sm:col-span-4 text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label className="col-span-6 sm:col-span-4 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
           Môn học
           <input
-            className={INP + " mt-1"}
+            className={INP + " mt-1.5"}
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="VD: Toán học"
           />
         </label>
-        <label className="col-span-6 sm:col-span-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label className="col-span-6 sm:col-span-2 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
           Thời gian mặc định (phút)
           <input
             type="number"
             min="1"
-            className={INP + " mt-1"}
+            className={INP + " mt-1.5 font-mono"}
             value={minutes}
             onChange={(e) => setMinutes(e.target.value)}
           />
@@ -99,12 +99,12 @@ export function Editor({ initial, docs = AI_DOCS, onSave, onCancel }: EditorProp
 
       <div className="mt-6 space-y-4">
         {qs.map((q, i) => (
-          <div key={q.id} className="rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-100 dark:ring-slate-800">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">Câu {i + 1}</span>
+          <div key={q.id} className="rounded-[24px] bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-base font-normal text-[#111118] dark:text-[#f0f6ff]">Câu {i + 1}</span>
               <button
                 onClick={() => setQs((a) => a.filter((_, k) => k !== i))}
-                className="text-sm text-slate-400 hover:text-rose-500 cursor-pointer"
+                className="text-xs text-[#ff4141] hover:underline cursor-pointer"
               >
                 Xoá câu
               </button>
@@ -113,18 +113,18 @@ export function Editor({ initial, docs = AI_DOCS, onSave, onCancel }: EditorProp
           </div>
         ))}
 
-        {notice && <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-4 py-2 text-sm text-emerald-700 dark:text-emerald-300">{notice}</div>}
+        {notice && <div className="rounded-[20px] bg-[#16ab59]/10 border border-[#16ab59] px-4 py-3 text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">{notice}</div>}
 
         {aiOpen ? (
           <AIPanel docs={docs} onAdd={addFromAI} onClose={() => setAiOpen(false)} />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
               onClick={() => {
                 setNotice("");
                 setQs((a) => [...a, newQ()]);
               }}
-              className="rounded-3xl border-2 border-dashed border-slate-300 dark:border-slate-700 py-4 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 cursor-pointer transition-colors"
+              className="rounded-[5000px] border-2 border-dashed border-[#111118]/30 dark:border-[#2a2a3a] py-4 text-base font-normal text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#242436] cursor-pointer transition-colors shadow-[0_2px_0_0_#111118]"
             >
               + Thêm câu hỏi thủ công
             </button>
@@ -133,7 +133,7 @@ export function Editor({ initial, docs = AI_DOCS, onSave, onCancel }: EditorProp
                 setNotice("");
                 setAiOpen(true);
               }}
-              className="rounded-3xl py-4 text-sm font-semibold text-white cursor-pointer shadow-md bg-indigo-600 hover:bg-indigo-700 transition-colors"
+              className="rounded-[5000px] py-4 text-base font-normal text-white cursor-pointer border-2 border-[#111118] shadow-[0_4px_0_0_#111118] bg-[#0b7a75] hover:bg-[#09635f] transition-all"
             >
               ✨ Tạo câu hỏi bằng AI
             </button>
@@ -141,13 +141,14 @@ export function Editor({ initial, docs = AI_DOCS, onSave, onCancel }: EditorProp
         )}
       </div>
 
-      {err && <div className="mt-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 px-4 py-2 text-sm text-rose-700 dark:text-rose-300">{err}</div>}
-      <div className="mt-6 flex justify-end gap-3">
+      {err && <div className="mt-4 rounded-[20px] bg-[#ff4141]/10 border border-[#ff4141] px-4 py-3 text-sm font-normal text-[#ff4141]">{err}</div>}
+      <div className="mt-8 flex justify-end gap-3">
         <button onClick={onCancel} className={BTN_OUT}>
           Huỷ
         </button>
         <button onClick={save} className={BTN}>
-          Lưu bộ câu hỏi
+          <span>Lưu bộ câu hỏi</span>
+          <span aria-hidden="true">→</span>
         </button>
       </div>
     </div>

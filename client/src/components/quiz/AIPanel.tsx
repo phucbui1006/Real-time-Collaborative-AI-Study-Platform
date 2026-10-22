@@ -59,33 +59,33 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
   };
 
   return (
-    <div className="rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-sm border-2 border-indigo-600 dark:border-indigo-500">
+    <div className="rounded-[24px] bg-white dark:bg-[#1b1b26] p-6 shadow-[0_4px_0_0_#111118] border-2 border-[#111118] dark:border-[#2a2a3a]">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-slate-900 dark:text-slate-50">✨ Tạo câu hỏi bằng AI</h3>
+        <h3 className="font-normal text-xl text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">✨ Tạo câu hỏi bằng AI</h3>
         <button
           onClick={onClose}
           aria-label="Đóng"
-          className="text-xl leading-none text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+          className="w-8 h-8 rounded-full bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] cursor-pointer transition-all"
         >
           ✕
         </button>
       </div>
 
       <div className="mt-4 grid grid-cols-6 gap-3">
-        <label className="col-span-6 text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label className="col-span-6 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
           Chủ đề / nội dung muốn ra đề
           <textarea
-            className={INP + " mt-1"}
+            className="w-full rounded-[20px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] p-4 text-sm font-normal text-[#111118] dark:text-[#f0f6ff] placeholder:text-[#111118]/50 outline-none focus:border-[#0b7a75] mt-1.5"
             rows={2}
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             placeholder="VD: Phương trình bậc hai, mức độ lớp 10"
           />
         </label>
-        <label className="col-span-6 sm:col-span-3 text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label className="col-span-6 sm:col-span-3 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
           Hoặc dựa trên tài liệu
           <select
-            className={INP + " mt-1"}
+            className={INP + " mt-1.5"}
             value={docId}
             onChange={(e) => setDocId(e.target.value)}
           >
@@ -97,30 +97,30 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
             ))}
           </select>
         </label>
-        <label className="col-span-3 sm:col-span-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label className="col-span-3 sm:col-span-1 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
           Số câu
           <input
             type="number"
             min="1"
             max="20"
-            className={INP + " mt-1"}
+            className={INP + " mt-1.5 font-mono"}
             value={count}
             onChange={(e) => setCount(e.target.value)}
           />
         </label>
-        <div className="col-span-3 sm:col-span-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+        <div className="col-span-3 sm:col-span-2 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
           Độ khó
-          <div className="mt-1 flex gap-1">
+          <div className="mt-1.5 flex gap-1">
             {LEVELS.map((l) => (
               <button
                 key={l}
                 type="button"
                 onClick={() => setLevel(l)}
                 aria-pressed={level === l}
-                className={`flex-1 rounded-xl py-2 text-sm font-semibold cursor-pointer transition-colors ${
+                className={`flex-1 rounded-[5000px] py-2 text-xs font-normal cursor-pointer transition-all border border-[#111118] ${
                   level === l
-                    ? "bg-indigo-600 text-white"
-                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+                    ? "bg-[#0b7a75] text-white shadow-[0_2px_0_0_#111118]"
+                    : "bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#242436]"
                 }`}
               >
                 {l}
@@ -133,32 +133,33 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
       <button
         onClick={gen}
         disabled={loading}
-        className={BTN + " mt-4"}
+        className={BTN + " mt-5"}
       >
-        {loading ? "AI đang tạo câu hỏi…" : drafts.length ? "Tạo lại" : "Tạo câu hỏi"}
+        <span>{loading ? "AI đang tạo câu hỏi…" : drafts.length ? "Tạo lại" : "Tạo câu hỏi"}</span>
+        <span aria-hidden="true">→</span>
       </button>
 
-      {err && <div className="mt-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 px-4 py-2 text-sm text-rose-700 dark:text-rose-300">{err}</div>}
+      {err && <div className="mt-3 rounded-[20px] bg-[#ff4141]/10 border border-[#ff4141] px-4 py-2.5 text-xs font-normal text-[#ff4141]">{err}</div>}
 
       {drafts.length > 0 && !loading && (
-        <div className="mt-5">
-          <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Câu hỏi AI vừa tạo ({drafts.length})</h4>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Sửa trực tiếp nội dung và đáp án bên dưới, bỏ chọn những câu không muốn dùng. AI có thể sai, hãy kiểm tra đáp án đúng trước khi thêm.
+        <div className="mt-6">
+          <h4 className="text-base font-normal text-[#111118] dark:text-[#f0f6ff]">Câu hỏi AI vừa tạo ({drafts.length})</h4>
+          <p className="mt-1 text-xs font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">
+            Sửa trực tiếp nội dung và đáp án bên dưới, bỏ chọn những câu không muốn dùng.
           </p>
-          <div className="mt-3 space-y-3">
+          <div className="mt-4 space-y-3">
             {drafts.map((d, i) => (
               <div
                 key={d.id}
-                className="rounded-2xl p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700"
+                className="rounded-[20px] p-5 bg-[#f0f6ff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a]"
                 style={{ opacity: d.keep ? 1 : 0.5 }}
               >
-                <label className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100 cursor-pointer">
+                <label className="mb-3 flex items-center gap-2 text-sm font-normal text-[#111118] dark:text-[#f0f6ff] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={d.keep}
                     onChange={(e) => patch(d.id, { keep: e.target.checked })}
-                    className="accent-indigo-600 cursor-pointer"
+                    className="accent-[#0b7a75] cursor-pointer h-4 w-4"
                   />{" "}
                   Câu AI {i + 1}
                 </label>
@@ -166,7 +167,7 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
               </div>
             ))}
           </div>
-          <div className="mt-4 flex justify-end gap-3">
+          <div className="mt-6 flex justify-end gap-3">
             <button onClick={onClose} className={BTN_OUT}>
               Bỏ qua
             </button>
@@ -175,7 +176,8 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
               disabled={!chosen.length}
               className={BTN}
             >
-              Thêm {chosen.length} câu vào bộ câu hỏi
+              <span>Thêm {chosen.length} câu vào bộ câu hỏi</span>
+              <span aria-hidden="true">→</span>
             </button>
           </div>
         </div>

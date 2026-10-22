@@ -46,9 +46,8 @@ export const Logo: React.FC<LogoProps> = ({
         className={`${iconSizeClass} shrink-0 object-contain`}
       />
       {showText && (
-        <span className={`${textSizeClass} font-bold tracking-tight font-heading leading-none select-none`}>
-          <span className="text-sky-500 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-r dark:from-indigo-400 dark:to-cyan-400">Peer</span>
-          <span className="text-indigo-950 dark:text-white transition-colors duration-150">Mind</span>
+        <span className={`${textSizeClass} font-normal tracking-[-0.015em] leading-none select-none text-[#111118] dark:text-[#f0f6ff]`}>
+          PeerMind
         </span>
       )}
     </button>

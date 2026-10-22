@@ -1,8 +1,6 @@
 import {
   LiveExam,
   LeaderboardRow,
-  PURPLE,
-  BTN,
   BTN_OUT,
   fmt,
 } from "../../services/examService";
@@ -25,37 +23,39 @@ export function HostView({ live, rows, remaining, onBack, onEnd, onClose, onTry 
   const done = rows.filter((r) => r.answered === total).length;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 sm:px-8 py-8">
+    <div className="mx-auto max-w-[1200px] px-4 sm:px-8 py-8">
       <button
         onClick={onBack}
-        className="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+        className="text-sm font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70 hover:text-[#0b7a75] dark:hover:text-[#2dd4bf] transition-colors cursor-pointer inline-flex items-center gap-1.5"
       >
-        ← Về trang bài kiểm tra
+        <span>← Về trang bài kiểm tra</span>
       </button>
+
       <div
-        className="mt-3 flex flex-wrap items-center justify-between gap-4 rounded-3xl p-6 shadow-lg bg-slate-900 border border-slate-800 text-white"
+        className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-[24px] p-6 bg-white dark:bg-[#1b1b26] border-2 border-[#111118] dark:border-[#2a2a3a] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000]"
       >
         <div>
           <span
-            className="rounded-full px-3 py-1 text-xs font-semibold"
-            style={{ background: running ? "#16a34a" : "#64748b" }}
+            className={`rounded-[5000px] px-3 py-1 text-xs font-normal border border-[#111118] ${
+              running ? "bg-[#16ab59] text-white" : "bg-[#e1edff] text-[#111118]"
+            }`}
           >
             {running ? "Đang diễn ra" : "Đã kết thúc"}
           </span>
-          <h1 className="mt-2 text-2xl font-bold text-slate-50">{live.set.title}</h1>
-          <p className="mt-1 text-sm text-slate-300">
-            Mã tham gia: <b className="tracking-widest text-white text-base">{live.code}</b>
+          <h1 className="mt-2 text-2xl font-normal text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">{live.set.title}</h1>
+          <p className="mt-1 text-sm font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">
+            Mã tham gia: <b className="tracking-widest font-mono text-base text-[#0b7a75] dark:text-[#2dd4bf]">{live.code}</b>
             <button
               onClick={() => navigator.clipboard?.writeText(live.code)}
-              className="ml-3 text-xs text-indigo-300 underline cursor-pointer hover:text-indigo-200"
+              className="ml-3 rounded-[5000px] px-3 py-1 text-xs font-normal border border-[#111118] bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] cursor-pointer transition-all"
             >
               Sao chép
             </button>
           </p>
         </div>
         <div className="text-right">
-          <div className="text-xs text-slate-300">Thời gian còn lại</div>
-          <div className="text-4xl font-bold tabular-nums text-slate-50">{fmt(remaining)}</div>
+          <div className="text-xs font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">Thời gian còn lại</div>
+          <div className="text-4xl font-normal font-mono tabular-nums text-[#111118] dark:text-[#f0f6ff]">{fmt(remaining)}</div>
         </div>
       </div>
 
@@ -65,15 +65,15 @@ export function HostView({ live, rows, remaining, onBack, onEnd, onClose, onTry 
           ["Đã làm xong", `${done}/${rows.length}`],
           ["Điểm trung bình", avg.toFixed(1)],
         ].map(([l, v]) => (
-          <div key={l as string} className="rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm ring-1 ring-slate-100 dark:ring-slate-800">
-            <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">{v}</div>
-            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{l}</div>
+          <div key={l as string} className="rounded-[24px] bg-white dark:bg-[#1b1b26] p-5 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+            <div className="text-3xl font-normal font-mono tabular-nums text-[#111118] dark:text-[#f0f6ff]">{v}</div>
+            <div className="mt-1 text-sm font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">{l}</div>
           </div>
         ))}
       </div>
 
-      <div className="mt-6 rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-100 dark:ring-slate-800">
-        <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-50">Bảng điểm trực tiếp</h2>
+      <div className="mt-6 rounded-[24px] bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+        <h2 className="mb-4 text-xl font-normal text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">Bảng điểm trực tiếp</h2>
         <Leaderboard rows={rows} total={total} />
       </div>
 
@@ -84,12 +84,18 @@ export function HostView({ live, rows, remaining, onBack, onEnd, onClose, onTry 
           </button>
         )}
         {running ? (
-          <button onClick={onEnd} className={BTN} style={{ background: "#334155" }}>
+          <button
+            onClick={onEnd}
+            className="rounded-[5000px] h-12 px-6 bg-[#000000] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#0b7a75] text-base font-normal cursor-pointer active:translate-y-[2px] transition-all"
+          >
             Kết thúc sớm
           </button>
         ) : (
-          <button onClick={onClose} className={BTN} style={{ background: PURPLE }}>
-            Đóng bài kiểm tra
+          <button
+            onClick={onClose}
+            className="rounded-[5000px] h-12 px-6 bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] text-base font-normal cursor-pointer active:translate-y-[2px] transition-all"
+          >
+            Đóng bài kiểm tra →
           </button>
         )}
       </div>

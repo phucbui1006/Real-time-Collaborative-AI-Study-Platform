@@ -24,42 +24,42 @@ type DocumentStoreProps = {
   isLoading?: boolean;
 };
 
-// Helper function ánh xạ màu sắc và icon theo môn học
+// Helper function ánh xạ màu sắc và icon theo môn học (chuẩn SuperHi)
 export function getSubjectStyle(subject: string) {
   const s = subject.toUpperCase();
   if (s.includes("TRÍ TUỆ NHÂN TẠO") || s.includes("AI")) {
     return {
-      box: "bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-300 border-violet-200/60 dark:border-violet-500/30",
-      text: "text-violet-600 dark:text-violet-400 font-semibold",
-      icon: <Bot className="h-4 w-4" strokeWidth={1.75} />,
+      box: "bg-[#ffda00] text-[#111118] border border-[#111118]",
+      text: "text-[#111118]",
+      icon: <Bot className="h-5 w-5" strokeWidth={1.75} />,
     };
   }
   if (s.includes("CÔNG NGHỆ") || s.includes("LẬP TRÌNH") || s.includes("WEB")) {
     return {
-      box: "bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300 border-sky-200/60 dark:border-sky-500/30",
-      text: "text-sky-600 dark:text-sky-400 font-semibold",
-      icon: <Code2 className="h-4 w-4" strokeWidth={1.75} />,
+      box: "bg-[#91d8ec] text-[#111118] border border-[#111118]",
+      text: "text-[#111118]",
+      icon: <Code2 className="h-5 w-5" strokeWidth={1.75} />,
     };
   }
   if (s.includes("VẬT LÝ")) {
     return {
-      box: "bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-200/60 dark:border-amber-500/30",
-      text: "text-amber-600 dark:text-amber-400 font-semibold",
-      icon: <Zap className="h-4 w-4" strokeWidth={1.75} />,
+      box: "bg-[#ffbac4] text-[#111118] border border-[#111118]",
+      text: "text-[#111118]",
+      icon: <Zap className="h-5 w-5" strokeWidth={1.75} />,
     };
   }
   if (s.includes("NGOẠI NGỮ") || s.includes("TIẾNG ANH") || s.includes("ENGLISH")) {
     return {
-      box: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-500/30",
-      text: "text-emerald-600 dark:text-emerald-400 font-semibold",
-      icon: <Languages className="h-4 w-4" strokeWidth={1.75} />,
+      box: "bg-[#16ab59] text-white border border-[#111118]",
+      text: "text-[#111118]",
+      icon: <Languages className="h-5 w-5" strokeWidth={1.75} />,
     };
   }
   // Mặc định là TOÁN HỌC hoặc môn khác
   return {
-    box: "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border-indigo-200/60 dark:border-indigo-500/30",
-    text: "text-indigo-600 dark:text-indigo-400 font-semibold",
-    icon: <Calculator className="h-4 w-4" strokeWidth={1.75} />,
+    box: "bg-[#ffda00] text-[#111118] border border-[#111118]",
+    text: "text-[#111118]",
+    icon: <Calculator className="h-5 w-5" strokeWidth={1.75} />,
   };
 }
 
@@ -154,20 +154,20 @@ export function DocumentStore({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400" />
-            <span className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Thư viện cá nhân</span>
+            <span className="h-2 w-2 rounded-full bg-[#16ab59] border border-[#111118]" />
+            <span className="text-xs font-normal tracking-wider text-[#111118]/70 dark:text-[#f0f6ff]/70 uppercase">Thư viện cá nhân</span>
           </div>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight sm:text-3xl">Kho tài liệu học tập</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Quản lý, học tập và tương tác AI trực tiếp trên tài liệu của bạn.</p>
+          <h1 className="mt-1 text-3xl sm:text-4xl font-normal text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">Kho tài liệu học tập</h1>
+          <p className="mt-1 text-base text-[#111118]/75 dark:text-[#f0f6ff]/75">Quản lý, học tập và tương tác AI trực tiếp trên tài liệu của bạn.</p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={() => setIsUploadModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 h-9 px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-xs shadow-indigo-500/20 active:translate-y-[1px] transition-all cursor-pointer text-sm"
+            className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-[48px] bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white font-normal border border-[#111118] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] active:translate-y-[2px] transition-transform cursor-pointer text-base"
           >
-            <Upload className="h-4 w-4" strokeWidth={1.75} />
-            Tải tài liệu lên
+            <Upload className="h-5 w-5" strokeWidth={1.75} />
+            <span>Tải tài liệu lên →</span>
           </button>
           <input
             ref={fileInputRef}
@@ -180,20 +180,20 @@ export function DocumentStore({
         </div>
       </div>
 
-      {/* ── 2. Thanh Tìm Kiếm & Bộ Lọc (Thiết kế phân tầng chuẩn mực, không bao giờ vỡ bố cục khi mở AI) ── */}
-      <div className="mt-6 space-y-3 rounded-2xl bg-white dark:bg-slate-900 p-3.5 border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-        {/* Hàng 1: Ô tìm kiếm toàn diện + Bộ chọn sắp xếp (Thẳng hàng tuyệt đối) */}
-        <div className="flex items-center gap-3">
+      {/* ── 2. Thanh Tìm Kiếm & Bộ Lọc ────────────────────────────────────────── */}
+      <div className="mt-8 space-y-4 rounded-[24px] bg-white dark:bg-[#1b1b26] p-5 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+        {/* Hàng 1: Ô tìm kiếm toàn diện + Bộ chọn sắp xếp */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="relative flex-1">
-            <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
-              <Search className="h-4 w-4" strokeWidth={1.75} />
+            <span className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-[#111118]/50 dark:text-[#f0f6ff]/50">
+              <Search className="h-5 w-5" strokeWidth={1.75} />
             </span>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm tài liệu theo tên hoặc môn học…"
-              className="w-full h-9 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 pl-9 pr-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors"
+              className="w-full h-12 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] pl-12 pr-4 text-base text-[#111118] dark:text-[#f0f6ff] placeholder:text-[#111118]/50 dark:placeholder:text-[#f0f6ff]/50 outline-none focus:border-[#0b7a75] dark:focus:border-[#2dd4bf] focus:ring-2 focus:ring-[#0b7a75] dark:focus:ring-[#2dd4bf] transition-colors"
             />
           </div>
 
@@ -201,7 +201,7 @@ export function DocumentStore({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="h-9 shrink-0 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none cursor-pointer focus:border-indigo-600 shadow-2xs"
+            className="h-12 shrink-0 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-5 text-sm font-normal text-[#111118] dark:text-[#f0f6ff] outline-none cursor-pointer focus:border-[#0b7a75]"
           >
             <option value="newest">Mới nhất</option>
             <option value="progress">Tiến độ cao nhất</option>
@@ -209,19 +209,19 @@ export function DocumentStore({
           </select>
         </div>
 
-        {/* Hàng 2: Bộ lọc danh mục môn học (Soft Tinted Filter Pills) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
+        {/* Hàng 2: Bộ lọc danh mục môn học */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-3 border-t border-[#e1edff] dark:border-[#2a2a3a]">
+          <span className="text-xs font-normal text-[#111118]/60 dark:text-[#f0f6ff]/60 uppercase tracking-wider shrink-0 mr-1">
             Môn học:
           </span>
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`h-7 rounded-md px-2.5 text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+              className={`h-9 rounded-[5000px] px-4 text-sm font-normal transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 activeCategory === cat
-                  ? "bg-indigo-600 text-white border border-indigo-500 font-semibold shadow-2xs"
-                  : "bg-white dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 font-medium"
+                  ? "bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]"
+                  : "bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#d0e2ff] dark:hover:bg-[#2e2e42]"
               }`}
             >
               {cat}
@@ -299,42 +299,40 @@ export function DocumentStore({
             {filteredDocs.map((doc) => {
               const active = doc.id === selectedId;
               const subjectStyle = getSubjectStyle(doc.subject);
-              const fileTypeBadge = getFileTypeBadgeStyle(doc.fileType);
-              const progressStyle = getProgressBarStyle(doc.progress);
 
               return (
                 <div
                   key={doc.id}
                   onClick={() => onSelect(doc.id)}
-                  className={`group relative flex flex-col justify-between rounded-xl p-5 border transition-[border-color,box-shadow,transform] duration-200 cursor-pointer shadow-2xs ${
+                  className={`group relative flex flex-col justify-between rounded-[24px] p-6 border transition-[border-color,box-shadow,transform] duration-200 cursor-pointer ${
                     active
-                      ? "bg-white dark:bg-slate-900 border-indigo-600 dark:border-indigo-500 ring-2 ring-indigo-600/20 shadow-md"
-                      : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-500/60 hover:shadow-lg hover:-translate-y-0.5"
+                      ? "bg-white dark:bg-[#1b1b26] border-[#0b7a75] dark:border-[#2dd4bf] ring-2 ring-[#0b7a75] dark:ring-[#2dd4bf] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000]"
+                      : "bg-white dark:bg-[#1b1b26] border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] hover:border-[#0b7a75] dark:hover:border-[#2dd4bf] hover:shadow-[0_4px_0_0_#111118] hover:-translate-y-0.5"
                   }`}
                 >
                   {/* Top Info */}
                   <div>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`flex h-9 w-9 items-center justify-center rounded-lg border shrink-0 ${subjectStyle.box}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-11 w-11 items-center justify-center rounded-full border border-[#111118] shrink-0 shadow-[0_1px_0_0_#111118] ${subjectStyle.box}`}>
                           {subjectStyle.icon}
                         </div>
                         <div>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`text-[10px] font-bold tracking-wider uppercase ${subjectStyle.text}`}>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`rounded-[5000px] px-3 py-0.5 text-xs font-normal border border-[#111118] ${subjectStyle.box}`}>
                               {doc.subject}
                             </span>
                             {doc.fileType && (
-                              <span className={`rounded px-1.5 py-0.2 text-[9px] uppercase ${fileTypeBadge}`}>
+                              <span className="rounded-[5000px] px-2.5 py-0.5 text-xs uppercase border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff]">
                                 {doc.fileType}
                               </span>
                             )}
                             {doc.isPublic ? (
-                              <span className="rounded px-1.5 py-0.2 text-[9px] uppercase font-semibold bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-500/30">
+                              <span className="rounded-[5000px] px-2.5 py-0.5 text-xs font-normal bg-[#16ab59] text-white border border-[#111118]">
                                 Mẫu chung
                               </span>
                             ) : (
-                              <span className="rounded px-1.5 py-0.2 text-[9px] uppercase font-semibold bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-500/30">
+                              <span className="rounded-[5000px] px-2.5 py-0.5 text-xs font-normal bg-[#91d8ec] text-[#111118] border border-[#111118]">
                                 Cá nhân
                               </span>
                             )}
@@ -367,27 +365,27 @@ export function DocumentStore({
                       </div>
                     </div>
 
-                    <h3 className="mt-3 font-semibold text-slate-900 dark:text-slate-50 text-base sm:text-lg line-clamp-2 leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                    <h3 className="mt-4 font-normal text-[#111118] dark:text-[#f0f6ff] text-lg sm:text-xl line-clamp-2 leading-snug">
                       {doc.title}
                     </h3>
                   </div>
 
                   {/* Progress & Bottom Metadata */}
-                  <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="mt-5 pt-3 border-t border-[#e1edff] dark:border-[#2a2a3a]">
                     <div className="flex justify-between items-center text-xs mb-1.5">
-                      <span className="font-medium text-slate-500 dark:text-slate-400">Tiến độ</span>
-                      <span className={`font-mono tabular-nums font-bold ${progressStyle.text}`}>
+                      <span className="font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">Tiến độ</span>
+                      <span className="font-mono tabular-nums font-normal text-[#111118] dark:text-[#2dd4bf]">
                         {doc.progress}%
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                    <div className="h-2 rounded-full bg-[#e1edff] dark:bg-[#242436] overflow-hidden">
                       <div
-                        className={`h-1.5 rounded-full transition-[width] duration-300 ease-out ${progressStyle.bar}`}
+                        className="h-2 rounded-full bg-[#0b7a75] dark:bg-[#2dd4bf] transition-[width] duration-300 ease-out"
                         style={{ width: `${doc.progress}%` }}
                       />
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 font-mono tabular-nums">
+                    <div className="mt-3 flex items-center justify-between text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums">
                       <span>{doc.pagesCount ? `${doc.pagesCount} trang` : "PDF"} · {doc.fileSize || "3 MB"}</span>
                       <span>{doc.updatedAt || "Gần đây"}</span>
                     </div>
@@ -402,32 +400,32 @@ export function DocumentStore({
       {/* ── 4. Modal Tải File ────────────────────────────────────────────────── */}
       {isUploadModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111118]/60 backdrop-blur-xs"
           onClick={() => setIsUploadModalOpen(false)}
         >
           <div
-            className="relative w-full max-w-lg rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xl"
+            className="relative w-full max-w-lg rounded-[24px] border-2 border-[#111118] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] p-7 shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000]"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setIsUploadModalOpen(false)}
-              className="absolute top-5 right-5 flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
+              className="absolute top-5 right-5 w-9 h-9 rounded-full bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d5e5ff] active:translate-y-[1px] transition-transform cursor-pointer"
             >
               <X className="h-4 w-4" strokeWidth={1.75} />
             </button>
 
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">Tải tài liệu mới lên</h2>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <h2 className="text-2xl font-normal text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">Tải tài liệu mới lên</h2>
+            <p className="mt-1 text-sm font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">
               Hỗ trợ định dạng PDF, DOCX, PPTX. AI sẽ tự động phân tích và sinh câu hỏi.
             </p>
 
-            <div className="mt-5 space-y-4">
+            <div className="mt-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1.5">Chọn môn học</label>
+                <label className="block text-xs font-normal text-[#111118] dark:text-[#f0f6ff] uppercase mb-1.5">Chọn môn học</label>
                 <select
                   value={selectedSubject}
                   onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="w-full h-9 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm font-medium text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-600"
+                  className="w-full h-12 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-4 text-base font-normal text-[#111118] dark:text-[#f0f6ff] outline-none focus:border-[#0b7a75]"
                 >
                   <option value="TOÁN HỌC">Toán học</option>
                   <option value="NGOẠI NGỮ">Ngoại ngữ</option>
@@ -450,15 +448,17 @@ export function DocumentStore({
                   handleFileChange(e.dataTransfer.files);
                 }}
                 onClick={() => modalFileInputRef.current?.click()}
-                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors cursor-pointer ${
+                className={`flex flex-col items-center justify-center rounded-[20px] border-2 border-dashed p-8 text-center transition-all cursor-pointer ${
                   dragging
-                    ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40"
-                    : "border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-950/50 hover:bg-slate-50 dark:hover:bg-slate-950 hover:border-slate-300 dark:hover:border-slate-600"
+                    ? "border-[#0b7a75] bg-[#e1edff] dark:bg-[#242436]"
+                    : "border-[#111118]/30 dark:border-[#2a2a3a] bg-[#f0f6ff] dark:bg-[#242436]/50 hover:border-[#0b7a75] hover:bg-[#e1edff]/60"
                 }`}
               >
-                <Upload className="h-6 w-6 text-slate-400" strokeWidth={1.75} />
-                <span className="mt-2.5 font-medium text-slate-900 dark:text-slate-100 text-sm">Nhấp để chọn file hoặc kéo thả vào đây</span>
-                <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">PDF, DOCX, PPTX hoặc hình ảnh</span>
+                <div className="w-12 h-12 rounded-full bg-[#91d8ec] border border-[#111118] text-[#111118] flex items-center justify-center mb-2 shadow-[0_2px_0_0_#111118]">
+                  <Upload className="h-5 w-5" strokeWidth={1.75} />
+                </div>
+                <span className="font-normal text-[#111118] dark:text-[#f0f6ff] text-sm">Nhấp để chọn file hoặc kéo thả vào đây</span>
+                <span className="mt-1 text-xs font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">Hỗ trợ PDF, DOCX, PPTX hoặc hình ảnh</span>
               </div>
 
               <input

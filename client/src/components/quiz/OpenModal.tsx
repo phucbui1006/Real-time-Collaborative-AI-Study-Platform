@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { ExamSet, PURPLE, BTN, INP } from "../../services/examService";
+import { ExamSet, BTN, INP } from "../../services/examService";
+import { X } from "lucide-react";
 
 interface OpenModalProps {
   set: ExamSet;
@@ -18,50 +19,53 @@ export function OpenModal({ set, onStart, onClose }: OpenModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(15,23,42,.6)", backdropFilter: "blur(4px)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111118]/60 backdrop-blur-xs"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Mở bài kiểm tra trực tuyến"
-        className="w-full rounded-3xl p-6 shadow-2xl transition-all border border-slate-800 bg-slate-900 text-white"
-        style={{ maxWidth: 420 }}
+        className="w-full max-w-[440px] rounded-[24px] p-7 border-2 border-[#111118] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000]"
       >
         <div className="flex items-start justify-between">
-          <h2 className="text-lg font-semibold">Mở bài kiểm tra trực tuyến</h2>
+          <div>
+            <h2 className="text-2xl font-normal text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">
+              Mở bài kiểm tra trực tuyến
+            </h2>
+            <p className="mt-1 text-sm font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">
+              {set.title} · {set.questions.length} câu hỏi
+            </p>
+          </div>
           <button
             onClick={onClose}
             aria-label="Đóng"
-            className="text-xl leading-none text-slate-400 hover:text-white cursor-pointer"
+            className="w-9 h-9 rounded-full bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] cursor-pointer transition-all"
           >
-            ✕
+            <X className="h-4 w-4" strokeWidth={1.75} />
           </button>
         </div>
-        <p className="mt-2 text-sm text-slate-300">
-          {set.title} · {set.questions.length} câu hỏi
-        </p>
-        <label className="mt-5 block text-sm font-medium text-slate-100">
+
+        <label className="mt-5 block text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
           Thời gian làm bài (phút)
           <input
             type="number"
             min="1"
             max="180"
-            className={INP + " mt-1"}
+            className={INP + " mt-1.5 font-mono"}
             value={minutes}
             onChange={(e) => setMinutes(e.target.value)}
           />
         </label>
-        <p className="mt-3 text-xs text-slate-400">
-          Mọi người trả lời trong khoảng thời gian này. Người làm bài biết câu mình đúng hay sai nhưng không thấy đáp án đúng. Bảng điểm và xếp hạng cập nhật trực tiếp.
+        <p className="mt-3 text-xs font-normal text-[#111118]/60 dark:text-[#f0f6ff]/60 leading-relaxed">
+          Mọi người trả lời trong khoảng thời gian này. Bảng điểm và xếp hạng được cập nhật trực tiếp cho người mở phòng.
         </p>
         <button
           onClick={() => onStart(set, Math.max(1, +minutes || set.minutes))}
-          className={BTN + " mt-5 w-full py-3 shadow-lg"}
-          style={{ background: PURPLE }}
+          className={BTN + " mt-6 w-full"}
         >
-          Bắt đầu
+          <span>Bắt đầu bài thi</span>
+          <span aria-hidden="true">→</span>
         </button>
       </div>
     </div>

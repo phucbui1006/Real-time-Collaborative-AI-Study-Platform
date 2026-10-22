@@ -9,7 +9,7 @@ interface LeaderboardProps {
 export function Leaderboard({ rows, total, limit }: LeaderboardProps) {
   const shown = limit ? rows.slice(0, limit).concat(rows.slice(limit).filter((r) => r.me)) : rows;
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-2.5">
       {shown.map((r) => {
         const isTop1 = r.rank === 1;
         const isTop2 = r.rank === 2;
@@ -18,32 +18,32 @@ export function Leaderboard({ rows, total, limit }: LeaderboardProps) {
         return (
           <li
             key={r.name}
-            className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-xs transition-colors border ${
+            className={`flex items-center gap-3 rounded-[5000px] px-4 py-2.5 text-sm font-normal border-2 border-[#111118] transition-all ${
               r.me
-                ? "bg-indigo-50/70 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-500/40 text-slate-900 dark:text-slate-100"
-                : "bg-white dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700/60 hover:bg-slate-50/70 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+                ? "bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] shadow-[0_2px_0_0_#0b7a75]"
+                : "bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] shadow-[0_2px_0_0_#111118]"
             }`}
           >
             <span
-              className={`flex h-6 w-6 items-center justify-center rounded text-[11px] font-mono font-bold shrink-0 tabular-nums ${
+              className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-mono font-normal shrink-0 tabular-nums border border-[#111118] shadow-[0_1px_0_0_#111118] ${
                 isTop1
-                  ? "bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
+                  ? "bg-[#ffda00] text-[#111118]"
                   : isTop2
-                  ? "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600"
+                  ? "bg-[#91d8ec] text-[#111118]"
                   : isTop3
-                  ? "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
+                  ? "bg-[#ffbac4] text-[#111118]"
+                  : "bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff]"
               }`}
             >
               {r.rank}
             </span>
-            <span className="flex-1 truncate font-medium text-slate-900 dark:text-slate-100">
-              {r.name} {r.me && <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">(Bạn)</span>}
+            <span className="flex-1 truncate font-normal text-[#111118] dark:text-[#f0f6ff]">
+              {r.name} {r.me && <span className="text-xs text-[#0b7a75] dark:text-[#2dd4bf]">(Bạn)</span>}
             </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono tabular-nums">
+            <span className="text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-mono tabular-nums">
               {r.answered}/{total} câu
             </span>
-            <span className="w-12 text-right font-mono font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+            <span className="w-14 text-right font-mono text-base font-normal text-[#111118] dark:text-[#f0f6ff] tabular-nums">
               {r.score.toFixed(1)}
             </span>
           </li>

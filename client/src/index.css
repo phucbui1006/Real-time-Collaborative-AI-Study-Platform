@@ -75,9 +75,9 @@
 }
 
 @theme {
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-heading: "Plus Jakarta Sans", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  --font-sans: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: "Be Vietnam Pro", sans-serif;
+  --font-mono: "Space Mono", "JetBrains Mono", monospace;
 }
 
 html {
@@ -89,9 +89,10 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  background-color: #FAFAFA;
-  color: #334155; /* text-slate-700 */
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
   font-family: var(--font-sans);
+  font-weight: 400;
   -webkit-font-smoothing: antialiased;
   transition: background-color 200ms ease, color 200ms ease;
 }
@@ -101,18 +102,19 @@ html.dark {
 }
 
 html.dark body {
-  background-color: #0b0f19;
-  color: #94a3b8;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
 }
 
 :where(h1, h2, h3, h4, h5, h6) {
   font-family: var(--font-heading);
-  letter-spacing: -0.025em;
-  color: #0f172a; /* text-slate-900 */
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  color: var(--color-ink);
 }
 
 html.dark :where(h1, h2, h3, h4, h5, h6) {
-  color: #f1f5f9;
+  color: var(--color-ink);
 }
 
 /* KaTeX Math Styling & Dark Mode support */
@@ -163,26 +165,31 @@ button {
   border-bottom-color: #4f46e5; /* border-indigo-600 */
 }
 
-/* 3 Biến thể Button chuẩn UI_DESIGN */
+/* SuperHi Pill Buttons & Controls */
 .primary-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  height: 2.25rem; /* h-9 */
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem; /* rounded-md */
-  font-size: 0.875rem;
-  font-weight: 500;
-  background-color: #1e1b4b; /* bg-indigo-950 */
-  color: #ffffff;
-  border: 1px solid rgba(30, 27, 75, 0.6);
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  transition: background-color 150ms ease, border-color 150ms ease;
+  height: 2.75rem; /* h-11 */
+  padding: 0.625rem 1.5rem;
+  border-radius: var(--radius-btn); /* 48px full pill */
+  font-size: 1rem;
+  font-weight: 400;
+  background-color: var(--color-action);
+  color: var(--color-action-text);
+  border: 1px solid var(--color-border-strong);
+  box-shadow: var(--shadow-primary-btn);
+  transition: transform 120ms ease, box-shadow 120ms ease;
 }
 
 .primary-button:hover {
-  background-color: #312e81; /* bg-indigo-900 */
+  background-color: var(--color-action-hover);
+}
+
+.primary-button:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 0 #111118;
 }
 
 .secondary-button {
@@ -190,21 +197,25 @@ button {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  height: 2.25rem; /* h-9 */
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem; /* rounded-md */
-  font-size: 0.875rem;
-  font-weight: 500;
-  background-color: #ffffff;
-  color: #334155; /* text-slate-700 */
-  border: 1px solid #e2e8f0; /* border-slate-200 */
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
-  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  height: 2.75rem; /* h-11 */
+  padding: 0.625rem 1.5rem;
+  border-radius: var(--radius-btn); /* 48px full pill */
+  font-size: 1rem;
+  font-weight: 400;
+  background-color: var(--color-dark-button-bg);
+  color: var(--color-dark-button-text);
+  border: 1px solid var(--color-border-strong);
+  box-shadow: var(--shadow-dark-btn);
+  transition: transform 120ms ease, box-shadow 120ms ease;
 }
 
 .secondary-button:hover {
-  background-color: #f8fafc; /* bg-slate-50 */
-  color: #0f172a; /* text-slate-900 */
+  opacity: 0.95;
+}
+
+.secondary-button:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 0 var(--color-dark-button-shadow);
 }
 
 .ghost-button {
@@ -212,38 +223,39 @@ button {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  height: 2.25rem;
-  padding: 0.5rem 0.875rem;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 500;
+  height: 2.5rem;
+  padding: 0.5rem 1.25rem;
+  border-radius: var(--radius-btn);
+  font-size: 0.9375rem;
+  font-weight: 400;
   background-color: transparent;
-  color: #475569;
+  color: var(--color-ink);
   transition: background-color 150ms ease, color 150ms ease;
 }
 
 .ghost-button:hover {
-  background-color: #f1f5f9;
-  color: #0f172a;
+  background-color: var(--color-surface-subtle);
 }
 
-/* Inputs & Forms */
+/* Inputs & Forms - SuperHi Fully Rounded Pill */
 .form-input {
   width: 100%;
-  height: 2.5rem; /* h-10 */
-  border: 1px solid #e2e8f0;
-  border-radius: 0.375rem; /* rounded-md */
-  background-color: #ffffff;
-  padding: 0.5rem 0.75rem;
-  color: #0f172a;
-  font-size: 0.875rem;
+  height: 2.75rem; /* h-11 */
+  border: 1px solid var(--color-border-hairline);
+  border-radius: var(--radius-pill); /* 5000px */
+  background-color: var(--color-surface-subtle);
+  padding: 0.625rem 1.25rem;
+  color: var(--color-ink);
+  font-size: 1rem;
   outline: none;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition: border-color 150ms ease, background-color 150ms ease;
 }
 
 .form-input:focus {
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 1px #4f46e5;
+  border-color: var(--color-action);
+  background-color: var(--color-card);
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 .form-label {
