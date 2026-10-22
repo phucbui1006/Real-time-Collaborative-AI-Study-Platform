@@ -222,70 +222,71 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
     fetchDocs();
   }, [fetchDocs]);
 
-  const handleUpload = async (files: File[], customSubject = "MỚI TẢI LÊN") => {
+  const handleUpload = async (files: File[], customSubject = "MỚI TẢI LÊN"): Promise<void> => {
     const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB theo chuẩn Security.md mục 4
-    const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".png", ".jpg", ".jpeg"];
+    const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".png", ".jpg", ".jpeg", ".txt", ".md"];
 
     for (const file of files) {
-      try {
-        // 1. Kiểm tra dung lượng file (tối đa 20MB)
-        if (file.size > MAX_FILE_SIZE) {
-          alert(`File "${file.name}" vượt quá dung lượng cho phép (tối đa 20 MB).`);
-          continue;
+      // 1. Kiểm tra dung lượng file (tối đa 20MB)
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error(
+          `File "${file.name}" dung lượng ${(file.size / (1024 * 1024)).toFixed(1)} MB vượt quá giới hạn cho phép (tối đa 20 MB).`
+        );
+      }
+
+      // 2. Làm sạch tên file (chống path traversal, ký tự điều khiển, XSS)
+      const cleanName = file.name
+        .replace(/[/\\?%*:|"<>]/g, "_")
+        .replace(/\.\.+/g, ".")
+        .trim()
+        .slice(0, 120);
+
+      const ext = cleanName.substring(cleanName.lastIndexOf(".")).toLowerCase();
+      if (!ALLOWED_EXTENSIONS.includes(ext)) {
+        throw new Error(
+          `Định dạng file "${ext}" không được hỗ trợ. Vui lòng chọn file PDF, DOCX hoặc PPTX.`
+        );
+      }
+
+      // Bóc tách nội dung thực tế từ file (hỗ trợ đọc PDF, DOCX, PPTX từng trang trực tiếp trên trình duyệt)
+      const extracted = await extractDocumentContent(file);
+
+      const docPayload: any = {
+        filename: cleanName,
+        original_name: cleanName,
+        subject: customSubject,
+        total_pages: extracted.totalPages,
+        file_url: null,
+        pages_content: extracted.pages,
+        created_at: new Date().toISOString(),
+      };
+
+      // Nếu là user thật có UUID thì lưu lên Supabase DB
+      if (isValidUUID(userId)) {
+        docPayload.owner_user_id = userId;
+        const { error: insertError } = await supabase.from("documents").insert([docPayload]);
+        if (insertError) {
+          throw new Error(`Không thể lưu tài liệu lên hệ thống: ${insertError.message}`);
         }
-
-        // 2. Làm sạch tên file (chống path traversal, ký tự điều khiển, XSS)
-        const cleanName = file.name
-          .replace(/[/\\?%*:|"<>]/g, "_")
-          .replace(/\.\.+/g, ".")
-          .trim()
-          .slice(0, 120);
-
-        const ext = cleanName.substring(cleanName.lastIndexOf(".")).toLowerCase();
-        if (!ALLOWED_EXTENSIONS.includes(ext)) {
-          alert(`Định dạng file "${ext}" không được hỗ trợ. Vui lòng chọn file PDF, DOCX hoặc PPTX.`);
-          continue;
-        }
-
-        // Bóc tách nội dung thực tế từ file (hỗ trợ đọc PDF từng trang trực tiếp trên trình duyệt)
-        const extracted = await extractDocumentContent(file);
-
-        const docPayload: any = {
-          filename: cleanName,
-          original_name: cleanName,
+      } else {
+        // Lưu vào localStorage cho tài khoản Demo / Khách trải nghiệm
+        const localKey = `peermind_docs_${userId || "guest"}`;
+        const currentLocal = JSON.parse(localStorage.getItem(localKey) || "[]");
+        currentLocal.unshift({
+          id: Date.now() + Math.floor(Math.random() * 1000),
           subject: customSubject,
-          total_pages: extracted.totalPages,
-          file_url: null,
-          pages_content: extracted.pages,
-          created_at: new Date().toISOString(),
-        };
-
-        // Nếu là user thật có UUID thì lưu lên Supabase DB
-        if (isValidUUID(userId)) {
-          docPayload.owner_user_id = userId;
-          await supabase.from("documents").insert([docPayload]);
-        } else {
-          // Lưu vào localStorage cho tài khoản Demo / Khách trải nghiệm
-          const localKey = `peermind_docs_${userId || "guest"}`;
-          const currentLocal = JSON.parse(localStorage.getItem(localKey) || "[]");
-          currentLocal.unshift({
-            id: Date.now() + Math.floor(Math.random() * 1000),
-            subject: customSubject,
-            title: cleanName.replace(/\.[^/.]+$/, ""),
-            color: "#0ea5e9",
-            icon: ext === ".docx" ? "📝" : ext === ".pptx" ? "📊" : "📄",
-            pagesCount: extracted.totalPages,
-            fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-            fileType: ext === ".docx" ? "DOCX" : ext === ".pptx" ? "PPTX" : "PDF",
-            updatedAt: "Vừa xong",
-            pagesContent: extracted.pages,
-            isPublic: false,
-            ownerUserId: userId || null,
-          });
-          localStorage.setItem(localKey, JSON.stringify(currentLocal));
-        }
-      } catch (err) {
-        console.error("Lỗi khi upload tài liệu:", err);
+          title: cleanName.replace(/\.[^/.]+$/, ""),
+          color: "#0ea5e9",
+          icon: ext === ".docx" ? "📝" : ext === ".pptx" ? "📊" : "📄",
+          pagesCount: extracted.totalPages,
+          fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+          fileType: ext === ".docx" ? "DOCX" : ext === ".pptx" ? "PPTX" : "PDF",
+          updatedAt: "Vừa xong",
+          pagesContent: extracted.pages,
+          isPublic: false,
+          ownerUserId: userId || null,
+        });
+        localStorage.setItem(localKey, JSON.stringify(currentLocal));
       }
     }
     // Refresh danh sách tài liệu
