@@ -23,6 +23,7 @@ import { TakeView } from "../components/quiz/TakeView";
 import { ResultView } from "../components/quiz/ResultView";
 import { getSubjectStyle } from "../components/documents/DocumentStore";
 import { Radio, ArrowRight, PlayCircle, Plus } from "lucide-react";
+import { idleService } from "../services/idleService";
 
 function useNow(ms = 1000) {
   const [n, setN] = useState(Date.now());
@@ -46,6 +47,15 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     | { name: "take" }
     | { name: "result" }
   >({ name: "home" });
+
+  // Tạm dừng bộ đếm idle khi người dùng đang trực tiếp làm bài thi hoặc mở phòng thi
+  useEffect(() => {
+    const isTesting = view.name === "take" || view.name === "host";
+    idleService.setPaused("test", isTesting);
+    return () => {
+      idleService.setPaused("test", false);
+    };
+  }, [view.name]);
 
   const setsKey = `peermind_exam_sets_${userId || "guest"}`;
   const historyKey = `peermind_exam_history_${userId || "guest"}`;

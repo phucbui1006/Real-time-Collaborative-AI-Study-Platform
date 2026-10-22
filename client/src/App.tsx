@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Users,
@@ -27,6 +27,10 @@ import ClassroomsPage from "./pages/ClassroomsPage";
 import TestsPage from "./pages/TestsPage";
 import { ClassroomHeroAnimation } from "./components/common/ClassroomHeroAnimation";
 import { loginWithEmail, registerWithEmail, logoutUser, getCurrentUser } from "./services/authService";
+import { supabase } from "./services/supabaseClient";
+import { idleService, IdleState } from "./services/idleService";
+import { IdleWarningModal } from "./components/common/IdleWarningModal";
+import { clearAllUserState } from "./pages/LibraryPage";
 
 type AuthView = "login" | "register" | "forgot";
 
@@ -76,6 +80,12 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
 
+  // ── Idle session state ─────────────────────────────────────────────────────
+  const [idleState, setIdleState] = useState<IdleState>({ isWarning: false, remainingSeconds: 60 });
+
+  // Stable ref so idleService callback always calls the latest handler
+  const idleTimeoutRef = useRef<() => void>(() => {});
+
   useEffect(() => {
     document.body.style.overflow = isLoginOpen ? "hidden" : "";
     return () => {
@@ -83,8 +93,12 @@ export default function App() {
     };
   }, [isLoginOpen]);
 
-  // Kiểm tra phiên đăng nhập đã có sẵn
+  // ── Auth init + Supabase listener ───────────────────────────────────────────
   useEffect(() => {
+    // Init idle service with a stable ref callback
+    idleService.init(() => idleTimeoutRef.current());
+
+    // Check for an existing session on mount
     async function checkAuth() {
       const user = await getCurrentUser();
       if (user) {
@@ -93,7 +107,42 @@ export default function App() {
       }
     }
     checkAuth();
+
+    // Listen for Supabase auth state changes (token expiry, remote sign-out, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Rule: no Supabase calls directly in this callback — wrap in setTimeout(0)
+      setTimeout(() => {
+        if (event === "SIGNED_OUT" || !session) {
+          idleService.stop();
+          clearAllUserState();
+          setCurrentUser(null);
+          setIsLoggedIn(false);
+          setAuthNotice("Phiên đã hết hạn, vui lòng đăng nhập lại.");
+          setEmail("");
+          setPassword("");
+          setFullName("");
+          setAuthView("login");
+          setIsLoginOpen(true);
+        }
+      }, 0);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      idleService.stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Start / stop idle service whenever login state changes ──────────────────
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    idleService.start();
+    const unsub = idleService.subscribe(setIdleState);
+    return () => {
+      unsub();
+    };
+  }, [isLoggedIn]);
 
   const openLogin = () => {
     setIsSubmitted(false);
@@ -156,7 +205,28 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // ── Idle timeout handler — kept in a ref so it never goes stale ─────────────
+  const handleIdleTimeout = () => {
+    idleService.stop();
+    clearAllUserState();
+    setCurrentUser(null);
+    setIsLoggedIn(false);
+    setAuthNotice("Phiên đã hết hạn, vui lòng đăng nhập lại.");
+    setEmail("");
+    setPassword("");
+    setFullName("");
+    setAuthView("login");
+    setIsLoginOpen(true);
+  };
+
+  // Keep the ref pointing to the latest closure
+  useEffect(() => {
+    idleTimeoutRef.current = handleIdleTimeout;
+  });
+
   const handleLogout = async () => {
+    idleService.stop();
+    clearAllUserState();
     await logoutUser();
     setCurrentUser(null);
     setIsLoggedIn(false);
@@ -164,12 +234,20 @@ export default function App() {
 
   if (isLoggedIn) {
     return (
-      <Dashboard
-        onLogout={handleLogout}
-        userId={currentUser?.id}
-        userName={currentUser?.user_metadata?.full_name}
-        userEmail={currentUser?.email}
-      />
+      <>
+        <Dashboard
+          onLogout={handleLogout}
+          userId={currentUser?.id}
+          userName={currentUser?.user_metadata?.full_name}
+          userEmail={currentUser?.email}
+        />
+        <IdleWarningModal
+          open={idleState.isWarning}
+          remainingSeconds={idleState.remainingSeconds}
+          onContinue={() => idleService.resetTimer()}
+          onLogout={handleLogout}
+        />
+      </>
     );
   }
 

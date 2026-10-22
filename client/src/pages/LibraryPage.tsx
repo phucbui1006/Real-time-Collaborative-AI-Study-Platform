@@ -90,6 +90,33 @@ function mapSupabaseDoc(d: SupabaseDoc, index: number): DocumentItem {
 // Cache theo từng userId để lưu danh sách tài liệu độc lập giữa các tài khoản và các lần chuyển tab
 const userDocsCache = new Map<string, DocumentItem[]>();
 
+/**
+ * Xóa sạch toàn bộ cache và state dữ liệu tài liệu người dùng khi đăng xuất
+ */
+export function clearAllUserState() {
+  userDocsCache.clear();
+  if (typeof window !== "undefined") {
+    try {
+      const keys = [
+        "peermind_docs_guest",
+        "peermind_docs_guest-user-001",
+        "peermind_rooms_guest",
+        "peermind_rooms_guest-user-001",
+        "peermind_exam_sets_guest",
+        "peermind_exam_sets_guest-user-001",
+        "peermind_exam_history_guest",
+        "peermind_exam_history_guest-user-001",
+      ];
+      keys.forEach((k) => {
+        sessionStorage.removeItem(k);
+        localStorage.removeItem(k);
+      });
+    } catch (e) {
+      console.warn("Lỗi khi xóa state người dùng:", e);
+    }
+  }
+}
+
 interface LibraryPageProps {
   userId?: string;
   userName?: string;

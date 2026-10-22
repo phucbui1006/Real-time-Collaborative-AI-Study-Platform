@@ -11,6 +11,7 @@ import {
   fetchRoomsApi,
   RoomItem,
 } from "../services/roomService";
+import { idleService } from "../services/idleService";
 
 interface ClassroomsPageProps {
   userId?: string;
@@ -63,6 +64,14 @@ export default function ClassroomsPage({
     code: string;
     isHost?: boolean;
   } | null>(null);
+
+  // Tạm dừng bộ đếm idle khi người dùng đang tham gia phòng học
+  useEffect(() => {
+    idleService.setPaused("classroom", Boolean(activeRoom));
+    return () => {
+      idleService.setPaused("classroom", false);
+    };
+  }, [activeRoom]);
 
   const remember = (room: { name: string; code: string }) =>
     setRooms((prev) => {
