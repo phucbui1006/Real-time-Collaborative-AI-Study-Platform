@@ -86,6 +86,7 @@ const studentTestimonials = [
     quote:
       "Môn Kinh tế vĩ mô có giáo trình hơn 150 trang, mình thả vào PeerMind chưa tới 5 giây là có ngay sơ đồ tư duy và số trang trích dẫn để dò lại cực tiện!",
     avatarBg: "bg-teal-200 text-teal-900",
+    avatarSrc: "/landing/avatar1.jpg",
     cardAccent: "border-teal-200 dark:border-teal-800/70 bg-white dark:bg-slate-900",
     sticker: "Tiết kiệm 4 tiếng đọc sách",
     stickerColor: "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200",
@@ -97,6 +98,7 @@ const studentTestimonials = [
     quote:
       "Thích nhất là lúc học nhóm trước ngày thi: cả nhóm vừa xem chung một slide có highlight trực tiếp, vừa mở bảng xếp hạng trắc nghiệm bắn câu hỏi vui như chơi game.",
     avatarBg: "bg-amber-200 text-amber-900",
+    avatarSrc: "/landing/avatar2.jpg",
     cardAccent: "border-amber-200 dark:border-amber-800/70 bg-white dark:bg-slate-900",
     sticker: "Học nhóm hết buồn ngủ",
     stickerColor: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
@@ -108,6 +110,7 @@ const studentTestimonials = [
     quote:
       "2 giờ sáng ôn thi thắc mắc chỗ nào hỏi AI là có câu trả lời ngay lập tức, lại chỉ rõ nằm ở trang mấy trong slide của thầy cô nên không sợ bị lệch kiến thức.",
     avatarBg: "bg-pink-200 text-pink-900",
+    avatarSrc: "/landing/avatar3.jpg",
     cardAccent: "border-pink-200 dark:border-pink-800/70 bg-white dark:bg-slate-900",
     sticker: "AI hỗ trợ 24/7 mùa thi",
     stickerColor: "bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-200",
@@ -522,50 +525,21 @@ export default function App() {
                   </span>
                 </div>
 
-                {/* Minh họa SVG ấm áp: 3 bạn sinh viên đại học cười nói bên laptop & ly trà sữa/cà phê */}
-                <div className="my-6 flex flex-col items-center justify-center text-center">
-                  <svg
-                    viewBox="0 0 420 250"
-                    className="w-full max-w-[360px] h-auto drop-shadow-xs"
-                    role="img"
-                    aria-label="Minh họa nhóm sinh viên đang học chung vui vẻ"
-                  >
-                    <rect x="20" y="190" width="380" height="22" rx="11" fill="#0d9488" opacity="0.18" />
-                    <circle cx="105" cy="95" r="34" fill="#fde68a" stroke="#0f172a" strokeWidth="3" />
-                    <path d="M75 85 C75 55, 135 55, 135 85" fill="#1e293b" />
-                    <circle cx="95" cy="96" r="3.5" fill="#0f172a" />
-                    <circle cx="115" cy="96" r="3.5" fill="#0f172a" />
-                    <path d="M97 108 Q105 116 113 108" stroke="#0f172a" strokeWidth="3" fill="none" strokeLinecap="round" />
-                    <path d="M62 190 C62 145, 148 145, 148 190 Z" fill="#f43f5e" stroke="#0f172a" strokeWidth="3" />
-
-                    <circle cx="215" cy="82" r="36" fill="#fed7aa" stroke="#0f172a" strokeWidth="3" />
-                    <path d="M180 72 C185 45, 245 45, 250 72" fill="#0f172a" />
-                    <circle cx="204" cy="84" r="3.5" fill="#0f172a" />
-                    <circle cx="226" cy="84" r="3.5" fill="#0f172a" />
-                    <path d="M206 98 Q215 107 224 98" stroke="#0f172a" strokeWidth="3" fill="none" strokeLinecap="round" />
-                    <path d="M165 190 C165 138, 265 138, 265 190 Z" fill="#14b8a6" stroke="#0f172a" strokeWidth="3" />
-
-                    <circle cx="320" cy="96" r="33" fill="#fde68a" stroke="#0f172a" strokeWidth="3" />
-                    <path d="M288 86 C292 56, 348 56, 352 86" fill="#334155" />
-                    <rect x="302" y="88" width="14" height="10" rx="3" fill="none" stroke="#0f172a" strokeWidth="2.5" />
-                    <rect x="322" y="88" width="14" height="10" rx="3" fill="none" stroke="#0f172a" strokeWidth="2.5" />
-                    <line x1="316" y1="93" x2="322" y2="93" stroke="#0f172a" strokeWidth="2.5" />
-                    <path d="M312 110 Q320 117 328 110" stroke="#0f172a" strokeWidth="3" fill="none" strokeLinecap="round" />
-                    <path d="M278 190 C278 146, 362 146, 362 190 Z" fill="#a855f7" stroke="#0f172a" strokeWidth="3" />
-
-                    <rect x="165" y="142" width="96" height="52" rx="8" fill="#ffffff" stroke="#0f172a" strokeWidth="3" />
-                    <circle cx="213" cy="168" r="8" fill="#14b8a6" />
-                    <rect x="150" y="190" width="126" height="8" rx="4" fill="#0f172a" />
-
-                    <rect x="85" y="162" width="24" height="28" rx="5" fill="#fbbf24" stroke="#0f172a" strokeWidth="2.5" />
-                  </svg>
-
-                  <p className="mt-2 text-base font-bold text-slate-900 dark:text-white">
-                    “Học chung với bạn bè giúp nhớ bài lâu hơn 70%”
-                  </p>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                    Placeholder rõ ràng — Thay ảnh chụp nhóm sinh viên thực tế kích thước <strong>800×600px</strong> (JPG/WebP) để tăng độ chân thật.
-                  </p>
+                {/* Ảnh chụp sinh viên học nhóm thực tế */}
+                <div className="my-5 relative overflow-hidden rounded-3xl border-2 border-slate-900 dark:border-slate-700 shadow-md group">
+                  <img
+                    src="/landing/study-group.jpg"
+                    alt="Nhóm sinh viên đại học Việt Nam đang học chung quanh bàn gỗ thư viện"
+                    className="w-full h-64 sm:h-76 object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/25 to-transparent flex flex-col justify-end p-5">
+                    <p className="text-white text-base sm:text-lg font-extrabold leading-snug">
+                      “Học chung với bạn bè giúp nhớ bài lâu hơn 70%”
+                    </p>
+                    <p className="text-teal-300 text-xs font-semibold mt-1">
+                      Ảnh chụp thực tế sinh viên (1200 × 840) • Thay thế linh hoạt
+                    </p>
+                  </div>
                 </div>
 
                 {/* Cụm Avatar bạn bè đang online */}
@@ -900,6 +874,16 @@ export default function App() {
                     </span>
                     <span className="text-teal-600 dark:text-teal-400">Độ chính xác 99%</span>
                   </div>
+                  <div className="relative h-36 w-full overflow-hidden border-b border-slate-200 dark:border-slate-700">
+                    <img
+                      src="/landing/notes-closeup.jpg"
+                      alt="Ảnh cận cảnh ghi chú tài liệu & sơ đồ tư duy"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute bottom-2 left-2 rounded-lg bg-slate-900/80 backdrop-blur-xs px-2 py-0.5 text-[11px] font-bold text-teal-300">
+                      Ghi chú trực tiếp (600 × 400)
+                    </div>
+                  </div>
                   <div className="p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100">
                       <HelpCircle className="h-4 w-4 text-teal-600 shrink-0" />
@@ -982,6 +966,16 @@ export default function App() {
                   <p className="mt-2 text-base text-slate-600 dark:text-slate-300">
                     Từ tài liệu vừa tải, AI sinh ngay câu hỏi trắc nghiệm có giải thích đáp án. Bấm thử câu trả lời bên dưới!
                   </p>
+                  <div className="mt-3 relative h-28 w-full overflow-hidden rounded-2xl border-2 border-rose-200 dark:border-slate-700">
+                    <img
+                      src="/landing/campus-mobile.jpg"
+                      alt="Học mọi nơi trên điện thoại cùng bạn bè tại khuôn viên trường"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute bottom-2 left-2 rounded-lg bg-slate-900/85 px-2.5 py-0.5 text-[11px] font-bold text-rose-300">
+                      Học mọi nơi (600 × 400)
+                    </div>
+                  </div>
                 </div>
 
                 {/* Khung Điện Thoại (Phone Frame Mockup) */}
@@ -1184,11 +1178,20 @@ export default function App() {
 
                   {/* Placeholder Avatar Sinh viên kèm ghi chú rõ ràng */}
                   <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3.5">
-                    <div
-                      className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl font-extrabold text-base border-2 border-slate-900/15 ${item.avatarBg}`}
-                      title="Placeholder Avatar 120x120px - Thay bằng ảnh chân dung sinh viên"
-                    >
-                      {item.initials}
+                    <div className="relative h-12 w-12 shrink-0">
+                      {item.avatarSrc ? (
+                        <img
+                          src={item.avatarSrc}
+                          alt={item.name}
+                          className="h-12 w-12 rounded-2xl object-cover border-2 border-slate-900/15 shadow-2xs"
+                        />
+                      ) : (
+                        <div
+                          className={`flex h-12 w-12 items-center justify-center rounded-2xl font-extrabold text-base border-2 border-slate-900/15 ${item.avatarBg}`}
+                        >
+                          {item.initials}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <p className="text-base font-extrabold text-slate-900 dark:text-white">
