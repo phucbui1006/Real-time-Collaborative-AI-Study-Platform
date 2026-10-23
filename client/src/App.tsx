@@ -7,7 +7,6 @@ import {
   Check,
   Menu,
   ArrowLeft,
-  FileText,
   UploadCloud,
   Bot,
   Network,
@@ -18,11 +17,19 @@ import {
   StickyNote,
   Highlighter,
   Zap,
+  BookOpen,
+  MessageCircle,
+  Image as ImageIcon,
+  Smartphone,
+  Monitor,
+  HelpCircle,
+  Flame,
+  Star,
 } from "lucide-react";
 import { Logo } from "./components/common/Logo";
 import { ThemeToggle } from "./components/common/ThemeToggle";
 import { Header, DashboardTab } from "./components/common/Header";
-import LibraryPage from "./pages/LibraryPage";
+import LibraryPage, { clearAllUserState } from "./pages/LibraryPage";
 import ClassroomsPage from "./pages/ClassroomsPage";
 import TestsPage from "./pages/TestsPage";
 import { ClassroomHeroAnimation } from "./components/common/ClassroomHeroAnimation";
@@ -30,37 +37,81 @@ import { loginWithEmail, registerWithEmail, logoutUser, getCurrentUser } from ".
 import { supabase } from "./services/supabaseClient";
 import { idleService, IdleState } from "./services/idleService";
 import { IdleWarningModal } from "./components/common/IdleWarningModal";
-import { clearAllUserState } from "./pages/LibraryPage";
 
 type AuthView = "login" | "register" | "forgot";
 
-const stepCards = [
+const studentSteps = [
   {
     number: "01",
-    title: "Tải lên & Xử lý tài liệu",
+    sticker: "Bước 1 • Siêu nhanh",
+    title: "Tải lên tài liệu",
     description:
-      "Tải lên file PDF, Slide PPTX hoặc DOCX của môn học. Hệ thống AI sẽ tự động đọc hiểu cấu trúc, phân loại môn học và lưu vào kho thư viện cá nhân.",
+      "Kéo thả file PDF, Slide PPTX hoặc DOCX môn học lên hệ thống. Chấp nhận cả giáo trình dày hàng trăm trang.",
     icon: UploadCloud,
-    badgeColor: "bg-sky-50 text-sky-700 border-sky-200/60",
-    previewType: "upload",
+    cardBg: "bg-teal-50/80 dark:bg-teal-950/30 border-teal-200 dark:border-teal-800/80",
+    badgeBg: "bg-teal-600 text-white",
+    iconBg: "bg-teal-500 text-white",
+    preview: "PDF • PPTX • DOCX",
   },
   {
     number: "02",
-    title: "Khai phá kiến thức cùng AI",
+    sticker: "Bước 2 • Dưới 5 giây",
+    title: "Hỏi AI & Xem sơ đồ",
     description:
-      "Sử dụng Trợ lý AI PeerMind để tóm tắt chương học, tự động vẽ sơ đồ tư duy (Mindmap) và khởi tạo bộ câu hỏi trắc nghiệm ôn tập chỉ trong 1 cú click.",
+      "AI tự động tóm tắt ý chính, vẽ sơ đồ tư duy trực quan và trả lời mọi câu hỏi kèm trích dẫn đúng số trang.",
     icon: Sparkles,
-    badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200/60",
-    previewType: "ai",
+    cardBg: "bg-amber-50/80 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/80",
+    badgeBg: "bg-amber-400 text-slate-950",
+    iconBg: "bg-amber-400 text-slate-950",
+    preview: "Mindmap + Trích dẫn trang",
   },
   {
     number: "03",
-    title: "Mở phòng học & Thi đấu nhóm",
+    sticker: "Bước 3 • Học vui hơn",
+    title: "Thi cùng bạn bè",
     description:
-      "Chia sẻ mã phòng 6 số cho bạn bè để cùng xem Slide đồng bộ thời gian thực, thảo luận trực tiếp và tranh tài trên bảng xếp hạng Quiz Battle.",
+      "Mở phòng học nhóm đồng bộ slide, thảo luận trực tiếp và thi đua bảng xếp hạng với bộ 10 câu hỏi trắc nghiệm từ AI.",
     icon: Trophy,
-    badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200/60",
-    previewType: "room",
+    cardBg: "bg-rose-50/80 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/80",
+    badgeBg: "bg-rose-500 text-white",
+    iconBg: "bg-rose-500 text-white",
+    preview: "Mã 6 số • Đua Top Quiz",
+  },
+];
+
+const studentTestimonials = [
+  {
+    name: "Nguyễn Minh Anh",
+    role: "Sinh viên năm 3 • ĐH Kinh tế Quốc dân",
+    quote:
+      "Môn Kinh tế vĩ mô có giáo trình hơn 150 trang, mình thả vào PeerMind chưa tới 5 giây là có ngay sơ đồ tư duy và số trang trích dẫn để dò lại cực tiện!",
+    avatarBg: "bg-teal-200 text-teal-900",
+    cardAccent: "border-teal-200 dark:border-teal-800/70 bg-white dark:bg-slate-900",
+    sticker: "Tiết kiệm 4 tiếng đọc sách",
+    stickerColor: "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200",
+    initials: "MA",
+  },
+  {
+    name: "Trần Hải Đăng",
+    role: "Sinh viên năm 2 • ĐH Bách Khoa",
+    quote:
+      "Thích nhất là lúc học nhóm trước ngày thi: cả nhóm vừa xem chung một slide có highlight trực tiếp, vừa mở bảng xếp hạng trắc nghiệm bắn câu hỏi vui như chơi game.",
+    avatarBg: "bg-amber-200 text-amber-900",
+    cardAccent: "border-amber-200 dark:border-amber-800/70 bg-white dark:bg-slate-900",
+    sticker: "Học nhóm hết buồn ngủ",
+    stickerColor: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
+    initials: "HĐ",
+  },
+  {
+    name: "Lê Thảo Vy",
+    role: "Sinh viên năm 4 • ĐH Ngoại thương",
+    quote:
+      "2 giờ sáng ôn thi thắc mắc chỗ nào hỏi AI là có câu trả lời ngay lập tức, lại chỉ rõ nằm ở trang mấy trong slide của thầy cô nên không sợ bị lệch kiến thức.",
+    avatarBg: "bg-pink-200 text-pink-900",
+    cardAccent: "border-pink-200 dark:border-pink-800/70 bg-white dark:bg-slate-900",
+    sticker: "AI hỗ trợ 24/7 mùa thi",
+    stickerColor: "bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-200",
+    initials: "TV",
   },
 ];
 
@@ -72,6 +123,9 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id?: string; email?: string; user_metadata?: { full_name?: string } } | null>(null);
 
+  // Interactive quiz option state in Bento Grid
+  const [selectedQuizOption, setSelectedQuizOption] = useState<number>(1);
+
   // Form input states
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -82,13 +136,7 @@ export default function App() {
 
   // ── Idle session state ─────────────────────────────────────────────────────
   const [idleState, setIdleState] = useState<IdleState>({ isWarning: false, remainingSeconds: 60 });
-
-  // Stable ref so idleService callback always calls the latest handler
   const idleTimeoutRef = useRef<() => void>(() => {});
-
-  // Chỉ mở modal đăng nhập lại khi người dùng ĐÃ từng đăng nhập trong session này.
-  // Tránh việc Supabase bắn SIGNED_OUT ngay lúc tải trang (sessionStorage trống) và
-  // tự động mở modal — người dùng mới vào nên thấy landing page trước.
   const hasBeenLoggedIn = useRef(false);
 
   useEffect(() => {
@@ -100,10 +148,8 @@ export default function App() {
 
   // ── Auth init + Supabase listener ───────────────────────────────────────────
   useEffect(() => {
-    // Init idle service with a stable ref callback
     idleService.init(() => idleTimeoutRef.current());
 
-    // Check for an existing session on mount
     async function checkAuth() {
       const user = await getCurrentUser();
       if (user) {
@@ -114,14 +160,9 @@ export default function App() {
     }
     checkAuth();
 
-    // Listen for Supabase auth state changes (token expiry, remote sign-out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Rule: no Supabase calls directly in this callback — wrap in setTimeout(0)
       setTimeout(() => {
         if (event === "SIGNED_OUT" || !session) {
-          // Chỉ hiện modal đăng nhập lại nếu người dùng đã từng đăng nhập.
-          // Ngăn modal tự bật khi Supabase bắn SIGNED_OUT lúc tải trang lần đầu
-          // (sessionStorage trống, chưa có phiên nào → người dùng nên thấy landing page).
           if (!hasBeenLoggedIn.current) return;
 
           idleService.stop();
@@ -144,10 +185,8 @@ export default function App() {
       subscription.unsubscribe();
       idleService.stop();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Start / stop idle service whenever login state changes ──────────────────
   useEffect(() => {
     if (!isLoggedIn) return;
     idleService.start();
@@ -155,6 +194,25 @@ export default function App() {
     return () => {
       unsub();
     };
+  }, [isLoggedIn]);
+
+  // Hiệu ứng chuyển động nhẹ khi cuộn trang (Scroll Reveal)
+  useEffect(() => {
+    if (isLoggedIn) return;
+    const elements = document.querySelectorAll(".reveal-on-scroll");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
+    );
+
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
   }, [isLoggedIn]);
 
   const openLogin = () => {
@@ -220,7 +278,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ── Idle timeout handler — kept in a ref so it never goes stale ─────────────
   const handleIdleTimeout = () => {
     idleService.stop();
     clearAllUserState();
@@ -234,7 +291,6 @@ export default function App() {
     setIsLoginOpen(true);
   };
 
-  // Keep the ref pointing to the latest closure
   useEffect(() => {
     idleTimeoutRef.current = handleIdleTimeout;
   });
@@ -267,29 +323,45 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#FAFAFA] dark:bg-[#0b0f19] text-slate-700 dark:text-slate-300 transition-colors duration-200">
-      {/* Top Header Landing Page */}
-      <header className="sticky top-0 z-30 w-full border-b border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] transition-colors duration-150">
-        <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-5 sm:px-8">
+    <div className="min-h-screen overflow-x-hidden bg-[#FFFDF9] dark:bg-[#0B1120] text-slate-800 dark:text-slate-200 transition-colors duration-200">
+      {/* ─── HEADER ──────────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-30 w-full border-b border-slate-200/80 dark:border-slate-800 bg-[#FFFDF9]/90 dark:bg-slate-900/90 backdrop-blur-md transition-colors duration-150">
+        <div className="mx-auto flex h-18 max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-10">
           <Logo size="md" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
 
           <nav className="hidden items-center gap-8 md:flex" aria-label="Điều hướng chính">
-            <a className="h-16 inline-flex items-center text-base font-normal text-[#111118]/75 dark:text-[#f0f6ff]/75 hover:text-[#111118] dark:hover:text-white transition-colors" href="#gioi-thieu">
-              Giới thiệu
+            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors" href="#hoc-nhom">
+              Học nhóm
             </a>
-            <a className="h-16 inline-flex items-center text-base font-normal text-[#111118]/75 dark:text-[#f0f6ff]/75 hover:text-[#111118] dark:hover:text-white transition-colors" href="#tinh-nang">
+            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors" href="#truoc-sau">
+              Trước &amp; Sau
+            </a>
+            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors" href="#tinh-nang">
               Tính năng
             </a>
-            <a className="h-16 inline-flex items-center text-base font-normal text-[#111118]/75 dark:text-[#f0f6ff]/75 hover:text-[#111118] dark:hover:text-white transition-colors" href="#hanh-trinh">
-              Hành trình
+            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors" href="#ba-buoc">
+              3 bước bắt đầu
+            </a>
+            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors" href="#nhan-xet">
+              Nhận xét
             </a>
           </nav>
 
-          {/* Desktop Right: Theme Toggle & Login */}
+          {/* Desktop Right: Theme Toggle & CTA */}
           <div className="hidden items-center gap-3 md:flex">
             <ThemeToggle />
-            <button onClick={openLogin} className="primary-button cursor-pointer">
-              Đăng nhập →
+            <button
+              onClick={handleGuestLogin}
+              className="rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-200 hover:border-teal-500 hover:text-teal-600 transition-all cursor-pointer"
+            >
+              Dùng thử ngay
+            </button>
+            <button
+              onClick={openLogin}
+              className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 text-sm font-bold shadow-sm shadow-teal-600/20 transition-all cursor-pointer"
+            >
+              <span>Đăng nhập</span>
+              <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
             </button>
           </div>
 
@@ -298,464 +370,349 @@ export default function App() {
             <ThemeToggle />
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"
               aria-label="Mở menu"
               aria-expanded={isMenuOpen}
             >
-              {isMenuOpen ? <X className="h-4 w-4" strokeWidth={1.75} /> : <Menu className="h-4 w-4" strokeWidth={1.75} />}
+              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
 
         {isMenuOpen && (
-          <div className="mx-5 my-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-md md:hidden">
-            <div className="flex flex-col gap-1">
+          <div className="mx-5 my-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xl md:hidden">
+            <div className="flex flex-col gap-1.5">
               {[
-                ["Giới thiệu", "#gioi-thieu"],
-                ["Tính năng", "#tinh-nang"],
-                ["Hành trình", "#hanh-trinh"],
+                ["Học nhóm cùng bạn", "#hoc-nhom"],
+                ["So sánh Trước & Sau", "#truoc-sau"],
+                ["Tính năng nổi bật", "#tinh-nang"],
+                ["3 bước bắt đầu", "#ba-buoc"],
+                ["Sinh viên nói gì?", "#nhan-xet"],
               ].map(([label, href]) => (
                 <a
                   key={href}
                   href={href}
                   onClick={() => setIsMenuOpen(false)}
-                  className="rounded-md px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                  className="rounded-xl px-3.5 py-2.5 text-base font-semibold text-slate-700 dark:text-slate-200 hover:bg-teal-50 dark:hover:bg-slate-800"
                 >
                   {label}
                 </a>
               ))}
-              <button onClick={openLogin} className="primary-button mt-2 justify-center">
-                Đăng nhập
-              </button>
+              <div className="mt-2 grid grid-cols-1 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={handleGuestLogin}
+                  className="rounded-xl border-2 border-teal-500 py-2.5 text-base font-bold text-teal-700 dark:text-teal-300"
+                >
+                  Dùng thử không cần đăng ký
+                </button>
+                <button
+                  onClick={openLogin}
+                  className="rounded-xl bg-teal-600 py-2.5 text-base font-bold text-white"
+                >
+                  Bắt đầu học ngay
+                </button>
+              </div>
             </div>
           </div>
         )}
       </header>
 
       <main>
-        {/* Hero Section */}
+        {/* ─── 1. HERO SECTION ───────────────────────────────────────────────── */}
         <section
           id="gioi-thieu"
-          className="relative flex min-h-[680px] items-center border-b border-[#e1edff] dark:border-[#2a2a3a] bg-[#f0f6ff] dark:bg-[#111118] py-16 lg:py-24 overflow-hidden transition-colors duration-200"
+          className="relative overflow-hidden pt-10 pb-20 lg:pt-16 lg:pb-24"
         >
-          {/* Decorative shapes behind content (SuperHi flat paper-cut) */}
-          <div
-            className="pointer-events-none absolute -top-20 -right-24 w-[420px] h-[420px] bg-[#ffda00] opacity-80 dark:opacity-20 z-0"
-            style={{
-              clipPath: "polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)",
-              transform: "rotate(12deg)",
-            }}
-            aria-hidden="true"
-          />
-          <div
-            className="pointer-events-none absolute -bottom-24 -left-20 w-[400px] h-[400px] bg-[#ffbac4] opacity-80 dark:opacity-20 z-0"
-            style={{
-              clipPath: "polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%)",
-              transform: "rotate(-10deg)",
-            }}
-            aria-hidden="true"
-          />
+          {/* Đốm màu nền pastel tươi sáng kiểu SuperHi */}
+          <div className="pointer-events-none absolute -top-24 left-1/4 h-80 w-80 rounded-full bg-teal-200/40 dark:bg-teal-900/20 blur-3xl" />
+          <div className="pointer-events-none absolute top-20 right-10 h-72 w-72 rounded-full bg-amber-200/40 dark:bg-amber-900/15 blur-3xl" />
+          <div className="pointer-events-none absolute bottom-0 left-10 h-64 w-64 rounded-full bg-pink-200/35 dark:bg-pink-900/15 blur-3xl" />
 
-          <div className="relative z-10 mx-auto grid max-w-[1200px] gap-12 px-5 sm:px-8 lg:grid-cols-12 lg:items-center lg:gap-14">
-            <div className="lg:col-span-7">
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-[5000px] bg-[#e1edff] dark:bg-[#242436] text-[#0b7a75] dark:text-[#2dd4bf] text-xs font-normal border border-[#111118]">
-                <span className="h-2 w-2 rounded-full bg-[#16ab59] border border-[#111118]" />
-                Nền tảng học nhóm &amp; Trợ lý AI
-              </span>
-              <h1 className="mt-5 text-4xl sm:text-5xl lg:text-[52px] font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff] leading-tight">
-                Học tập cùng bạn bè &amp; Trí tuệ nhân tạo
-              </h1>
-              <p className="mt-5 max-w-2xl text-base sm:text-lg leading-relaxed text-[#111118]/80 dark:text-[#f0f6ff]/80 font-normal">
-                Tóm tắt giáo trình, biến slide bài giảng thành sơ đồ tư duy trực quan,
-                phòng học nhóm đồng bộ thời gian thực và những trận đấu câu hỏi ôn tập kịch tính.
-              </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button
-                  onClick={openLogin}
-                  className="primary-button cursor-pointer"
-                >
-                  Bắt đầu học ngay →
-                </button>
-                <button onClick={handleGuestLogin} className="secondary-button justify-center cursor-pointer">
-                  Xem bản trải nghiệm
-                </button>
+          <div className="relative mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+            <div className="grid gap-12 lg:grid-cols-12 lg:items-center lg:gap-10">
+              {/* Cột trái: Tiêu đề ngắn, mạnh + 2 nút + Dòng "Dưới 5 giây" ngay sát hero */}
+              <div className="lg:col-span-6">
+                <div className="inline-flex flex-wrap items-center gap-2 rounded-full bg-teal-100/90 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-700 px-4 py-1.5 text-sm font-bold text-teal-900 dark:text-teal-200">
+                  <span className="h-2.5 w-2.5 rounded-full bg-teal-500 animate-ping" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-teal-600 -ml-4" />
+                  <span>Nền tảng học tập AI cho sinh viên đại học</span>
+                </div>
+
+                <h1 className="mt-6 text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.12]">
+                  Đọc giáo trình{" "}
+                  <span className="inline-block rounded-2xl bg-teal-500/15 dark:bg-teal-500/25 px-3 py-0.5 text-teal-700 dark:text-teal-300">
+                    nhanh gấp 5 lần.
+                  </span>{" "}
+                  Học nhóm vui như ngồi cạnh nhau.
+                </h1>
+
+                <p className="mt-6 max-w-xl text-lg sm:text-xl leading-relaxed text-slate-600 dark:text-slate-300 font-medium">
+                  Tải lên file PDF, PPTX hay DOCX — AI tóm tắt ngay thành{" "}
+                  <strong className="text-slate-900 dark:text-white">sơ đồ tư duy có trích dẫn trang</strong>, mở phòng học đồng bộ slide và tạo đề trắc nghiệm đua top cùng hội bạn.
+                </p>
+
+                {/* Hai nút hành động chính theo yêu cầu */}
+                <div className="mt-8 flex flex-col gap-3.5 sm:flex-row sm:items-center">
+                  <button
+                    onClick={openLogin}
+                    className="inline-flex items-center justify-center gap-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white px-7 py-4 text-base sm:text-lg font-extrabold shadow-lg shadow-teal-600/25 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+                  >
+                    <span>Bắt đầu học ngay</span>
+                    <ArrowRight className="h-5 w-5" strokeWidth={2.5} />
+                  </button>
+                  <button
+                    onClick={handleGuestLogin}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 px-6 py-4 text-base sm:text-lg font-bold transition-all cursor-pointer"
+                  >
+                    <span>Dùng thử không cần đăng ký</span>
+                  </button>
+                </div>
+
+                {/* Dòng số liệu "Dưới 5 giây" & "Hỗ trợ AI 24/7" đặt ngay sát dưới nút Hero */}
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <div className="inline-flex items-center gap-2 rounded-2xl bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 px-4 py-2 text-sm sm:text-base font-extrabold text-slate-900 dark:text-amber-200">
+                    <Zap className="h-5 w-5 text-amber-600 dark:text-amber-400 fill-amber-500 shrink-0" />
+                    <span>Dưới 5 giây để xử lý xong giáo trình</span>
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-2xl bg-violet-100 dark:bg-violet-950/70 border border-violet-300 dark:border-violet-700 px-4 py-2 text-sm sm:text-base font-bold text-violet-950 dark:text-violet-200">
+                    <Bot className="h-5 w-5 text-violet-600 dark:text-violet-400 shrink-0" />
+                    <span>Hỗ trợ AI 24/7 • Trích dẫn chuẩn từng trang</span>
+                  </div>
+                </div>
               </div>
 
-              {/* 3 Huy hiệu kiểm chứng (Trust Badges) */}
-              <div className="mt-8 pt-6 border-t border-[#e1edff] dark:border-[#2a2a3a] flex flex-wrap items-center gap-x-6 gap-y-2.5 text-xs font-normal text-[#111118]/80 dark:text-[#f0f6ff]/80">
-                <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-[#16ab59] text-white flex items-center justify-center text-[10px] border border-[#111118]">✓</span>
-                  <span>Tự động vẽ Mindmap &amp; Chat RAG</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-[#16ab59] text-white flex items-center justify-center text-[10px] border border-[#111118]">✓</span>
-                  <span>Đồng bộ Slide nhóm thời gian thực</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-[#16ab59] text-white flex items-center justify-center text-[10px] border border-[#111118]">✓</span>
-                  <span>Thi đấu trắc nghiệm có xếp hạng</span>
-                </div>
+              {/* Cột phải: Vùng Demo Động kéo thả PDF -> tự vẽ sơ đồ tư duy */}
+              <div className="lg:col-span-6">
+                <ClassroomHeroAnimation />
               </div>
-            </div>
-
-            <div className="lg:col-span-5">
-              <ClassroomHeroAnimation />
             </div>
           </div>
         </section>
 
-        {/* 2. Dải thông số nổi bật */}
-        <section className="border-y border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff]/50 dark:bg-[#1b1b26]/50 py-8 transition-colors duration-150">
-          <div className="max-w-[1200px] mx-auto px-5 sm:px-8 grid grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="p-5 sm:p-6 rounded-[24px] bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
-              <div className="font-mono text-2xl font-normal text-[#0b7a75] dark:text-[#2dd4bf]">&lt; 5 giây</div>
-              <p className="mt-1.5 text-xs sm:text-sm text-[#111118]/80 dark:text-[#f0f6ff]/80 font-normal">Bóc tách PDF/PPTX &amp; tạo tóm tắt AI</p>
-            </div>
-            <div className="p-5 sm:p-6 rounded-[24px] bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
-              <div className="font-mono text-2xl font-normal text-[#0b7a75] dark:text-[#2dd4bf]">Thời gian thực</div>
-              <p className="mt-1.5 text-xs sm:text-sm text-[#111118]/80 dark:text-[#f0f6ff]/80 font-normal">Đồng bộ lật Slide &amp; ghi chú nhóm</p>
-            </div>
-            <div className="p-5 sm:p-6 rounded-[24px] bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
-              <div className="font-mono text-2xl font-normal text-[#0b7a75] dark:text-[#2dd4bf]">Tự động hóa</div>
-              <p className="mt-1.5 text-xs sm:text-sm text-[#111118]/80 dark:text-[#f0f6ff]/80 font-normal">Sinh sơ đồ Mindmap &amp; bộ đề trắc nghiệm</p>
-            </div>
-            <div className="p-5 sm:p-6 rounded-[24px] bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
-              <div className="font-mono text-2xl font-normal text-[#0b7a75] dark:text-[#2dd4bf]">24/7 AI Tutor</div>
-              <p className="mt-1.5 text-xs sm:text-sm text-[#111118]/80 dark:text-[#f0f6ff]/80 font-normal">Trợ lý RAG giải đáp sát nội dung tài liệu</p>
-            </div>
-          </div>
-        </section>
-
-        {/* 3. Section Tính năng: 3 Phân hệ Cốt lõi */}
-        <section id="tinh-nang" className="py-20 scroll-mt-20 max-w-[1200px] mx-auto px-5 sm:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16 sm:mb-20">
-            <span className="inline-flex items-center px-4 py-1.5 rounded-[5000px] text-xs font-normal bg-[#e1edff] dark:bg-[#242436] text-[#0b7a75] dark:text-[#2dd4bf] border border-[#111118]">
-              Tính năng nổi bật
-            </span>
-            <h2 className="mt-3 text-3xl sm:text-4xl font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff]">
-              Học nhóm hiệu quả hơn mỗi ngày
-            </h2>
-            <p className="mt-3 text-sm sm:text-base text-[#111118]/70 dark:text-[#f0f6ff]/70 leading-relaxed font-normal">
-              Đọc hiểu tài liệu nhanh hơn, thảo luận bài vở cùng bạn bè và ôn thi hứng thú hơn.
-            </p>
-          </div>
-
-          {/* Khối Tính năng 1: Quản lý Tài liệu AI & Sơ đồ tư duy */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center mb-24">
-            <div className="lg:col-span-6">
-              <span className="inline-flex items-center px-3.5 py-1 rounded-[5000px] text-xs font-normal bg-[#91d8ec] text-[#111118] border border-[#111118]">
-                Tài liệu &amp; Sơ đồ tư duy
+        {/* ─── 2. HÌNH ẢNH GẦN GŨI: SINH VIÊN HỌC NHÓM + MOCKUP PHÒNG HỌC ────── */}
+        <section
+          id="hoc-nhom"
+          className="reveal-on-scroll py-20 bg-teal-50/50 dark:bg-slate-900/50 border-y border-teal-100 dark:border-slate-800 scroll-mt-20"
+        >
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+            <div className="max-w-3xl mb-12">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-100 dark:bg-pink-950/80 border border-pink-300 dark:border-pink-800 px-4 py-1 text-sm font-bold text-pink-800 dark:text-pink-200">
+                <Users className="h-4 w-4" />
+                <span>Không còn học một mình cô đơn</span>
               </span>
-              <h3 className="mt-3 text-2xl sm:text-3xl font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff] leading-snug">
-                Đọc hiểu giáo trình dày cộp chỉ trong vài phút
-              </h3>
-              <p className="mt-4 text-sm sm:text-base text-[#111118]/70 dark:text-[#f0f6ff]/70 leading-relaxed font-normal">
-                Không còn cảnh đọc lướt hàng chục trang PDF hay slide chữ dày đặc. PeerMind tự động phân tích cấu trúc tài liệu, trích xuất khái niệm cốt lõi và dựng thành sơ đồ tư duy trực quan cho bạn.
+              <h2 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
+                Gần gũi như ngồi chung bàn thư viện cùng hội bạn thân
+              </h2>
+              <p className="mt-4 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                Dù mỗi người ở một nơi, cả nhóm vẫn cùng lật từng trang slide, tô sáng công thức quan trọng và nhắn tin thảo luận rôm rả ngay trên tài liệu.
               </p>
-              <div className="mt-6 space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#ffda00] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0 mt-0.5 shadow-[0_2px_0_0_#111118]">
-                    <Network className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <strong className="text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">Tự động vẽ Mindmap:</strong>
-                    <span className="text-sm text-[#111118]/70 dark:text-[#f0f6ff]/70 ml-1 font-normal">Chuyển đổi văn bản phức tạp thành cây sơ đồ tư duy dễ nhớ.</span>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#91d8ec] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0 mt-0.5 shadow-[0_2px_0_0_#111118]">
-                    <Bot className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <strong className="text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">Trợ lý Chat hỏi đáp:</strong>
-                    <span className="text-sm text-[#111118]/70 dark:text-[#f0f6ff]/70 ml-1 font-normal">Đặt câu hỏi trực tiếp trên tài liệu, nhận câu trả lời kèm trích dẫn chính xác bài học.</span>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#ffbac4] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0 mt-0.5 shadow-[0_2px_0_0_#111118]">
-                    <FileText className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <strong className="text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">Hỗ trợ đa định dạng:</strong>
-                    <span className="text-sm text-[#111118]/70 dark:text-[#f0f6ff]/70 ml-1 font-normal">Tải lên mượt mà các file <code className="text-xs bg-[#e1edff] dark:bg-[#242436] px-1.5 py-0.5 rounded-md font-mono">PDF</code>, <code className="text-xs bg-[#e1edff] dark:bg-[#242436] px-1.5 py-0.5 rounded-md font-mono">PPTX</code>, <code className="text-xs bg-[#e1edff] dark:bg-[#242436] px-1.5 py-0.5 rounded-md font-mono">DOCX</code>.</span>
-                  </div>
-                </div>
-              </div>
             </div>
 
-            {/* Mockup Preview 1 */}
-            <div className="lg:col-span-6">
-              <div className="rounded-[24px] border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] p-6 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] relative overflow-hidden">
-                <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#e1edff] dark:border-[#2a2a3a] text-xs">
-                  <span className="font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70 text-xs">Phân tích tài liệu &amp; Sơ đồ tư duy</span>
-                  <span className="text-[10px] font-mono text-[#111118] dark:text-[#f0f6ff] bg-[#e1edff] dark:bg-[#242436] px-2.5 py-0.5 rounded-[5000px] border border-[#111118] font-normal">Tự động hóa</span>
+            <div className="grid gap-8 lg:grid-cols-12 lg:items-stretch">
+              {/* Cột Trái (5 cột): Khu vực Ảnh / Illustration Sinh viên học nhóm có Placeholder kích thước rõ ràng */}
+              <div className="lg:col-span-5 flex flex-col justify-between rounded-[2rem] border-2 border-dashed border-teal-400 dark:border-teal-600 bg-gradient-to-b from-amber-50/90 via-white to-teal-50/80 dark:from-slate-800 dark:via-slate-900 dark:to-teal-950/40 p-6 sm:p-7 shadow-sm relative overflow-hidden">
+                {/* Ghi chú kích thước ảnh rõ ràng để người dùng thay bằng ảnh thật */}
+                <div className="flex items-center justify-between gap-2 rounded-2xl bg-white/95 dark:bg-slate-800 border border-teal-200 dark:border-slate-700 px-3.5 py-2 text-xs font-bold text-teal-800 dark:text-teal-300 shadow-2xs">
+                  <span className="flex items-center gap-1.5">
+                    <ImageIcon className="h-4 w-4 text-teal-600 shrink-0" />
+                    <span>Khu vực ảnh sinh viên học nhóm</span>
+                  </span>
+                  <span className="rounded-lg bg-amber-200 text-slate-900 px-2 py-0.5 font-mono text-[11px]">
+                    800 × 600px (4:3)
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-                  {/* File card */}
-                  <div className="sm:col-span-5 bg-[#f0f6ff] dark:bg-[#242436]/60 border border-[#e1edff] dark:border-[#2a2a3a] rounded-[16px] p-3 relative overflow-hidden">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-[5000px] bg-[#ffbac4] text-[#111118] border border-[#111118]">PDF</span>
-                      <span className="text-[10px] font-mono text-[#111118]/60 dark:text-[#f0f6ff]/60">42 trang</span>
-                    </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-[#111118] dark:text-[#f0f6ff] shrink-0" />
-                      <span className="text-xs font-normal text-[#111118] dark:text-[#f0f6ff] truncate">Giao_trinh_Giai_tich_1.pdf</span>
-                    </div>
-                    <div className="mt-3 relative h-1.5 w-full bg-[#e1edff] dark:bg-[#2a2a3a] rounded-full overflow-hidden">
-                      <div className="h-full bg-[#0b7a75] dark:bg-[#2dd4bf] w-3/4 rounded-full" />
-                    </div>
-                    <span className="text-[10px] text-[#0b7a75] dark:text-[#2dd4bf] font-normal mt-1.5 block">Đã hoàn thành phân tích</span>
-                  </div>
+                {/* Minh họa SVG ấm áp: 3 bạn sinh viên đại học cười nói bên laptop & ly trà sữa/cà phê */}
+                <div className="my-6 flex flex-col items-center justify-center text-center">
+                  <svg
+                    viewBox="0 0 420 250"
+                    className="w-full max-w-[360px] h-auto drop-shadow-xs"
+                    role="img"
+                    aria-label="Minh họa nhóm sinh viên đang học chung vui vẻ"
+                  >
+                    <rect x="20" y="190" width="380" height="22" rx="11" fill="#0d9488" opacity="0.18" />
+                    <circle cx="105" cy="95" r="34" fill="#fde68a" stroke="#0f172a" strokeWidth="3" />
+                    <path d="M75 85 C75 55, 135 55, 135 85" fill="#1e293b" />
+                    <circle cx="95" cy="96" r="3.5" fill="#0f172a" />
+                    <circle cx="115" cy="96" r="3.5" fill="#0f172a" />
+                    <path d="M97 108 Q105 116 113 108" stroke="#0f172a" strokeWidth="3" fill="none" strokeLinecap="round" />
+                    <path d="M62 190 C62 145, 148 145, 148 190 Z" fill="#f43f5e" stroke="#0f172a" strokeWidth="3" />
 
-                  {/* Arrow transform icon */}
-                  <div className="sm:col-span-2 flex justify-center py-2 sm:py-0">
-                    <div className="w-8 h-8 rounded-full bg-[#ffda00] text-[#111118] border border-[#111118] flex items-center justify-center shadow-[0_2px_0_0_#111118]">
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                  </div>
+                    <circle cx="215" cy="82" r="36" fill="#fed7aa" stroke="#0f172a" strokeWidth="3" />
+                    <path d="M180 72 C185 45, 245 45, 250 72" fill="#0f172a" />
+                    <circle cx="204" cy="84" r="3.5" fill="#0f172a" />
+                    <circle cx="226" cy="84" r="3.5" fill="#0f172a" />
+                    <path d="M206 98 Q215 107 224 98" stroke="#0f172a" strokeWidth="3" fill="none" strokeLinecap="round" />
+                    <path d="M165 190 C165 138, 265 138, 265 190 Z" fill="#14b8a6" stroke="#0f172a" strokeWidth="3" />
 
-                  {/* Mindmap branches */}
-                  <div className="sm:col-span-5 flex flex-col gap-2">
-                    <div className="bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] text-xs font-normal px-3 py-1.5 rounded-[5000px] text-center border border-[#111118] shadow-[0_2px_0_0_#111118]">
-                      Kiến thức cốt lõi
-                    </div>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <div className="bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] text-[11px] font-normal p-1.5 rounded-[12px] text-center">
-                        Định lý Fubini
-                      </div>
-                      <div className="bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] text-[11px] font-normal p-1.5 rounded-[12px] text-center">
-                        Tích phân kép
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                    <circle cx="320" cy="96" r="33" fill="#fde68a" stroke="#0f172a" strokeWidth="3" />
+                    <path d="M288 86 C292 56, 348 56, 352 86" fill="#334155" />
+                    <rect x="302" y="88" width="14" height="10" rx="3" fill="none" stroke="#0f172a" strokeWidth="2.5" />
+                    <rect x="322" y="88" width="14" height="10" rx="3" fill="none" stroke="#0f172a" strokeWidth="2.5" />
+                    <line x1="316" y1="93" x2="322" y2="93" stroke="#0f172a" strokeWidth="2.5" />
+                    <path d="M312 110 Q320 117 328 110" stroke="#0f172a" strokeWidth="3" fill="none" strokeLinecap="round" />
+                    <path d="M278 190 C278 146, 362 146, 362 190 Z" fill="#a855f7" stroke="#0f172a" strokeWidth="3" />
 
-                {/* AI Chat Box snippet */}
-                <div className="mt-3.5 bg-[#f0f6ff] dark:bg-[#242436]/60 border border-[#e1edff] dark:border-[#2a2a3a] rounded-[16px] p-3 text-xs">
-                  <div className="flex items-center gap-1.5 text-[#0b7a75] dark:text-[#2dd4bf] font-normal text-xs mb-1">
-                    <Bot className="w-3.5 h-3.5" />
-                    <span>Trợ lý PeerMind</span>
-                    <span className="text-[10px] text-[#111118]/50 dark:text-[#f0f6ff]/50 font-mono ml-auto">Trang 18 • 10:28</span>
-                  </div>
-                  <p className="text-[#111118]/80 dark:text-[#f0f6ff]/80 text-[11px] leading-relaxed font-normal">
-                    Mình đã tóm tắt 12 khái niệm chính từ tài liệu của bạn. Bạn có thể nhấn vào bất kỳ nhánh nào trên sơ đồ để xem thêm ví dụ giải thích chi tiết.
+                    <rect x="165" y="142" width="96" height="52" rx="8" fill="#ffffff" stroke="#0f172a" strokeWidth="3" />
+                    <circle cx="213" cy="168" r="8" fill="#14b8a6" />
+                    <rect x="150" y="190" width="126" height="8" rx="4" fill="#0f172a" />
+
+                    <rect x="85" y="162" width="24" height="28" rx="5" fill="#fbbf24" stroke="#0f172a" strokeWidth="2.5" />
+                  </svg>
+
+                  <p className="mt-2 text-base font-bold text-slate-900 dark:text-white">
+                    “Học chung với bạn bè giúp nhớ bài lâu hơn 70%”
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                    Placeholder rõ ràng — Thay ảnh chụp nhóm sinh viên thực tế kích thước <strong>800×600px</strong> (JPG/WebP) để tăng độ chân thật.
                   </p>
                 </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Khối Tính năng 2: Real-time Workspace (Đảo vị trí: Mockup Bên Trái, Nội dung Bên Phải) */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center mb-24">
-            {/* Mockup Preview 2 (Bên trái trên màn hình lớn) */}
-            <div className="lg:col-span-6 order-2 lg:order-1">
-              <div className="rounded-[24px] border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] p-6 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] relative overflow-hidden">
-                <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#e1edff] dark:border-[#2a2a3a] text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-normal text-[#111118] dark:text-[#f0f6ff] text-xs">Phòng Giải tích 1</span>
-                    <span className="font-mono text-[10px] bg-[#e1edff] dark:bg-[#242436] text-[#0b7a75] dark:text-[#2dd4bf] px-2.5 py-0.5 rounded-[5000px] border border-[#111118]">Mã: 248411</span>
+                {/* Cụm Avatar bạn bè đang online */}
+                <div className="rounded-2xl bg-white/95 dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 p-4 flex items-center justify-between gap-3">
+                  <div className="flex -space-x-2.5">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-teal-500 text-white text-sm font-extrabold ring-2 ring-white dark:ring-slate-900">
+                      MA
+                    </span>
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-amber-400 text-slate-950 text-sm font-extrabold ring-2 ring-white dark:ring-slate-900">
+                      HĐ
+                    </span>
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-rose-500 text-white text-sm font-extrabold ring-2 ring-white dark:ring-slate-900">
+                      TV
+                    </span>
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-violet-500 text-white text-sm font-extrabold ring-2 ring-white dark:ring-slate-900">
+                      +3
+                    </span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-[#16ab59] font-normal">
-                    <span className="w-2 h-2 rounded-full bg-[#16ab59] border border-[#111118]" />
-                    <span>4 bạn đang online</span>
-                  </div>
-                </div>
-
-                {/* Slide Canvas Mockup */}
-                <div className="bg-[#f0f6ff] dark:bg-[#242436]/60 rounded-[20px] border border-[#e1edff] dark:border-[#2a2a3a] p-4 sm:p-5 relative min-h-[220px] flex flex-col justify-between overflow-hidden">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono text-[#111118]/60 dark:text-[#f0f6ff]/60">SLIDE 04 / 18</span>
-                      <span className="text-[10px] font-normal text-[#111118] bg-[#91d8ec] px-2 py-0.5 rounded-[5000px] border border-[#111118]">Đang trình chiếu</span>
-                    </div>
-                    <h4 className="font-normal text-[#111118] dark:text-[#f0f6ff] text-sm sm:text-base mt-2">
-                      Cấu trúc Dữ liệu &amp; Giải thuật: Đồ thị (Graph Theory)
-                    </h4>
-                    <p className="text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 mt-1 max-w-sm font-normal">
-                      Thuật toán Dijkstra tìm đường đi ngắn nhất từ một đỉnh nguồn đến tất cả các đỉnh còn lại trong đồ thị có trọng số không âm.
+                  <div className="text-right">
+                    <p className="text-sm font-extrabold text-slate-900 dark:text-white">
+                      Nhóm Ôn Thi Kinh Tế Vĩ Mô
+                    </p>
+                    <p className="text-xs font-semibold text-teal-600 dark:text-teal-400">
+                      ● 6 bạn đang cùng xem Slide trang 8
                     </p>
                   </div>
-
-                  {/* Sticky note */}
-                  <div className="absolute top-8 right-3 bg-[#ffda00] border border-[#111118] text-[#111118] p-2.5 rounded-[12px] shadow-[0_2px_0_0_#111118] text-[11px] font-normal rotate-2 max-w-[150px]">
-                    📌 <span>Lưu ý:</span> Đề thi giữa kỳ có thể rơi vào phần này!
-                  </div>
-
-                  {/* Floating Live Cursors */}
-                  <div className="relative h-14 mt-4">
-                    <div className="absolute left-6 top-1 flex items-center gap-1">
-                      <MousePointer2 className="w-3.5 h-3.5 text-[#0b7a75] fill-[#0b7a75]" />
-                      <span className="bg-[#91d8ec] text-[#111118] border border-[#111118] text-[10px] font-normal px-2 py-0.5 rounded-[5000px] shadow-[0_1px_0_0_#111118]">Hà My</span>
-                    </div>
-                    <div className="absolute left-1/2 top-4 flex items-center gap-1">
-                      <MousePointer2 className="w-3.5 h-3.5 text-[#ff4141] fill-[#ff4141]" />
-                      <span className="bg-[#ffbac4] text-[#111118] border border-[#111118] text-[10px] font-normal px-2 py-0.5 rounded-[5000px] shadow-[0_1px_0_0_#111118]">Minh Anh</span>
-                    </div>
-                  </div>
-
-                  {/* Floating Toolbar mockup */}
-                  <div className="mx-auto bg-white dark:bg-[#1b1b26] border border-[#111118] shadow-[0_2px_0_0_#111118] rounded-[5000px] px-3.5 py-1.5 flex items-center gap-3">
-                    <span className="text-[10px] text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono">Trang 4/18</span>
-                    <div className="h-3 w-[1px] bg-[#e1edff] dark:bg-[#2a2a3a]" />
-                    <div className="flex items-center gap-2 text-[#111118] dark:text-[#f0f6ff]">
-                      <Highlighter className="w-3.5 h-3.5 text-[#0b7a75] dark:text-[#2dd4bf]" />
-                      <StickyNote className="w-3.5 h-3.5 text-[#ffda00]" />
-                      <span className="text-[10px] bg-[#e1edff] dark:bg-[#242436] text-[#0b7a75] dark:text-[#2dd4bf] px-2 py-0.5 rounded-[5000px] border border-[#111118] font-normal">Giơ tay (1)</span>
-                    </div>
-                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Cột Nội dung (Bên phải trên màn hình lớn) */}
-            <div className="lg:col-span-6 order-1 lg:order-2">
-              <span className="inline-flex items-center px-3.5 py-1 rounded-[5000px] text-xs font-normal bg-[#ffda00] text-[#111118] border border-[#111118]">
-                Phòng học nhóm trực tuyến
-              </span>
-              <h3 className="mt-3 text-2xl sm:text-3xl font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff] leading-snug">
-                Học nhóm trực tuyến sống động như ngồi chung một bàn
-              </h3>
-              <p className="mt-4 text-sm sm:text-base text-[#111118]/70 dark:text-[#f0f6ff]/70 leading-relaxed font-normal">
-                Mở phòng học nhanh chóng bằng mã số. Khi bạn lật trang slide hay ghi chú kiến thức trọng tâm, màn hình của mọi thành viên trong nhóm sẽ được đồng bộ ngay tức khắc.
-              </p>
-              <div className="mt-6 space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#91d8ec] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0 mt-0.5 shadow-[0_2px_0_0_#111118]">
-                    <Presentation className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <strong className="text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">Đồng bộ Slide thời gian thực:</strong>
-                    <span className="text-sm text-[#111118]/70 dark:text-[#f0f6ff]/70 ml-1 font-normal">Mọi người luôn xem cùng một nội dung bài học.</span>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#ffda00] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0 mt-0.5 shadow-[0_2px_0_0_#111118]">
-                    <StickyNote className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <strong className="text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">Ghi chú &amp; Highlight trực tiếp:</strong>
-                    <span className="text-sm text-[#111118]/70 dark:text-[#f0f6ff]/70 ml-1 font-normal">Cùng nhau dán ghi chú và đánh dấu các công thức quan trọng trên slide.</span>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#ffbac4] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0 mt-0.5 shadow-[0_2px_0_0_#111118]">
-                    <Users className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <strong className="text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">Trò chuyện nhóm liền mạch:</strong>
-                    <span className="text-sm text-[#111118]/70 dark:text-[#f0f6ff]/70 ml-1 font-normal">Khung chat tích hợp cạnh slide giúp trao đổi bài tập nhanh chóng.</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Khối Tính năng 3: Gamified Quiz Arena */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-            <div className="lg:col-span-6">
-              <span className="inline-flex items-center px-3.5 py-1 rounded-[5000px] text-xs font-normal bg-[#ffbac4] text-[#111118] border border-[#111118]">
-                Đấu trí câu hỏi ôn tập
-              </span>
-              <h3 className="mt-3 text-2xl sm:text-3xl font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff] leading-snug">
-                Cùng bạn bè ôn bài qua những ván đấu trắc nghiệm
-              </h3>
-              <p className="mt-4 text-sm sm:text-base text-[#111118]/70 dark:text-[#f0f6ff]/70 leading-relaxed font-normal">
-                Từ tài liệu đã học, hệ thống hỗ trợ sinh bộ đề trắc nghiệm có lời giải thích. Bạn chỉ cần chia sẻ mã phòng 6 số để cùng bạn bè thi đấu tính điểm và xem bảng xếp hạng.
-              </p>
-              <div className="mt-6 space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#16ab59] text-white border border-[#111118] flex items-center justify-center shrink-0 mt-0.5 shadow-[0_2px_0_0_#111118]">
-                    <Zap className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <strong className="text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">Tạo bộ đề nhanh chóng:</strong>
-                    <span className="text-sm text-[#111118]/70 dark:text-[#f0f6ff]/70 ml-1 font-normal">Tự động soạn các câu trắc nghiệm bám sát nội dung từng chương.</span>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#ffda00] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0 mt-0.5 shadow-[0_2px_0_0_#111118]">
-                    <Timer className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <strong className="text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">Đếm ngược kịch tính:</strong>
-                    <span className="text-sm text-[#111118]/70 dark:text-[#f0f6ff]/70 ml-1 font-normal">Đồng hồ đếm ngược từng giây kết hợp tính điểm theo tốc độ phản xạ.</span>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#91d8ec] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0 mt-0.5 shadow-[0_2px_0_0_#111118]">
-                    <Trophy className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <strong className="text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">Bảng xếp hạng trực tiếp:</strong>
-                    <span className="text-sm text-[#111118]/70 dark:text-[#f0f6ff]/70 ml-1 font-normal">Vinh danh thứ tự dẫn đầu ngay sau mỗi câu hỏi kèm đáp án rõ ràng.</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Mockup Preview 3 */}
-            <div className="lg:col-span-6">
-              <div className="rounded-[24px] border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] p-6 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] relative overflow-hidden">
-                <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#e1edff] dark:border-[#2a2a3a] text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-normal text-[#111118] dark:text-[#f0f6ff] text-xs">Phòng thi #849201</span>
-                    <span className="font-mono text-[10px] bg-[#e1edff] dark:bg-[#242436] text-[#0b7a75] dark:text-[#2dd4bf] px-2.5 py-0.5 rounded-[5000px] border border-[#111118]">12 bạn tham gia</span>
-                  </div>
-                  <div className="flex items-center gap-1 font-mono text-xs text-[#111118] bg-[#ffda00] border border-[#111118] px-2.5 py-0.5 rounded-[5000px]">
-                    <Timer className="w-3.5 h-3.5" />
-                    <span>00:08s</span>
-                  </div>
-                </div>
-
-                {/* Quiz Card */}
-                <div className="bg-[#f0f6ff] dark:bg-[#242436]/60 rounded-[20px] border border-[#e1edff] dark:border-[#2a2a3a] p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-normal bg-[#91d8ec] text-[#111118] px-2 py-0.5 rounded-[5000px] border border-[#111118]">CÂU HỎI 05/10</span>
-                    <span className="text-[10px] font-mono text-[#111118]/60 dark:text-[#f0f6ff]/60">15 giây</span>
-                  </div>
-                  <p className="text-xs sm:text-sm font-normal text-[#111118] dark:text-[#f0f6ff] mt-2">
-                    Độ phức tạp thời gian của thuật toán tìm kiếm nhị phân (Binary Search) là:
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 mt-3">
-                    <div className="p-2.5 rounded-[12px] border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] text-xs font-normal text-[#111118] dark:text-[#f0f6ff]">
-                      A. O(n)
+              {/* Cột Phải (7 cột): Mockup Phòng Học Nhóm */}
+              <div className="lg:col-span-7 relative flex flex-col justify-between">
+                <div className="rounded-[2rem] border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
+                  {/* Browser Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/90 px-5 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="h-3.5 w-3.5 rounded-full bg-rose-400" />
+                      <span className="h-3.5 w-3.5 rounded-full bg-amber-400" />
+                      <span className="h-3.5 w-3.5 rounded-full bg-teal-400" />
+                      <span className="ml-2 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200">
+                        Phòng học #248411 • Đồng bộ Slide trực tiếp
+                      </span>
                     </div>
-                    {/* Trạng thái đúng: nền #16ab59, chữ trắng, kèm icon ✓ và viền 2px #111118 */}
-                    <div className="p-2.5 rounded-[12px] border-2 border-[#111118] bg-[#16ab59] text-xs font-normal text-white flex items-center justify-between shadow-[0_2px_0_0_#111118]">
-                      <span>B. O(log n)</span>
-                      <span className="text-[10px] font-mono font-normal bg-white text-[#111118] px-1.5 py-0.5 rounded-[5000px] border border-[#111118]">✓ +950 đ</span>
-                    </div>
-                    <div className="p-2.5 rounded-[12px] border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] text-xs font-normal text-[#111118] dark:text-[#f0f6ff]">
-                      C. O(n²)
-                    </div>
-                    <div className="p-2.5 rounded-[12px] border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] text-xs font-normal text-[#111118] dark:text-[#f0f6ff]">
-                      D. O(1)
-                    </div>
-                  </div>
-                </div>
-
-                {/* Leaderboard Top 3 */}
-                <div className="mt-3 bg-[#f0f6ff] dark:bg-[#242436]/60 border border-[#e1edff] dark:border-[#2a2a3a] rounded-[20px] p-3">
-                  <div className="text-[11px] font-normal text-[#111118] dark:text-[#f0f6ff] mb-2 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Trophy className="w-3.5 h-3.5 text-[#0b7a75] dark:text-[#2dd4bf]" />
-                      Bảng xếp hạng vòng 5
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-200 px-3 py-1 text-xs font-extrabold">
+                      <span className="h-2 w-2 rounded-full bg-teal-500 animate-ping" />
+                      <span>Đang đồng bộ 100%</span>
                     </span>
-                    <span className="text-[10px] text-[#0b7a75] dark:text-[#2dd4bf] font-mono">Tự động cập nhật</span>
                   </div>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs bg-white dark:bg-[#1b1b26] px-2.5 py-1.5 rounded-[12px] border border-[#111118] shadow-[0_1px_0_0_#111118]">
-                      <span className="text-[#111118] dark:text-[#f0f6ff]">🥇 1. Minh Anh (Bạn)</span>
-                      <span className="font-mono text-[#0b7a75] dark:text-[#2dd4bf]">4,850 đ</span>
+
+                  {/* Nội dung phòng học: Slide bên trái + Tin nhắn nhóm bên phải */}
+                  <div className="grid grid-cols-1 md:grid-cols-12">
+                    <div className="md:col-span-7 p-5 sm:p-6 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between bg-slate-50/60 dark:bg-slate-900">
+                      <div>
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400 mb-3">
+                          <span className="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-1">
+                            SLIDE 08 / 24
+                          </span>
+                          <span className="text-teal-700 dark:text-teal-300">
+                            Người điều khiển: Minh Anh
+                          </span>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-2xs relative">
+                          <p className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">
+                            Chương 4: Cách tính GDP thực tế &amp; Lạm phát
+                          </p>
+                          <p className="mt-2 text-sm sm:text-base text-slate-700 dark:text-slate-200 leading-relaxed">
+                            GDP danh nghĩa tính theo giá hiện hành, còn{" "}
+                            <mark className="rounded bg-amber-200 dark:bg-amber-400/90 px-1.5 py-0.5 font-bold text-slate-950">
+                              GDP thực tế đã loại bỏ biến động giá
+                            </mark>{" "}
+                            để phản ánh đúng sản lượng hàng hóa.
+                          </p>
+
+                          <div className="mt-4 rounded-xl bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700 p-3 text-xs sm:text-sm font-semibold text-amber-950 dark:text-amber-200 rotate-1 shadow-xs">
+                            📌 <strong>Ghi chú của Hải Đăng:</strong> Nhớ phân biệt rõ hệ số giảm phát GDP với chỉ số CPI nhé cả nhà!
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700">
+                            <div className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400">
+                              <MousePointer2 className="h-4 w-4 fill-rose-500" />
+                              <span>Thảo Vy đang highlight</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                              <Highlighter className="h-4 w-4 text-amber-500" />
+                              <StickyNote className="h-4 w-4 text-teal-600" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-xs px-2.5 py-0.5 text-[#111118]/70 dark:text-[#f0f6ff]/70">
-                      <span>🥈 2. Hà My</span>
-                      <span className="font-mono">4,200 đ</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs px-2.5 py-0.5 text-[#111118]/70 dark:text-[#f0f6ff]/70">
-                      <span>🥉 3. Hoàng Nam</span>
-                      <span className="font-mono">3,910 đ</span>
+
+                    {/* Khu vực Avatar, Tên bạn bè & Tin nhắn ngắn trong phòng học */}
+                    <div className="md:col-span-5 p-5 bg-white dark:bg-slate-900 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <MessageCircle className="h-4 w-4 text-teal-600" />
+                            Trò chuyện nhóm
+                          </span>
+                          <span className="text-xs font-bold text-teal-600 dark:text-teal-400">
+                            4 bạn online
+                          </span>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-2.5">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500 text-white text-xs font-extrabold">
+                              MA
+                            </div>
+                            <div className="rounded-2xl rounded-tl-xs bg-slate-100 dark:bg-slate-800 px-3.5 py-2 text-xs sm:text-sm">
+                              <p className="font-extrabold text-teal-700 dark:text-teal-300">Minh Anh</p>
+                              <p className="text-slate-700 dark:text-slate-200 mt-0.5">
+                                Trang 8 này chắc chắn có trong đề thi giữa kỳ tuần sau nè!
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-2.5">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-400 text-slate-950 text-xs font-extrabold">
+                              HĐ
+                            </div>
+                            <div className="rounded-2xl rounded-tl-xs bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/70 px-3.5 py-2 text-xs sm:text-sm">
+                              <p className="font-extrabold text-amber-800 dark:text-amber-300">Hải Đăng</p>
+                              <p className="text-slate-700 dark:text-slate-200 mt-0.5">
+                                Mình vừa dán ghi chú công thức ngay dưới slide rồi nha ✍️
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-2.5">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white text-xs font-extrabold">
+                              TV
+                            </div>
+                            <div className="rounded-2xl rounded-tl-xs bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/70 px-3.5 py-2 text-xs sm:text-sm">
+                              <p className="font-extrabold text-rose-700 dark:text-rose-300">Thảo Vy</p>
+                              <p className="text-slate-700 dark:text-slate-200 mt-0.5">
+                                Xem xong chương này tụi mình bấm tạo 10 câu Quiz thi thử luôn đi! 🔥
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-slate-500">
+                        <span>Mã phòng: <strong className="text-slate-900 dark:text-white font-mono">248411</strong></span>
+                        <span className="text-teal-600 dark:text-teal-400 font-bold">Vào bằng 1 chạm →</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -764,113 +721,419 @@ export default function App() {
           </div>
         </section>
 
-        {/* 4. Section Hành trình học tập: Quy trình 3 Bước học tập cụ thể */}
-        <section id="hanh-trinh" className="py-20 bg-[#f0f6ff]/60 dark:bg-[#1b1b26]/30 border-t border-[#e1edff] dark:border-[#2a2a3a] scroll-mt-20">
-          <div className="mx-auto max-w-[1200px] px-5 sm:px-8">
-            <div className="text-center max-w-2xl mx-auto mb-16">
-              <span className="inline-flex items-center px-4 py-1.5 rounded-[5000px] text-xs font-normal bg-[#e1edff] dark:bg-[#242436] text-[#0b7a75] dark:text-[#2dd4bf] border border-[#111118]">
-                Hành trình 3 bước
+        {/* ─── 3. TRƯỚC / SAU: GIÁO TRÌNH 120 TRANG VS 1 SƠ ĐỒ + 10 CÂU HỎI ──── */}
+        <section
+          id="truoc-sau"
+          className="reveal-on-scroll py-20 lg:py-24 scroll-mt-20"
+        >
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+            <div className="text-center max-w-3xl mx-auto mb-14">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 px-4 py-1 text-sm font-extrabold text-amber-900 dark:text-amber-200">
+                <Sparkles className="h-4 w-4 text-amber-600" />
+                <span>Sự khác biệt rõ rệt ngay lần đầu dùng</span>
               </span>
-              <h2 className="mt-3 text-2xl sm:text-3xl font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff]">
-                Bắt đầu nhẹ nhàng chỉ với 3 bước
+              <h2 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                Tạm biệt cảnh bơi trong giáo trình dày cộp
               </h2>
-              <p className="mt-2 text-sm sm:text-base text-[#111118]/70 dark:text-[#f0f6ff]/70 leading-relaxed font-normal">
-                Quy trình tinh gọn từ lúc tải tài liệu đến khi sẵn sàng ôn thi cùng bạn bè.
+              <p className="mt-4 text-base sm:text-lg text-slate-600 dark:text-slate-300">
+                So sánh cách ôn thi truyền thống với trải nghiệm học tập thông minh trên PeerMind.
               </p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-3">
-              {stepCards.map((step) => {
+            <div className="grid gap-8 lg:grid-cols-12 lg:items-stretch">
+              {/* TRƯỚC: Giáo trình 120 trang */}
+              <div className="lg:col-span-5 rounded-[2rem] border-2 border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/80 p-6 sm:p-8 flex flex-col justify-between">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-slate-200 dark:bg-slate-800 px-3.5 py-1 text-xs sm:text-sm font-extrabold text-slate-700 dark:text-slate-300">
+                    <span>😩 TRƯỚC KHI DÙNG PEERMIND</span>
+                  </div>
+                  <h3 className="mt-4 text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100">
+                    Giáo trình 120 trang chữ dày đặc
+                  </h3>
+                  <p className="mt-2 text-base text-slate-600 dark:text-slate-400">
+                    Đọc trước quên sau, không biết trọng tâm nằm ở trang nào khi sát ngày thi.
+                  </p>
+
+                  <div className="mt-6 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 shadow-inner space-y-3">
+                    <div className="flex items-center justify-between text-xs font-mono font-bold text-rose-600 dark:text-rose-400">
+                      <span>📄 Giao_trinh_Toan_Tap.pdf (120 trang)</span>
+                      <span>Mất 4 - 5 tiếng</span>
+                    </div>
+                    <div className="space-y-2 opacity-60">
+                      <div className="h-2.5 w-full rounded bg-slate-300 dark:bg-slate-600" />
+                      <div className="h-2.5 w-11/12 rounded bg-slate-300 dark:bg-slate-600" />
+                      <div className="h-2.5 w-full rounded bg-slate-300 dark:bg-slate-600" />
+                      <div className="h-2.5 w-4/5 rounded bg-slate-300 dark:bg-slate-600" />
+                    </div>
+                    <div className="pt-2 flex flex-wrap gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      <span className="rounded-lg bg-slate-100 dark:bg-slate-700 px-2.5 py-1">❌ Chữ li ti khó nhớ</span>
+                      <span className="rounded-lg bg-slate-100 dark:bg-slate-700 px-2.5 py-1">❌ Tự soạn đề mất giờ</span>
+                      <span className="rounded-lg bg-slate-100 dark:bg-slate-700 px-2.5 py-1">❌ Học một mình dễ nản</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-sm font-bold text-slate-500">
+                  <span>Hiệu suất ghi nhớ thấp</span>
+                  <span>Quá tải thông tin</span>
+                </div>
+              </div>
+
+              {/* Mũi tên chuyển đổi ở giữa */}
+              <div className="lg:col-span-2 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-teal-600 text-white shadow-xl shadow-teal-600/30 rotate-90 lg:rotate-0">
+                    <ArrowRight className="h-8 w-8" strokeWidth={2.5} />
+                  </div>
+                  <span className="rounded-full bg-amber-300 text-slate-950 px-3 py-1 text-xs font-extrabold border border-slate-900">
+                    Dưới 5 giây
+                  </span>
+                </div>
+              </div>
+
+              {/* SAU: 1 sơ đồ + 10 câu hỏi ôn tập */}
+              <div className="lg:col-span-5 rounded-[2rem] border-2 border-teal-500 bg-gradient-to-br from-teal-50/90 via-white to-amber-50/60 dark:from-teal-950/40 dark:via-slate-900 dark:to-slate-900 p-6 sm:p-8 shadow-xl shadow-teal-600/10 flex flex-col justify-between relative">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-teal-600 text-white px-3.5 py-1 text-xs sm:text-sm font-extrabold">
+                    <Sparkles className="h-4 w-4" />
+                    <span>SAU KHI DÙNG PEERMIND</span>
+                  </div>
+                  <h3 className="mt-4 text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
+                    1 sơ đồ + 10 câu hỏi ôn tập
+                  </h3>
+                  <p className="mt-2 text-base text-slate-700 dark:text-slate-200">
+                    Toàn bộ 120 trang được cô đọng thành nhánh tư duy có gắn số trang và bộ câu hỏi trắc nghiệm sẵn sàng thi đấu.
+                  </p>
+
+                  <div className="mt-6 rounded-2xl border-2 border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 p-5 shadow-xs space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 text-sm font-extrabold text-teal-800 dark:text-teal-300">
+                        <Network className="h-4 w-4" />
+                        1 Sơ đồ tư duy toàn cảnh
+                      </span>
+                      <span className="rounded-full bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 px-2.5 py-0.5 text-xs font-bold">
+                        Có trích dẫn trang
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs font-bold">
+                      <div className="rounded-xl bg-teal-50 dark:bg-teal-950/70 border border-teal-300 dark:border-teal-700 p-2 text-teal-900 dark:text-teal-200">
+                        Chương 1<br />
+                        <span className="text-[11px] font-normal">Trang 1–35</span>
+                      </div>
+                      <div className="rounded-xl bg-amber-50 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 p-2 text-amber-900 dark:text-amber-200">
+                        Chương 2<br />
+                        <span className="text-[11px] font-normal">Trang 36–78</span>
+                      </div>
+                      <div className="rounded-xl bg-pink-50 dark:bg-pink-950/70 border border-pink-300 dark:border-pink-700 p-2 text-pink-900 dark:text-pink-200">
+                        Chương 3<br />
+                        <span className="text-[11px] font-normal">Trang 79–120</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-xl bg-violet-50 dark:bg-violet-950/60 border border-violet-200 dark:border-violet-800 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-violet-900 dark:text-violet-200">
+                      <span className="flex items-center gap-1.5">
+                        <Trophy className="h-4 w-4 text-amber-500" />
+                        <span>+ 10 câu hỏi trắc nghiệm trọng tâm</span>
+                      </span>
+                      <span className="text-teal-700 dark:text-teal-300">Sẵn sàng thi!</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-teal-200/80 dark:border-slate-800 flex items-center justify-between text-sm font-extrabold text-teal-700 dark:text-teal-300">
+                  <span>✓ Hiểu sâu bản chất trong 5 phút</span>
+                  <span>✓ Hỗ trợ AI 24/7</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ─── 4. TÍNH NĂNG: BENTO GRID + KHUNG TRÌNH DUYỆT & ĐIỆN THOẠI ────── */}
+        <section
+          id="tinh-nang"
+          className="reveal-on-scroll py-20 bg-slate-50/90 dark:bg-slate-900/40 border-y border-slate-200/80 dark:border-slate-800 scroll-mt-20"
+        >
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+            <div className="max-w-3xl mb-14">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-100 dark:bg-teal-950 border border-teal-300 dark:border-teal-700 px-4 py-1 text-sm font-extrabold text-teal-900 dark:text-teal-200">
+                <Flame className="h-4 w-4 text-teal-600" />
+                <span>3 mảnh ghép hoàn hảo cho sinh viên</span>
+              </span>
+              <h2 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                Mọi công cụ ôn tập trong một không gian tươi mới
+              </h2>
+              <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-slate-300">
+                Thiết kế trực quan, chữ to rõ ràng, dùng mượt trên cả máy tính lẫn điện thoại.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+              {/* Ô BENTO 1 (7 Cột - Xanh Ngọc): Tài liệu + AI kiểu NotebookLM */}
+              <div className="md:col-span-7 rounded-[2rem] border-2 border-teal-200 dark:border-teal-800/80 bg-gradient-to-br from-teal-50/90 via-white to-white dark:from-teal-950/40 dark:via-slate-900 dark:to-slate-900 p-6 sm:p-8 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-600 text-white px-3.5 py-1 text-xs sm:text-sm font-extrabold">
+                      <BookOpen className="h-4 w-4" />
+                      <span>1. Tài liệu + AI (Kiểu NotebookLM)</span>
+                    </span>
+                    <span className="rounded-full bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 px-3 py-1 text-xs font-bold">
+                      PDF • PPTX • DOCX
+                    </span>
+                  </div>
+
+                  <h3 className="mt-4 text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
+                    Tóm tắt, vẽ Mindmap &amp; trả lời kèm số trang trích dẫn
+                  </h3>
+                  <p className="mt-2 text-base text-slate-600 dark:text-slate-300">
+                    Đặt bất kỳ câu hỏi nào về bài học — AI giải thích dễ hiểu và chỉ rõ kiến thức nằm ở trang mấy trong giáo trình của bạn.
+                  </p>
+                </div>
+
+                {/* Minh họa nhỏ trong Khung Trình Duyệt */}
+                <div className="mt-6 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden shadow-xs">
+                  <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-900 px-4 py-2 border-b border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300">
+                    <span className="flex items-center gap-1.5">
+                      <Monitor className="h-3.5 w-3.5 text-teal-600" />
+                      <span>Khung trình duyệt • Hỏi đáp trích dẫn trang</span>
+                    </span>
+                    <span className="text-teal-600 dark:text-teal-400">Độ chính xác 99%</span>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100">
+                      <HelpCircle className="h-4 w-4 text-teal-600 shrink-0" />
+                      <span>“Sự khác nhau giữa Học có giám sát và Không giám sát là gì?”</span>
+                    </div>
+                    <div className="rounded-xl bg-teal-50/90 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 p-3.5 text-sm text-slate-700 dark:text-slate-200">
+                      <p>
+                        Học có giám sát dùng dữ liệu đã gán nhãn để dự đoán đầu ra, còn Học không giám sát tự tìm cấu trúc ẩn từ dữ liệu chưa gán nhãn.
+                      </p>
+                      <div className="mt-2.5 flex flex-wrap gap-2">
+                        <span className="inline-flex items-center gap-1 rounded-lg bg-teal-600 text-white px-2.5 py-0.5 text-xs font-bold">
+                          📄 Xem Trang 24
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-lg bg-amber-200 text-slate-900 px-2.5 py-0.5 text-xs font-bold">
+                          📄 Xem Slide 31
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ô BENTO 2 (5 Cột - Vàng Tươi): Tốc độ Dưới 5 giây & Hỗ trợ AI 24/7 */}
+              <div className="md:col-span-5 rounded-[2rem] border-2 border-amber-300 dark:border-amber-700/80 bg-gradient-to-br from-amber-50 via-amber-50/40 to-white dark:from-amber-950/30 dark:via-slate-900 dark:to-slate-900 p-6 sm:p-8 shadow-sm flex flex-col justify-between">
+                <div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-300 text-slate-950 px-3.5 py-1 text-xs sm:text-sm font-extrabold border border-slate-900/20">
+                    <Zap className="h-4 w-4 fill-slate-950" />
+                    <span>Tốc độ kỷ lục</span>
+                  </span>
+
+                  <h3 className="mt-4 text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
+                    Xử lý dưới 5 giây. Hỗ trợ AI 24/7.
+                  </h3>
+                  <p className="mt-2 text-base text-slate-600 dark:text-slate-300">
+                    Không phải chờ đợi lâu. Dù bạn ôn thi lúc 11 giờ trưa hay 2 giờ sáng, trợ lý AI luôn túc trực giải đáp tức thì.
+                  </p>
+                </div>
+
+                <div className="mt-6 rounded-2xl border-2 border-amber-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
+                  <div className="flex items-end justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Thời gian bóc tách trung bình
+                      </p>
+                      <p className="mt-1 font-mono text-4xl sm:text-5xl font-extrabold text-teal-600 dark:text-teal-400">
+                        3.2s
+                      </p>
+                    </div>
+                    <span className="rounded-xl bg-amber-200 text-slate-950 px-3 py-1.5 text-xs font-extrabold">
+                      ⚡ Mục tiêu &lt; 5 giây
+                    </span>
+                  </div>
+                  <div className="mt-4 h-3 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                    <div className="h-full w-4/5 rounded-full bg-gradient-to-r from-teal-500 to-amber-400" />
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300">
+                    <span>🤖 AI trực tuyến 24/7</span>
+                    <span>✓ Không giới hạn câu hỏi</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ô BENTO 3 (6 Cột - Hồng Tươi + Khung Điện Thoại): Kiểm tra trực tuyến & Bảng xếp hạng */}
+              <div className="md:col-span-6 rounded-[2rem] border-2 border-rose-200 dark:border-rose-800/80 bg-gradient-to-br from-rose-50/80 via-white to-white dark:from-rose-950/30 dark:via-slate-900 dark:to-slate-900 p-6 sm:p-8 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500 text-white px-3.5 py-1 text-xs sm:text-sm font-extrabold">
+                      <Trophy className="h-4 w-4" />
+                      <span>3. Kiểm tra trực tuyến &amp; Xếp hạng</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-700 dark:text-rose-300">
+                      <Smartphone className="h-4 w-4" />
+                      <span>Chuẩn Mobile</span>
+                    </span>
+                  </div>
+
+                  <h3 className="mt-4 text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
+                    AI tạo đề trắc nghiệm, đua bảng xếp hạng cùng bạn bè
+                  </h3>
+                  <p className="mt-2 text-base text-slate-600 dark:text-slate-300">
+                    Từ tài liệu vừa tải, AI sinh ngay câu hỏi trắc nghiệm có giải thích đáp án. Bấm thử câu trả lời bên dưới!
+                  </p>
+                </div>
+
+                {/* Khung Điện Thoại (Phone Frame Mockup) */}
+                <div className="mt-6 mx-auto w-full max-w-sm rounded-[2.25rem] border-4 border-slate-900 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-lg">
+                  <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-slate-300 dark:bg-slate-600" />
+
+                  <div className="flex items-center justify-between text-xs font-extrabold text-slate-600 dark:text-slate-300 mb-2">
+                    <span className="text-rose-600 dark:text-rose-400">CÂU 04 / 10</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-2.5 py-0.5">
+                      <Timer className="h-3.5 w-3.5" />
+                      12 giây
+                    </span>
+                  </div>
+
+                  <p className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">
+                    Cấu trúc dữ liệu nào hoạt động theo nguyên tắc vào sau ra trước (LIFO)?
+                  </p>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {[
+                      { id: 0, text: "A. Queue (Hàng đợi)" },
+                      { id: 1, text: "B. Stack (Ngăn xếp)" },
+                    ].map((opt) => {
+                      const isCorrect = opt.id === 1;
+                      const isChosen = selectedQuizOption === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setSelectedQuizOption(opt.id)}
+                          className={`rounded-xl border-2 p-2.5 text-left text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                            isChosen && isCorrect
+                              ? "border-teal-500 bg-teal-50 dark:bg-teal-950/70 text-teal-900 dark:text-teal-200"
+                              : isChosen && !isCorrect
+                              ? "border-rose-400 bg-rose-50 dark:bg-rose-950/70 text-rose-900 dark:text-rose-200"
+                              : "border-slate-200 dark:border-slate-700 hover:border-teal-400"
+                          }`}
+                        >
+                          {opt.text}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-3 rounded-xl bg-slate-50 dark:bg-slate-900 p-2.5 space-y-1.5 text-xs font-bold">
+                    <div className="flex items-center justify-between text-amber-700 dark:text-amber-300">
+                      <span>🥇 1. Minh Anh (Bạn)</span>
+                      <span className="font-mono">3,950 đ</span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                      <span>🥈 2. Hải Đăng</span>
+                      <span className="font-mono">3,620 đ</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ô BENTO 4 (6 Cột - Tím Nhạt): Phòng học nhóm kiểu Google Meet */}
+              <div className="md:col-span-6 rounded-[2rem] border-2 border-violet-200 dark:border-violet-800/80 bg-gradient-to-br from-violet-50/80 via-white to-white dark:from-violet-950/30 dark:via-slate-900 dark:to-slate-900 p-6 sm:p-8 shadow-sm flex flex-col justify-between">
+                <div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-600 text-white px-3.5 py-1 text-xs sm:text-sm font-extrabold">
+                    <Presentation className="h-4 w-4" />
+                    <span>2. Phòng học nhóm (Kiểu Google Meet)</span>
+                  </span>
+
+                  <h3 className="mt-4 text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
+                    Đồng bộ slide, ghi chú &amp; highlight trực tiếp theo thời gian thực
+                  </h3>
+                  <p className="mt-2 text-base text-slate-600 dark:text-slate-300">
+                    Chỉ cần gửi mã phòng 6 số. Khi một bạn chuyển trang hay gạch chân ý chính, cả nhóm đều thấy ngay lập tức.
+                  </p>
+                </div>
+
+                <div className="mt-6 rounded-2xl border-2 border-violet-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-xl bg-violet-100 dark:bg-violet-950 text-violet-800 dark:text-violet-200 px-3 py-1 text-xs font-extrabold font-mono">
+                        MÃ PHÒNG: 248411
+                      </span>
+                      <span className="text-xs font-bold text-teal-600 dark:text-teal-400">
+                        ● Đang đồng bộ Slide 12
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 p-3 text-xs sm:text-sm">
+                      <p className="font-extrabold text-amber-900 dark:text-amber-300">✨ Highlight chung</p>
+                      <p className="mt-1 text-slate-600 dark:text-slate-300">
+                        Đánh dấu trực tiếp các định nghĩa quan trọng ngay trên slide.
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-800 p-3 text-xs sm:text-sm">
+                      <p className="font-extrabold text-teal-900 dark:text-teal-300">📌 Ghi chú nhóm</p>
+                      <p className="mt-1 text-slate-600 dark:text-slate-300">
+                        Dán ghi chú nhắc nhở lịch thi và mẹo làm bài cho cả phòng.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ─── 5. BA BƯỚC BẮT ĐẦU ────────────────────────────────────────────── */}
+        <section
+          id="ba-buoc"
+          className="reveal-on-scroll py-20 lg:py-24 scroll-mt-20"
+        >
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+            <div className="text-center max-w-2xl mx-auto mb-14">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-100 dark:bg-teal-950 border border-teal-300 dark:border-teal-700 px-4 py-1 text-sm font-extrabold text-teal-900 dark:text-teal-200">
+                <span>Đơn giản &amp; Dễ dùng</span>
+              </span>
+              <h2 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                Bắt đầu học thông minh chỉ với 3 bước
+              </h2>
+              <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-slate-300">
+                Tải lên — Hỏi AI — Thi cùng bạn bè. Không cần cài đặt phức tạp.
+              </p>
+            </div>
+
+            <div className="grid gap-8 md:grid-cols-3">
+              {studentSteps.map((step) => {
                 const IconComponent = step.icon;
                 return (
                   <div
                     key={step.number}
-                    className="rounded-[24px] border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] p-6 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] flex flex-col justify-between"
+                    className={`rounded-[2rem] border-2 p-7 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg flex flex-col justify-between ${step.cardBg}`}
                   >
                     <div>
-                      {/* Mini UI Preview theo từng bước */}
-                      {step.previewType === "upload" && (
-                        <div className="mb-5 rounded-[16px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#f0f6ff] dark:bg-[#242436]/60 p-3.5 flex flex-col gap-2.5">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-[5000px] bg-[#ffbac4] text-[#111118] border border-[#111118]">PDF</span>
-                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-[5000px] bg-[#ffda00] text-[#111118] border border-[#111118]">PPTX</span>
-                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-[5000px] bg-[#91d8ec] text-[#111118] border border-[#111118]">DOCX</span>
-                            </div>
-                            <UploadCloud className="w-4 h-4 text-[#111118]/60 dark:text-[#f0f6ff]/60" />
-                          </div>
-                          <div className="flex items-center justify-between text-[11px] font-normal text-[#111118] dark:text-[#f0f6ff]">
-                            <span className="truncate max-w-[140px]">Giao_trinh_Toan_A1.pdf</span>
-                            <span className="text-[#16ab59] font-normal font-mono text-[10px]">Sẵn sàng</span>
-                          </div>
-                          <div className="h-1.5 w-full bg-[#e1edff] dark:bg-[#2a2a3a] rounded-full overflow-hidden">
-                            <div className="h-full bg-[#16ab59] rounded-full w-full" />
-                          </div>
+                      <div className="flex items-center justify-between mb-6">
+                        <div className={`flex h-14 w-14 items-center justify-center rounded-2xl shadow-sm ${step.iconBg}`}>
+                          <IconComponent className="h-7 w-7" strokeWidth={2} />
                         </div>
-                      )}
-
-                      {step.previewType === "ai" && (
-                        <div className="mb-5 rounded-[16px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#f0f6ff] dark:bg-[#242436]/60 p-3.5 flex flex-col gap-2.5">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5 text-xs font-normal text-[#0b7a75] dark:text-[#2dd4bf]">
-                              <Sparkles className="w-3.5 h-3.5" />
-                              <span>AI Tóm tắt kiến thức</span>
-                            </div>
-                            <span className="text-[10px] font-mono bg-[#16ab59] text-white border border-[#111118] px-1.5 py-0.5 rounded-[5000px]">Xong</span>
-                          </div>
-                          <div className="h-1.5 w-full bg-[#e1edff] dark:bg-[#2a2a3a] rounded-full overflow-hidden">
-                            <div className="h-full bg-[#0b7a75] dark:bg-[#2dd4bf] rounded-full w-full" />
-                          </div>
-                          <div className="flex items-center gap-1.5 text-[10px] text-[#111118]/60 dark:text-[#f0f6ff]/60 overflow-x-auto no-scrollbar font-normal">
-                            <span className="px-1.5 py-0.5 rounded-[5000px] bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shrink-0">Định lý</span>
-                            <span>→</span>
-                            <span className="px-1.5 py-0.5 rounded-[5000px] bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shrink-0">Ví dụ</span>
-                            <span>→</span>
-                            <span className="px-1.5 py-0.5 rounded-[5000px] bg-[#91d8ec] border border-[#111118] text-[#111118] shrink-0">10 câu quiz</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {step.previewType === "room" && (
-                        <div className="mb-5 rounded-[16px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#f0f6ff] dark:bg-[#242436]/60 p-3.5 flex flex-col gap-2.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-normal text-[#111118] dark:text-[#f0f6ff]">Mã phòng học nhóm:</span>
-                            <div className="flex items-center gap-1 text-[11px] font-normal text-[#111118] bg-[#ffda00] border border-[#111118] px-1.5 py-0.5 rounded-[5000px]">
-                              <Trophy className="w-3 h-3" />
-                              <span>Top 1 Arena</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-center gap-1.5 py-1">
-                            {["2", "4", "8", "4", "1", "1"].map((num, i) => (
-                              <span
-                                key={i}
-                                className="w-7 h-8 flex items-center justify-center rounded-[8px] bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] font-mono font-normal text-sm shadow-[0_1px_0_0_#111118]"
-                              >
-                                {num}
-                              </span>
-                            ))}
-                          </div>
-                          <div className="flex items-center justify-between text-[10px] text-[#111118]/60 dark:text-[#f0f6ff]/60 font-normal">
-                            <span className="flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#16ab59]" />
-                              Đồng bộ trực tiếp
-                            </span>
-                            <span className="font-mono text-[#0b7a75] dark:text-[#2dd4bf]">4 bạn đang online</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Header của thẻ bước */}
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="w-10 h-10 rounded-full bg-[#91d8ec] text-[#111118] border border-[#111118] flex items-center justify-center shadow-[0_2px_0_0_#111118]">
-                          <IconComponent className="h-5 w-5" strokeWidth={1.75} />
-                        </div>
-                        <span className="text-xs font-mono font-normal px-2.5 py-1 rounded-[5000px] bg-[#e1edff] dark:bg-[#242436] text-[#0b7a75] dark:text-[#2dd4bf] border border-[#111118]">
-                          BƯỚC {step.number}
+                        <span className={`rounded-full px-3.5 py-1 text-xs font-extrabold ${step.badgeBg}`}>
+                          {step.sticker}
                         </span>
                       </div>
-                      <h3 className="text-lg font-normal text-[#111118] dark:text-[#f0f6ff]">{step.title}</h3>
-                      <p className="mt-2 text-sm leading-relaxed text-[#111118]/70 dark:text-[#f0f6ff]/70 font-normal">{step.description}</p>
+
+                      <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white">
+                        {step.title}
+                      </h3>
+                      <p className="mt-3 text-base leading-relaxed text-slate-700 dark:text-slate-300">
+                        {step.description}
+                      </p>
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t border-slate-200/70 dark:border-slate-800 flex items-center justify-between text-xs font-extrabold text-slate-700 dark:text-slate-300">
+                      <span>{step.preview}</span>
+                      <span className="font-mono text-sm">#{step.number}</span>
                     </div>
                   </div>
                 );
@@ -879,29 +1142,102 @@ export default function App() {
           </div>
         </section>
 
-        {/* 5. CTA Section Banner (Chuẩn hóa SuperHi phẳng) */}
-        <section className="relative py-16 bg-[#f0f6ff] dark:bg-[#111118] border-t border-[#e1edff] dark:border-[#2a2a3a]">
-          <div className="mx-auto max-w-[1200px] px-5 sm:px-8">
-            <div className="rounded-[24px] border-2 border-[#111118] bg-[#e1edff] dark:bg-[#1b1b26] p-8 sm:p-12 shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] relative overflow-hidden">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8 relative z-10">
+        {/* ─── 6. LỜI NHẬN XÉT TỪ SINH VIÊN (TESTIMONIALS) ───────────────────── */}
+        <section
+          id="nhan-xet"
+          className="reveal-on-scroll py-20 bg-amber-50/40 dark:bg-slate-900/50 border-t border-slate-200/80 dark:border-slate-800 scroll-mt-20"
+        >
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+            <div className="text-center max-w-2xl mx-auto mb-14">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-100 dark:bg-pink-950 border border-pink-300 dark:border-pink-800 px-4 py-1 text-sm font-extrabold text-pink-800 dark:text-pink-200">
+                <Star className="h-4 w-4 fill-pink-500 text-pink-500" />
+                <span>Được sinh viên các trường yêu thích</span>
+              </span>
+              <h2 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                Sinh viên nói gì về PeerMind?
+              </h2>
+              <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-slate-300">
+                Những chia sẻ chân thật sau mỗi mùa chạy deadline và ôn thi cuối kỳ.
+              </p>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-3">
+              {studentTestimonials.map((item) => (
+                <div
+                  key={item.name}
+                  className={`rounded-[2rem] border-2 p-7 shadow-sm flex flex-col justify-between ${item.cardAccent}`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                      <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${item.stickerColor}`}>
+                        ★ {item.sticker}
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-400">
+                        Avatar 120×120px
+                      </span>
+                    </div>
+
+                    <p className="text-base sm:text-lg font-medium leading-relaxed text-slate-800 dark:text-slate-100">
+                      “{item.quote}”
+                    </p>
+                  </div>
+
+                  {/* Placeholder Avatar Sinh viên kèm ghi chú rõ ràng */}
+                  <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3.5">
+                    <div
+                      className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl font-extrabold text-base border-2 border-slate-900/15 ${item.avatarBg}`}
+                      title="Placeholder Avatar 120x120px - Thay bằng ảnh chân dung sinh viên"
+                    >
+                      {item.initials}
+                    </div>
+                    <div>
+                      <p className="text-base font-extrabold text-slate-900 dark:text-white">
+                        {item.name}
+                      </p>
+                      <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">
+                        {item.role}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ─── 7. LỜI KÊU GỌI CUỐI TRANG (CTA) ──────────────────────────────── */}
+        <section className="reveal-on-scroll py-20">
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+            <div className="relative overflow-hidden rounded-[2.5rem] border-2 border-teal-500 bg-gradient-to-br from-teal-600 via-teal-600 to-emerald-600 p-8 sm:p-14 text-white shadow-2xl shadow-teal-600/20">
+              <div className="pointer-events-none absolute -top-16 -right-16 h-64 w-64 rounded-full bg-amber-300/20 blur-2xl" />
+
+              <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
                 <div className="max-w-2xl">
-                  <span className="inline-flex items-center px-3 py-1 rounded-[5000px] text-xs font-normal bg-[#91d8ec] text-[#111118] border border-[#111118]">
-                    Học nhóm thông minh
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-300 text-slate-950 px-4 py-1 text-xs sm:text-sm font-extrabold">
+                    <Zap className="h-4 w-4 fill-slate-950" />
+                    <span>Xử lý tài liệu dưới 5 giây • Hỗ trợ AI 24/7</span>
                   </span>
-                  <h2 className="mt-3 text-2xl sm:text-4xl font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff]">
-                    Bắt đầu nâng cao hiệu quả học tập ngay hôm nay
+                  <h2 className="mt-4 !text-white text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight">
+                    Sẵn sàng ôn thi nhẹ nhàng hơn cùng hội bạn?
                   </h2>
-                  <p className="mt-3 text-[#111118]/75 dark:text-[#f0f6ff]/75 text-sm sm:text-base leading-relaxed font-normal">
-                    Đăng ký miễn phí để trải nghiệm không gian học nhóm đồng bộ thời gian thực kết hợp trợ lý AI thế hệ mới.
+                  <p className="mt-3 text-teal-50 text-base sm:text-lg leading-relaxed">
+                    Thử kéo thả ngay cuốn giáo trình đầu tiên của bạn lên PeerMind hoàn toàn miễn phí.
                   </p>
                 </div>
-                <div className="shrink-0">
+
+                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 shrink-0">
                   <button
                     onClick={openLogin}
-                    className="inline-flex items-center justify-center gap-2 bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] text-white dark:text-[#111118] px-8 py-3.5 rounded-[48px] font-normal border-2 border-[#111118] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] text-base shrink-0 active:translate-y-[2px] transition-transform cursor-pointer"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-300 hover:bg-amber-200 text-slate-950 px-7 py-4 text-base sm:text-lg font-extrabold shadow-lg transition-all cursor-pointer"
                   >
-                    <span>Tạo tài khoản miễn phí</span>
-                    <ArrowRight className="h-4 w-4" strokeWidth={2} />
+                    <span>Bắt đầu học ngay</span>
+                    <ArrowRight className="h-5 w-5" strokeWidth={2.5} />
+                  </button>
+                  <button
+                    onClick={handleGuestLogin}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-white/80 bg-white/10 hover:bg-white/20 text-white px-7 py-3.5 text-base font-bold transition-all cursor-pointer"
+                  >
+                    <span>Dùng thử không cần đăng ký</span>
                   </button>
                 </div>
               </div>
@@ -910,75 +1246,80 @@ export default function App() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-8">
+      {/* ─── FOOTER GỌN GÀNG ─────────────────────────────────────────────────── */}
+      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-5 sm:flex-row sm:px-8 lg:px-10">
-          <Logo size="sm" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
+          <div className="flex items-center gap-3">
+            <Logo size="sm" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
+            <span className="text-sm text-slate-500 dark:text-slate-400">
+              • Nền tảng học tập AI cho sinh viên
+            </span>
+          </div>
 
-          <nav className="flex flex-wrap items-center justify-center gap-6" aria-label="Điều hướng nhanh chân trang">
-            <a href="#tinh-nang" className="text-sm text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+          <nav className="flex flex-wrap items-center justify-center gap-6" aria-label="Điều hướng chân trang">
+            <a href="#hoc-nhom" className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+              Phòng học nhóm
+            </a>
+            <a href="#truoc-sau" className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+              Trước &amp; Sau
+            </a>
+            <a href="#tinh-nang" className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
               Tính năng
             </a>
-            <a href="#tinh-nang" className="text-sm text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-              Tài liệu AI
-            </a>
-            <a href="#tinh-nang" className="text-sm text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-              Phòng học
-            </a>
-            <a href="#hanh-trinh" className="text-sm text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-              Thi đấu Quiz
+            <a href="#ba-buoc" className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+              3 bước bắt đầu
             </a>
           </nav>
 
-          <p className="font-sans text-sm text-slate-500 dark:text-slate-400">© 2026 PeerMind. Tất cả quyền được bảo lưu.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            © 2026 PeerMind. Học thông minh hơn mỗi ngày.
+          </p>
         </div>
       </footer>
 
-      {/* Auth Modal */}
+      {/* ─── AUTH MODAL ──────────────────────────────────────────────────────── */}
       {isLoginOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111118]/60 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs"
           role="dialog"
           aria-modal="true"
         >
-          <div className="relative w-full max-w-md rounded-[24px] border-2 border-[#111118] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] p-7 shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000] transition-colors duration-150">
+          <div className="relative w-full max-w-md rounded-3xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl sm:p-8 transition-colors duration-150">
             <button
               onClick={() => setIsLoginOpen(false)}
-              className="absolute top-5 right-5 flex h-9 w-9 items-center justify-center rounded-full bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] transition-all cursor-pointer"
+              className="absolute top-5 right-5 flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
               aria-label="Đóng cửa sổ"
             >
-              <X className="h-4 w-4" strokeWidth={1.75} />
+              <X className="h-5 w-5" />
             </button>
-
-            <div className="mb-4">
-              <Logo size="sm" showText={true} />
-            </div>
 
             {authView === "login" && (
               <>
-                <h2 id="login-title" className="text-2xl font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff]">
-                  Chào mừng trở lại!
+                <h2 id="login-title" className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
+                  Chào mừng bạn trở lại! 👋
                 </h2>
-                <p className="mt-1 text-xs font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">Đăng nhập bằng email của bạn.</p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Đăng nhập để đồng bộ tài liệu và phòng học nhóm của bạn.
+                </p>
 
                 <form onSubmit={handleLoginSubmit} className="mt-6 space-y-4">
                   {authNotice && (
-                    <div className="p-3 text-xs rounded-[20px] bg-[#16ab59]/10 border border-[#16ab59] text-[#111118] dark:text-[#f0f6ff] font-normal">
+                    <div className="p-3.5 text-sm rounded-xl bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-800 text-teal-800 dark:text-teal-200">
                       {authNotice}
                     </div>
                   )}
                   {authError && (
-                    <div className="p-3 text-xs rounded-[20px] bg-[#ff4141]/10 border border-[#ff4141] text-[#ff4141] font-normal">
+                    <div className="p-3.5 text-sm rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">
                       {authError}
                     </div>
                   )}
 
                   <label className="block">
-                    <span className="text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70 block mb-1">Email</span>
+                    <span className="form-label">Email sinh viên / cá nhân</span>
                     <input
                       required
                       type="email"
-                      placeholder="ban@example.com"
+                      placeholder="ban@student.edu.vn"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="form-input"
@@ -986,12 +1327,12 @@ export default function App() {
                     />
                   </label>
                   <label className="block">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">Mật khẩu</span>
+                    <div className="flex items-center justify-between">
+                      <span className="form-label">Mật khẩu</span>
                       <button
                         type="button"
                         onClick={() => changeAuthView("forgot")}
-                        className="text-xs font-normal text-[#0b7a75] dark:text-[#2dd4bf] hover:underline cursor-pointer"
+                        className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
                       >
                         Quên mật khẩu?
                       </button>
@@ -1010,36 +1351,36 @@ export default function App() {
                   <button
                     type="submit"
                     disabled={authLoading}
-                    className="primary-button w-full justify-center cursor-pointer disabled:opacity-60"
+                    className="primary-button w-full h-11 justify-center cursor-pointer disabled:opacity-60"
                   >
-                    {authLoading ? "Đang xác thực..." : "Đăng nhập →"}
+                    {authLoading ? "Đang xác thực..." : "Đăng nhập ngay"}
                   </button>
 
                   <div className="relative my-2">
                     <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-[#e1edff] dark:border-[#2a2a3a]" />
+                      <div className="w-full border-t border-slate-200 dark:border-slate-800" />
                     </div>
                     <div className="relative flex justify-center text-xs">
-                      <span className="bg-white dark:bg-[#1b1b26] px-2 text-[#111118]/60 dark:text-[#f0f6ff]/60 font-normal">Hoặc</span>
+                      <span className="bg-white dark:bg-slate-900 px-2 text-slate-400 font-semibold">Hoặc</span>
                     </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={handleGuestLogin}
-                    className="secondary-button w-full justify-center cursor-pointer text-xs"
+                    className="secondary-button w-full h-11 justify-center cursor-pointer text-sm"
                   >
-                    Tiếp tục bằng tài khoản Khách
+                    Dùng thử ngay không cần đăng ký
                   </button>
 
-                  <p className="text-center text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 pt-1 font-normal">
+                  <p className="text-center text-sm text-slate-600 dark:text-slate-400 pt-1">
                     Chưa có tài khoản?{" "}
                     <button
                       type="button"
                       onClick={() => changeAuthView("register")}
-                      className="font-normal text-[#0b7a75] dark:text-[#2dd4bf] hover:underline cursor-pointer"
+                      className="font-extrabold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
                     >
-                      Đăng ký ngay
+                      Đăng ký miễn phí
                     </button>
                   </p>
                 </form>
@@ -1048,24 +1389,26 @@ export default function App() {
 
             {authView === "register" && (
               <>
-                <h2 id="login-title" className="text-2xl font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff]">
-                  Tạo tài khoản mới
+                <h2 id="login-title" className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
+                  Tạo tài khoản mới ✨
                 </h2>
-                <p className="mt-1 text-xs font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">Tạo tài khoản an toàn và bảo mật.</p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Miễn phí cho sinh viên đại học. Chỉ mất 30 giây.
+                </p>
 
                 <form onSubmit={handleRegisterSubmit} className="mt-6 space-y-4">
                   {authError && (
-                    <div className="p-3 text-xs rounded-[20px] bg-[#ff4141]/10 border border-[#ff4141] text-[#ff4141] font-normal">
+                    <div className="p-3.5 text-sm rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">
                       {authError}
                     </div>
                   )}
 
                   <label className="block">
-                    <span className="text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70 block mb-1">Họ và tên</span>
+                    <span className="form-label">Họ và tên</span>
                     <input
                       required
                       type="text"
-                      placeholder="Nguyễn Văn A"
+                      placeholder="Nguyễn Minh Anh"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       className="form-input"
@@ -1073,11 +1416,11 @@ export default function App() {
                     />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70 block mb-1">Email</span>
+                    <span className="form-label">Email</span>
                     <input
                       required
                       type="email"
-                      placeholder="ban@example.com"
+                      placeholder="ban@student.edu.vn"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="form-input"
@@ -1085,7 +1428,7 @@ export default function App() {
                     />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70 block mb-1">Mật khẩu (tối thiểu 6 ký tự)</span>
+                    <span className="form-label">Mật khẩu (tối thiểu 6 ký tự)</span>
                     <input
                       required
                       minLength={6}
@@ -1101,17 +1444,17 @@ export default function App() {
                   <button
                     type="submit"
                     disabled={authLoading}
-                    className="primary-button w-full justify-center cursor-pointer disabled:opacity-60"
+                    className="primary-button w-full h-11 justify-center cursor-pointer disabled:opacity-60"
                   >
-                    {authLoading ? "Đang tạo tài khoản..." : "Tạo tài khoản →"}
+                    {authLoading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
                   </button>
 
-                  <p className="text-center text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-normal">
+                  <p className="text-center text-sm text-slate-600 dark:text-slate-400">
                     Đã có tài khoản?{" "}
                     <button
                       type="button"
                       onClick={() => changeAuthView("login")}
-                      className="font-normal text-[#0b7a75] dark:text-[#2dd4bf] hover:underline cursor-pointer"
+                      className="font-extrabold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
                     >
                       Đăng nhập
                     </button>
@@ -1123,13 +1466,13 @@ export default function App() {
             {authView === "forgot" && (
               <>
                 <button type="button" onClick={() => changeAuthView("login")} className="auth-back-button cursor-pointer">
-                  <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  <ArrowLeft className="h-4 w-4" />
                   Quay lại đăng nhập
                 </button>
-                <h2 id="login-title" className="mt-4 text-2xl font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff]">
+                <h2 id="login-title" className="mt-4 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
                   Quên mật khẩu?
                 </h2>
-                <p className="mt-1 text-xs font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                   Nhập email đã đăng ký, chúng tôi sẽ gửi hướng dẫn đặt lại mật khẩu cho bạn.
                 </p>
 
@@ -1137,7 +1480,7 @@ export default function App() {
                   <AuthSuccess
                     title="Kiểm tra email của bạn"
                     description="Liên kết đặt lại mật khẩu đã được gửi. Liên kết có hiệu lực trong 15 phút."
-                    buttonText="Trở về đăng nhập →"
+                    buttonText="Trở về đăng nhập"
                     onContinue={() => changeAuthView("login")}
                   />
                 ) : (
@@ -1149,22 +1492,19 @@ export default function App() {
                     className="mt-6 space-y-4"
                   >
                     <label className="block">
-                      <span className="text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70 block mb-1">Email</span>
+                      <span className="form-label">Email</span>
                       <input
                         required
                         type="email"
-                        placeholder="ban@example.com"
+                        placeholder="ban@student.edu.vn"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="form-input"
                       />
                     </label>
-                    <button type="submit" className="primary-button w-full justify-center cursor-pointer">
-                      Gửi liên kết khôi phục →
+                    <button type="submit" className="primary-button w-full h-11 justify-center cursor-pointer">
+                      Gửi liên kết khôi phục
                     </button>
-                    <p className="text-center text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-normal">
-                      Bạn chưa nhận được email? Kiểm tra thư mục spam hoặc thử lại sau ít phút.
-                    </p>
                   </form>
                 )}
               </>
@@ -1199,7 +1539,6 @@ function Dashboard({
   const [activeTab, setActiveTab] = useState<DashboardTab>(() => getTabFromHash(window.location.hash));
 
   useEffect(() => {
-    // Nếu hash hiện tại là rỗng hoặc các hash cũ (#hanh-trinh, #gioi-thieu, ...), cập nhật sang hash của tab
     const clean = window.location.hash.replace(/^#\/?/, "").toLowerCase();
     if (clean !== "documents" && clean !== "classrooms" && clean !== "tests") {
       window.history.replaceState(null, "", `#${activeTab}`);
@@ -1267,7 +1606,6 @@ function Dashboard({
           <TestsPage userId={userId} userName={userName} />
         </div>
       </div>
-
     </div>
   );
 }
@@ -1281,12 +1619,12 @@ type AuthSuccessProps = {
 
 function AuthSuccess({ title, description, buttonText, onContinue }: AuthSuccessProps) {
   return (
-    <div className="mt-6 rounded-md border border-emerald-200 bg-emerald-50/60 p-5 text-center">
-      <span className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-white">
-        <Check className="h-4 w-4" strokeWidth={2} />
+    <div className="mt-6 rounded-2xl border border-teal-200 bg-teal-50/70 p-5 text-center">
+      <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-teal-600 text-white">
+        <Check className="h-5 w-5" strokeWidth={2.25} />
       </span>
-      <p className="mt-3 font-semibold text-emerald-900 text-sm">{title}</p>
-      <p className="mt-1 text-xs text-emerald-700 leading-relaxed">{description}</p>
+      <p className="mt-3 font-extrabold text-teal-950 text-base">{title}</p>
+      <p className="mt-1 text-sm text-teal-800 leading-relaxed">{description}</p>
       <button onClick={onContinue} className="primary-button mt-4 w-full justify-center cursor-pointer">
         {buttonText}
       </button>
