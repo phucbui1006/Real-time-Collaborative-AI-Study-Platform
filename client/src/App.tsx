@@ -19,7 +19,6 @@ import {
   Zap,
   BookOpen,
   MessageCircle,
-  Image as ImageIcon,
   Smartphone,
   Monitor,
   HelpCircle,
@@ -512,32 +511,18 @@ export default function App() {
             </div>
 
             <div className="grid gap-8 lg:grid-cols-12 lg:items-stretch">
-              {/* Cột Trái (5 cột): Khu vực Ảnh / Illustration Sinh viên học nhóm có Placeholder kích thước rõ ràng */}
-              <div className="lg:col-span-5 flex flex-col justify-between rounded-[2rem] border-2 border-dashed border-teal-400 dark:border-teal-600 bg-gradient-to-b from-amber-50/90 via-white to-teal-50/80 dark:from-slate-800 dark:via-slate-900 dark:to-teal-950/40 p-6 sm:p-7 shadow-sm relative overflow-hidden">
-                {/* Ghi chú kích thước ảnh rõ ràng để người dùng thay bằng ảnh thật */}
-                <div className="flex items-center justify-between gap-2 rounded-2xl bg-white/95 dark:bg-slate-800 border border-teal-200 dark:border-slate-700 px-3.5 py-2 text-xs font-bold text-teal-800 dark:text-teal-300 shadow-2xs">
-                  <span className="flex items-center gap-1.5">
-                    <ImageIcon className="h-4 w-4 text-teal-600 shrink-0" />
-                    <span>Khu vực ảnh sinh viên học nhóm</span>
-                  </span>
-                  <span className="rounded-lg bg-amber-200 text-slate-900 px-2 py-0.5 font-mono text-[11px]">
-                    800 × 600px (4:3)
-                  </span>
-                </div>
-
+              {/* Cột Trái (5 cột): Ảnh sinh viên học nhóm thực tế */}
+              <div className="lg:col-span-5 flex flex-col justify-between rounded-[2rem] border-2 border-slate-200 dark:border-slate-800 bg-gradient-to-b from-amber-50/70 via-white to-teal-50/70 dark:from-slate-800/80 dark:via-slate-900 dark:to-teal-950/40 p-6 sm:p-7 shadow-sm relative overflow-hidden">
                 {/* Ảnh chụp sinh viên học nhóm thực tế */}
-                <div className="my-5 relative overflow-hidden rounded-3xl border-2 border-slate-900 dark:border-slate-700 shadow-md group">
+                <div className="mb-5 relative overflow-hidden rounded-3xl border-2 border-slate-900 dark:border-slate-700 shadow-md group">
                   <img
                     src="/landing/study-group.jpg"
                     alt="Nhóm sinh viên đại học Việt Nam đang học chung quanh bàn gỗ thư viện"
-                    className="w-full h-64 sm:h-76 object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="w-full h-72 sm:h-84 object-cover transition-transform duration-300 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/25 to-transparent flex flex-col justify-end p-5">
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent flex flex-col justify-end p-5">
                     <p className="text-white text-base sm:text-lg font-extrabold leading-snug">
                       “Học chung với bạn bè giúp nhớ bài lâu hơn 70%”
-                    </p>
-                    <p className="text-teal-300 text-xs font-semibold mt-1">
-                      Ảnh chụp thực tế sinh viên (1200 × 840) • Thay thế linh hoạt
                     </p>
                   </div>
                 </div>
