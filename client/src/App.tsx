@@ -137,6 +137,22 @@ export default function App() {
     };
   }, [isLoginOpen]);
 
+  // Hỗ trợ mở phòng thử nghiệm Motion nội bộ qua phím tắt Ctrl+Shift+M hoặc window.openMotionLab()
+  useEffect(() => {
+    (window as unknown as { openMotionLab?: () => void }).openMotionLab = () => setIsMotionLabOpen(true);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === "M" || e.key === "m")) {
+        e.preventDefault();
+        setIsMotionLabOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      delete (window as unknown as { openMotionLab?: () => void }).openMotionLab;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   // ── Auth init + Supabase listener ───────────────────────────────────────────
   useEffect(() => {
     idleService.init(() => idleTimeoutRef.current());
@@ -1130,44 +1146,33 @@ export default function App() {
       </main>
 
       {/* ─── FOOTER GỌN GÀNG ─────────────────────────────────────────────────── */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-10">
+      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-8 sm:py-10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-5 lg:flex-row sm:px-8 lg:px-10">
-          <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="flex shrink-0 items-center justify-center gap-3">
             <Logo size="sm" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
-            <span className="text-sm text-slate-600 dark:text-slate-400">
+            <span className="text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
               Nền tảng học tập AI cho sinh viên
             </span>
           </div>
 
-          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2" aria-label="Điều hướng chân trang">
-            <a href="#hoc-nhom" className="text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
+          <nav className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm font-semibold" aria-label="Điều hướng chân trang">
+            <a href="#hoc-nhom" className="whitespace-nowrap text-slate-700 dark:text-slate-300 hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
               Phòng học nhóm
             </a>
-            <a href="#truoc-sau" className="text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
+            <a href="#truoc-sau" className="whitespace-nowrap text-slate-700 dark:text-slate-300 hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
               Trước &amp; Sau
             </a>
-            <a href="#tinh-nang" className="text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
+            <a href="#tinh-nang" className="whitespace-nowrap text-slate-700 dark:text-slate-300 hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
               Tính năng
             </a>
-            <a href="#ba-buoc" className="text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
+            <a href="#ba-buoc" className="whitespace-nowrap text-slate-700 dark:text-slate-300 hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
               3 bước bắt đầu
             </a>
           </nav>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setIsMotionLabOpen(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors cursor-pointer rounded-full px-3 py-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-teal-500/40"
-              title="Mở phòng thử nghiệm kiểm tra hiệu ứng chuyển động và hiển thị dấu tiếng Việt"
-            >
-              <Sparkles className="h-3 w-3 text-amber-500" />
-              <span>Thử nghiệm Motion (&quot;Ắng ễ ượ...&quot;)</span>
-            </button>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              © 2026 PeerMind. Học thông minh hơn mỗi ngày.
-            </p>
-          </div>
+          <p className="shrink-0 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+            © 2026 PeerMind. Học thông minh hơn mỗi ngày.
+          </p>
         </div>
       </footer>
 
