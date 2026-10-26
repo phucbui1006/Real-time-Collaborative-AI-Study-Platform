@@ -103,8 +103,11 @@ export function buildRAGContext(chunks: RelevantChunk[]): string {
 
   return chunks
     .map(
-      (c) =>
-        `--- [TRANG ${c.pageNumber}] ---\n${c.text.slice(0, 1800)}`
+      (c) => {
+        // Làm sạch chuỗi Base64 ảnh để AI nhận ngữ cảnh văn bản thuần khiết, phản hồi nhanh và chuẩn xác
+        const cleanText = c.text.replace(/!\[(.*?)\]\(data:image\/[^;]+;base64,[A-Za-z0-9+/=\s\\]+\)/g, "[Hình ảnh: $1]");
+        return `--- [TRANG ${c.pageNumber}] ---\n${cleanText.slice(0, 1800)}`;
+      }
     )
     .join("\n\n");
 }

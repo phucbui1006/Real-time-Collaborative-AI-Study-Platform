@@ -7,6 +7,7 @@ import { DocumentStudioView } from "../components/documents/DocumentStudioView";
 import { supabase } from "../services/supabaseClient";
 import { isValidUUID } from "../utils";
 import { extractDocumentContent } from "../services/pdfService";
+import { fetchDocumentPage, prefetchDocumentPages } from "../services/documentPagingService";
 
 interface SupabaseDoc {
   id: number;
@@ -492,44 +493,18 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
     }
   };
 
-  const handleSelectDoc = async (id: number) => {
+  const handleSelectDoc = (id: number) => {
     setSelectedId(id);
     const target = docs.find((d) => d.id === id);
     if (!target) return;
 
+    // 1. Mở Document Studio tức thì (0ms) mà không bị nghẽn mạng do kéo cả 11MB
     setStudioDoc(target);
 
-    // 1. Nếu tài liệu ĐÃ có sẵn pagesContent (do nạp ngầm xong), mở tức thì không cần tải thêm
-    if (target.pagesContent && target.pagesContent.length > 0) {
-      return;
-    }
-
-    // 2. Nếu chưa có, ngắt tiến trình ngầm và ƯU TIÊN TẢI NGAY LẬP TỨC tài liệu này
-    isUserActionActiveRef.current = true;
-    try {
-      const { data: detail } = await supabase
-        .from("documents")
-        .select("pages_content, total_pages")
-        .eq("id", id)
-        .single();
-
-      if (detail && Array.isArray(detail.pages_content) && detail.pages_content.length > 0) {
-        const enriched: DocumentItem = {
-          ...target,
-          pagesContent: detail.pages_content,
-          pagesCount: target.pagesCount || detail.total_pages || detail.pages_content.length,
-        };
-        setStudioDoc(enriched);
-        setDocs((prev) => {
-          const next = prev.map((d) => (d.id === id ? enriched : d));
-          if (userId) userDocsCache.set(userId, next);
-          return next;
-        });
-      }
-    } catch (e) {
-      console.warn("Lỗi tải chi tiết trang tài liệu:", e);
-    } finally {
-      isUserActionActiveRef.current = false;
+    // 2. Kích hoạt nạp trước Trang 1 và Trang 2 ngầm (Page-based On-Demand Streaming)
+    if (id > 0) {
+      fetchDocumentPage(id, 0, target.title);
+      prefetchDocumentPages(id, 0, target.pagesCount || 1, 2);
     }
   };
 

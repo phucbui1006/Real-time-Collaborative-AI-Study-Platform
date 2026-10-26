@@ -34,7 +34,13 @@ import {
 } from "../../services/aiService";
 import { getSubjectStyle } from "./DocumentStore";
 import { sanitizeExtractedText } from "../../services/pdfService";
-import { supabase } from "../../services/supabaseClient";
+import {
+  fetchDocumentPage,
+  prefetchDocumentPages,
+  getCachedPage,
+  isPageCached,
+  cleanTextForAI,
+} from "../../services/documentPagingService";
 
 interface DocumentStudioViewProps {
   doc: DocumentItem;
@@ -49,7 +55,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
   onBack,
   userId,
   userName = "Bạn",
-  onUpdateDoc,
+  onUpdateDoc: _onUpdateDoc,
 }) => {
   const [activeDoc, setActiveDoc] = useState<DocumentItem>(doc);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -79,36 +85,68 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const readerContentRef = useRef<HTMLDivElement>(null);
 
+  // Xác định tổng số trang từ metadata (đã có sẵn trong database) hoặc mảng pagesContent
+  const totalPages = Math.max(1, activeDoc.pagesCount || activeDoc.pagesContent?.length || 1);
+
+  // Quản lý nội dung trang hiện tại theo cơ chế On-Demand Streaming
+  const [pageText, setPageText] = useState<string>(() => {
+    if (doc.pagesContent && doc.pagesContent[0]) {
+      return doc.pagesContent[0];
+    }
+    const cached = getCachedPage(doc.id, 0);
+    if (cached) return cached;
+    return "";
+  });
+  const [isPageLoading, setIsPageLoading] = useState<boolean>(() => {
+    if (doc.pagesContent && doc.pagesContent[0]) return false;
+    return !isPageCached(doc.id, 0);
+  });
+
   useEffect(() => {
     setActiveDoc(doc);
   }, [doc]);
 
+  // Nạp trang hiện tại theo nhu cầu (Page-based On-Demand Loading)
   useEffect(() => {
-    // Nếu doc chưa có pagesContent thì tải ngay cho riêng tài liệu này từ Supabase
-    if (!activeDoc.pagesContent || activeDoc.pagesContent.length === 0) {
-      (async () => {
-        try {
-          const { data: detail } = await supabase
-            .from("documents")
-            .select("pages_content")
-            .eq("id", activeDoc.id)
-            .single();
+    let isMounted = true;
+    const pageIndex = currentPage - 1;
 
-          if (detail && Array.isArray(detail.pages_content) && detail.pages_content.length > 0) {
-            setActiveDoc((prev) => ({ ...prev, pagesContent: detail.pages_content }));
-            onUpdateDoc?.({ ...activeDoc, pagesContent: detail.pages_content });
-          }
-        } catch (e) {
-          console.warn("Lỗi tải chi tiết trang trong Studio:", e);
-        }
-      })();
+    // 1. Nếu doc đã có sẵn pagesContent mảng đầy đủ (như doc seed mẫu)
+    if (activeDoc.pagesContent && activeDoc.pagesContent[pageIndex]) {
+      setPageText(activeDoc.pagesContent[pageIndex]);
+      setIsPageLoading(false);
+      return;
     }
-  }, [activeDoc.id, activeDoc.pagesContent]);
 
-  const pages = activeDoc.pagesContent && activeDoc.pagesContent.length > 0
-    ? activeDoc.pagesContent
-    : [activeDoc.title];
-  const totalPages = pages.length;
+    // 2. Kiểm tra cache tức thì trong RAM (0ms)
+    const cached = getCachedPage(activeDoc.id, pageIndex);
+    if (cached) {
+      setPageText(cached);
+      setIsPageLoading(false);
+      prefetchDocumentPages(activeDoc.id, pageIndex, totalPages, 2);
+      return;
+    }
+
+    // 3. Nếu chưa có, nạp đúng 1 trang này từ Supabase (thời gian cực ngắn ~300ms)
+    setIsPageLoading(true);
+    fetchDocumentPage(activeDoc.id, pageIndex, `${activeDoc.title} — Trang ${currentPage}`)
+      .then((content) => {
+        if (isMounted) {
+          setPageText(content);
+          setIsPageLoading(false);
+          prefetchDocumentPages(activeDoc.id, pageIndex, totalPages, 2);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setIsPageLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeDoc.id, currentPage, totalPages, activeDoc.pagesContent, activeDoc.title]);
 
   const subjectStyle = getSubjectStyle(activeDoc.subject);
 
@@ -288,7 +326,14 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     });
 
     try {
-      const res = await askAI(q, activeDoc, newHistory);
+      const docForAI: DocumentItem = {
+        ...activeDoc,
+        pagesContent:
+          activeDoc.pagesContent && activeDoc.pagesContent.length > 0
+            ? activeDoc.pagesContent
+            : [cleanTextForAI(pageText || rawPageText)],
+      };
+      const res = await askAI(q, docForAI, newHistory);
       const aiMsg: ChatMessage = { role: "ai", text: res.text, isGemini: res.isGemini };
       setMessages((prev) => [...prev, aiMsg]);
 
@@ -352,7 +397,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     );
   };
 
-  const rawPageText = pages[currentPage - 1] || "Không có nội dung cho trang này.";
+  const rawPageText = pageText || (activeDoc.pagesContent && activeDoc.pagesContent[currentPage - 1]) || "Không có nội dung cho trang này.";
   // Làm sạch các thẻ HTML bookmark của Word (<a id="_Toc..."></a>) để văn bản luôn sạch đẹp
   const currentPageText = useMemo(() => {
     return sanitizeExtractedText(rawPageText);
@@ -481,12 +526,28 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                   </span>
                 </div>
 
-                {/* Nội dung trang định dạng Markdown */}
-                <div className="prose dark:prose-invert max-w-none text-base leading-relaxed break-words overflow-x-auto selection:bg-[#ffda00] selection:text-[#111118]">
-                  <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                    {currentPageText}
-                  </ReactMarkdown>
-                </div>
+                {/* Nội dung trang định dạng Markdown hoặc Khung chờ Skeleton khi đang nạp */}
+                {isPageLoading ? (
+                  <div className="py-12 flex flex-col items-center justify-center space-y-4">
+                    <div className="w-9 h-9 border-3 border-[#0b7a75] border-t-transparent rounded-full animate-spin" />
+                    <p className="text-xs font-medium text-[#111118]/70 dark:text-[#f0f6ff]/70 font-mono">
+                      Đang nạp trang {currentPage} / {totalPages}...
+                    </p>
+                    <div className="w-full space-y-3 mt-4 animate-pulse">
+                      <div className="h-4 bg-[#e1edff] dark:bg-[#242436] rounded w-3/4" />
+                      <div className="h-4 bg-[#e1edff] dark:bg-[#242436] rounded w-full" />
+                      <div className="h-4 bg-[#e1edff] dark:bg-[#242436] rounded w-5/6" />
+                      <div className="h-4 bg-[#e1edff] dark:bg-[#242436] rounded w-2/3" />
+                      <div className="h-32 bg-[#e1edff] dark:bg-[#242436] rounded w-full mt-3" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="prose dark:prose-invert max-w-none text-base leading-relaxed break-words overflow-x-auto selection:bg-[#ffda00] selection:text-[#111118]">
+                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                      {currentPageText}
+                    </ReactMarkdown>
+                  </div>
+                )}
               </div>
 
               {/* Chân trang */}
