@@ -44,6 +44,7 @@ export type LiveExam = {
   set: ExamSet;
   code: string;
   minutes: number;
+  startedAt?: number;
   endAt: number;
   status: "running" | "ended";
   bots: LiveBot[];

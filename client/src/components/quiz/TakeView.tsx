@@ -28,6 +28,11 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
   const locked = live.status !== "running";
   const urgent = remaining <= 30;
 
+  const startedAt = live.startedAt || (live.endAt - live.minutes * 60000);
+  const lateSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  const isLate = lateSeconds >= 60 && remaining > 0;
+  const lateMinutes = Math.floor(lateSeconds / 60);
+
   return (
     <div className="mx-auto max-w-[1200px] space-y-6 px-4 sm:px-8 py-8">
       {/* Header bar */}
@@ -53,6 +58,16 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
           <span>{fmt(remaining)}</span>
         </div>
       </div>
+
+      {/* Thông báo nếu thí sinh vào phòng thi muộn */}
+      {isLate && (
+        <div className="flex items-center gap-2 rounded-sm bg-[#ffda00]/20 border border-[#111118] dark:border-[#ffda00] text-[#111118] dark:text-[#f0f6ff] px-4 py-2.5 text-xs font-normal shadow-[0_2px_0_0_#111118]">
+          <span className="font-semibold text-[#111118] dark:text-[#ffda00]">⚠️ Lưu ý vào muộn:</span>
+          <span>
+            Bài kiểm tra đã mở được {lateMinutes} phút. Thời gian làm bài của bạn được đồng bộ theo phòng thi và chỉ còn <strong>{fmt(remaining)}</strong> trước khi hết giờ.
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
         <section className="col-span-12 lg:col-span-7 min-w-0 rounded-md bg-white dark:bg-[#1b1b26] p-6 sm:p-7 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">

@@ -90,7 +90,19 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     } catch {}
   }, [userId, setsKey, historyKey, isRealUser]);
 
-  const [live, setLive] = useState<LiveExam | null>(null);
+  // Khôi phục phòng thi đang mở (nếu còn thời gian chạy)
+  const [live, setLive] = useState<LiveExam | null>(() => {
+    try {
+      const stored = localStorage.getItem("peermind_current_live_exam");
+      if (stored) {
+        const parsed: LiveExam = JSON.parse(stored);
+        if (parsed.status === "running" && parsed.endAt > Date.now()) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return null;
+  });
   const [mine, setMine] = useState<MyExamState | null>(null);
   const [result, setResult] = useState<ExamResult | null>(null);
   const [openFor, setOpenFor] = useState<ExamSet | null>(null);
@@ -101,10 +113,17 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   const remaining = live ? Math.max(0, Math.ceil((live.endAt - now) / 1000)) : 0;
   const rows = live ? board(live, mine, userName) : [];
 
-  // Hết giờ → kết thúc bài
+  // Hết giờ theo mốc thời gian tuyệt đối (endAt) → tự động kết thúc bài
   useEffect(() => {
-    if (live?.status === "running" && remaining === 0) setLive((l) => (l ? { ...l, status: "ended" } : null));
-  }, [remaining, live?.status]);
+    if (live?.status === "running" && remaining === 0) {
+      const endedLive: LiveExam = { ...live, status: "ended" };
+      setLive(endedLive);
+      try {
+        localStorage.setItem(`peermind_active_exam_${live.code}`, JSON.stringify(endedLive));
+        localStorage.setItem("peermind_current_live_exam", JSON.stringify(endedLive));
+      } catch {}
+    }
+  }, [remaining, live]);
 
   // Mô phỏng các thí sinh khác – xoá khi nối realtime thật (WebSocket)
   useEffect(() => {
@@ -168,26 +187,58 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   }, [live?.status]);
 
   const startExam = (set: ExamSet, minutes: number) => {
-    setLive({
+    const startedAt = Date.now();
+    const endAt = startedAt + minutes * 60000;
+    const code = code6();
+    const newLive: LiveExam = {
       set,
-      code: code6(),
+      code,
       minutes,
-      endAt: Date.now() + minutes * 60000,
+      startedAt,
+      endAt,
       status: "running",
       bots: BOT_NAMES.map((name) => ({ name, answered: 0, correct: 0 })),
-    });
+    };
+    setLive(newLive);
+    try {
+      localStorage.setItem(`peermind_active_exam_${code}`, JSON.stringify(newLive));
+      localStorage.setItem("peermind_current_live_exam", JSON.stringify(newLive));
+    } catch {}
     setMine(null);
     setOpenFor(null);
     setView({ name: "host" });
   };
 
   const joinExam = (code: string) => {
-    if (!live || live.status !== "running" || live.code !== code) {
+    const trimmed = code.trim();
+    let target = live && live.code === trimmed ? live : null;
+    if (!target) {
+      try {
+        const stored = localStorage.getItem(`peermind_active_exam_${trimmed}`);
+        if (stored) {
+          target = JSON.parse(stored);
+        }
+      } catch {}
+    }
+
+    if (!target) {
       setJoinErr("Không tìm thấy bài kiểm tra đang mở với mã này.");
       return;
     }
+
+    const nowTime = Date.now();
+    if (target.status === "ended" || nowTime >= target.endAt) {
+      const formattedEnd = new Date(target.endAt).toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      setJoinErr(`Bài kiểm tra này đã kết thúc thời gian làm bài (đã đóng lúc ${formattedEnd}).`);
+      return;
+    }
+
     setJoinErr("");
     setJoinCode("");
+    setLive(target);
     setMine({ answers: {}, done: false });
     setView({ name: "take" });
   };
@@ -225,8 +276,24 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
         rows={rows}
         remaining={remaining}
         onBack={home}
-        onEnd={() => setLive((l) => (l ? { ...l, status: "ended" } : null))}
+        onEnd={() => {
+          setLive((l) => {
+            if (!l) return null;
+            const endedLive: LiveExam = { ...l, status: "ended", endAt: Date.now() };
+            try {
+              localStorage.setItem(`peermind_active_exam_${l.code}`, JSON.stringify(endedLive));
+              localStorage.setItem("peermind_current_live_exam", JSON.stringify(endedLive));
+            } catch {}
+            return endedLive;
+          });
+        }}
         onClose={() => {
+          if (live) {
+            try {
+              localStorage.removeItem(`peermind_active_exam_${live.code}`);
+              localStorage.removeItem("peermind_current_live_exam");
+            } catch {}
+          }
           setLive(null);
           setMine(null);
           home();
