@@ -1,5 +1,5 @@
 // pages/LibraryPage.tsx — Trang quản lý thư viện tài liệu cá nhân kết nối Supabase trực tiếp
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { DocumentItem, INITIAL_DOCS } from "../services/aiService";
 import { DocumentStore } from "../components/documents/DocumentStore";
 import { AIChat } from "../components/documents/AIChat";
@@ -83,20 +83,23 @@ export function clearAllUserState() {
   userDocsCache.clear();
   if (typeof window !== "undefined") {
     try {
-      const keys = [
-        "peermind_docs_guest",
-        "peermind_docs_guest-user-001",
-        "peermind_rooms_guest",
-        "peermind_rooms_guest-user-001",
-        "peermind_exam_sets_guest",
-        "peermind_exam_sets_guest-user-001",
-        "peermind_exam_history_guest",
-        "peermind_exam_history_guest-user-001",
-      ];
-      keys.forEach((k) => {
-        sessionStorage.removeItem(k);
-        localStorage.removeItem(k);
-      });
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("peermind_")) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+
+      const sessionKeysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith("peermind_")) {
+          sessionKeysToRemove.push(key);
+        }
+      }
+      sessionKeysToRemove.forEach((k) => sessionStorage.removeItem(k));
     } catch (e) {
       console.warn("Lỗi khi xóa state người dùng:", e);
     }
@@ -110,38 +113,150 @@ interface LibraryPageProps {
 
 export default function LibraryPage({ userId, userName }: LibraryPageProps) {
   const isRealUser = isValidUUID(userId);
+  const localKey = `peermind_docs_${userId || "guest"}`;
   const currentCache = userId ? userDocsCache.get(userId) || null : null;
 
-  // Với tài khoản thật: khởi tạo rỗng (không nạp tài liệu mẫu demo)
-  // Với tài khoản demo/khách: nạp INITIAL_DOCS mẫu
+  // Lấy dữ liệu nhanh từ bộ nhớ RAM hoặc localStorage để hiển thị tức thì (0ms)
   const [docs, setDocs] = useState<DocumentItem[]>(() => {
-    if (isRealUser) return currentCache || [];
-    return currentCache || INITIAL_DOCS;
+    if (currentCache && currentCache.length > 0) return currentCache;
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(localKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return isRealUser ? [] : INITIAL_DOCS;
   });
 
   const [selectedId, setSelectedId] = useState<number | null>(() => {
-    if (isRealUser) {
-      return currentCache && currentCache.length > 0 ? currentCache[0].id : null;
-    }
-    return (currentCache && currentCache.length > 0 ? currentCache[0].id : null) || INITIAL_DOCS[0]?.id || null;
+    if (docs.length > 0) return docs[0].id;
+    return null;
   });
 
-  const [isLoading, setIsLoading] = useState<boolean>(!currentCache);
+  // Chỉ hiện skeleton loading nếu hoàn toàn chưa có bất kỳ cache nào (RAM lẫn localStorage)
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (currentCache && currentCache.length > 0) return false;
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(localKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) return false;
+        }
+      } catch {}
+    }
+    return isRealUser;
+  });
+
   const [isAIChatOpen, setIsAIChatOpen] = useState<boolean>(false);
   const [studioDoc, setStudioDoc] = useState<DocumentItem | null>(null);
+
+  // Điều khiển nạp ngầm và ngắt ưu tiên khi người dùng bấm click
+  const isMountedRef = useRef<boolean>(true);
+  const isUserActionActiveRef = useRef<boolean>(false);
+  const prefetchAbortRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      prefetchAbortRef.current = true;
+    };
+  }, []);
+
+  /**
+   * Tiến trình âm thầm nạp trước nội dung trang (pages_content) trong nền
+   * Ưu tiên tải tài liệu đang chọn trước, sau đó lần lượt tải các tài liệu còn lại
+   */
+  const prefetchDocContents = useCallback(
+    async (list: DocumentItem[], priorityId?: number | null) => {
+      const queue = [...list].sort((a, b) => {
+        if (priorityId && a.id === priorityId) return -1;
+        if (priorityId && b.id === priorityId) return 1;
+        return 0;
+      });
+
+      for (const doc of queue) {
+        if (!isMountedRef.current || prefetchAbortRef.current) break;
+
+        // Bỏ qua tài liệu tạm đang tải lên
+        if (doc.id < 0) continue;
+
+        // Nếu tài liệu đã có nội dung trong bộ nhớ thì bỏ qua
+        const existing = userDocsCache.get(userId || "")?.find((d) => d.id === doc.id);
+        if (existing?.pagesContent && existing.pagesContent.length > 0) continue;
+
+        // Nếu người dùng đang bấm click vào 1 tài liệu khác, tạm dừng nhường 100% tài nguyên mạng
+        while (isUserActionActiveRef.current) {
+          if (!isMountedRef.current || prefetchAbortRef.current) break;
+          await new Promise((r) => setTimeout(r, 200));
+        }
+
+        if (!isMountedRef.current || prefetchAbortRef.current) break;
+
+        try {
+          const { data: detail } = await supabase
+            .from("documents")
+            .select("pages_content, total_pages")
+            .eq("id", doc.id)
+            .single();
+
+          if (detail && Array.isArray(detail.pages_content) && detail.pages_content.length > 0) {
+            if (!isMountedRef.current || prefetchAbortRef.current) break;
+            setDocs((prev) => {
+              const next = prev.map((d) =>
+                d.id === doc.id
+                  ? {
+                      ...d,
+                      pagesContent: detail.pages_content,
+                      pagesCount: d.pagesCount || detail.total_pages || detail.pages_content.length,
+                    }
+                  : d
+              );
+              if (userId) userDocsCache.set(userId, next);
+              return next;
+            });
+          }
+        } catch {
+          // Bỏ qua lỗi nạp ngầm, không ảnh hưởng UI
+        }
+
+        // Tạm dừng 400ms giữa các file để mạng hoàn toàn êm ái
+        await new Promise((r) => setTimeout(r, 400));
+      }
+    },
+    [userId]
+  );
 
   const fetchDocs = useCallback(async () => {
     try {
       const activeCache = userId ? userDocsCache.get(userId) : null;
-      if (!activeCache) {
+      let hasStoredData = false;
+      if (typeof window !== "undefined") {
+        try {
+          const stored = localStorage.getItem(localKey);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              hasStoredData = true;
+            }
+          }
+        } catch {}
+      }
+
+      // Chỉ hiện skeleton nếu chưa có bất kỳ cache nào (RAM lẫn localStorage)
+      if (!activeCache && !hasStoredData) {
         setIsLoading(true);
       }
 
-      // 1. Truy vấn danh sách tài liệu Supabase kèm đầy đủ nội dung các trang (pages_content)
-      // để mở đọc ngay lập tức mà không gặp độ trễ hoặc lỗi mất trang
+      // 1. Tải siêu tốc Metadata (tiêu đề, môn học, số trang, ngày tạo) KHÔNG tải pages_content
+      // Giúp giao diện hiển thị tức thì trong ~150ms
       let query = supabase
         .from("documents")
-        .select("id, filename, original_name, subject, total_pages, file_url, created_at, owner_user_id, pages_content");
+        .select("id, filename, original_name, subject, total_pages, file_url, created_at, owner_user_id");
 
       if (isValidUUID(userId)) {
         query = query.eq("owner_user_id", userId);
@@ -154,7 +269,6 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
       if (error) {
         console.warn("Lỗi tải tài liệu từ Supabase:", error);
         if (!isValidUUID(userId)) {
-          const localKey = `peermind_docs_${userId || "guest"}`;
           const stored = localStorage.getItem(localKey);
           if (stored) {
             try {
@@ -169,8 +283,11 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
           setDocs(INITIAL_DOCS);
           setSelectedId((prev) => (prev && INITIAL_DOCS.some((m) => m.id === prev) ? prev : (INITIAL_DOCS[0]?.id ?? null)));
         } else {
-          setDocs([]);
-          setSelectedId(null);
+          // Với user thật: nếu có lưu cục bộ thì giữ nguyên, nếu không thì để rỗng
+          if (!hasStoredData) {
+            setDocs([]);
+            setSelectedId(null);
+          }
         }
         return;
       }
@@ -179,9 +296,20 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
         const cleanData = data.filter((d) => !isTestDoc(d));
         let mapped = cleanData.map(mapSupabaseDoc);
 
+        // Hợp nhất pagesContent nếu trước đó đã được nạp ngầm vào RAM
+        setDocs((prevDocs) => {
+          const contentMap = new Map(prevDocs.map((d) => [d.id, d.pagesContent]));
+          mapped = mapped.map((d) => ({
+            ...d,
+            pagesContent: (contentMap.get(d.id) && contentMap.get(d.id)!.length > 0)
+              ? contentMap.get(d.id)!
+              : d.pagesContent || [],
+          }));
+          return mapped;
+        });
+
         // Đối với tài khoản Demo/Khách, hợp nhất thêm các tài liệu do khách upload lưu cục bộ
         if (!isValidUUID(userId)) {
-          const localKey = `peermind_docs_${userId || "guest"}`;
           const stored = localStorage.getItem(localKey);
           if (stored) {
             try {
@@ -197,13 +325,23 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
             mapped = INITIAL_DOCS;
           }
         }
-        // Với user thật: nếu mapped rỗng ([]), giữ nguyên rỗng, KHÔNG nạp INITIAL_DOCS!
+
+        // Lưu metadata nhẹ vào localStorage (loại bỏ pagesContent để không đầy bộ nhớ 5MB)
+        try {
+          const metaOnly = mapped.map(({ pagesContent, ...rest }) => rest);
+          localStorage.setItem(localKey, JSON.stringify(metaOnly));
+        } catch {}
 
         if (userId) userDocsCache.set(userId, mapped);
         setDocs(mapped);
         setSelectedId((prev) =>
           prev && mapped.some((m: DocumentItem) => m.id === prev) ? prev : (mapped[0]?.id ?? null)
         );
+
+        // Kích hoạt nạp ngầm nội dung (pages_content) trong nền
+        prefetchAbortRef.current = false;
+        const initialSelectedId = mapped[0]?.id ?? null;
+        prefetchDocContents(mapped, initialSelectedId);
         return;
       }
     } catch (err) {
@@ -218,11 +356,34 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [userId]);
+  }, [userId, localKey, prefetchDocContents]);
 
   useEffect(() => {
+    // Khi userId thay đổi (đăng nhập / chuyển đổi tài khoản)
+    const activeCache = userId ? userDocsCache.get(userId) || null : null;
+    let initialList: DocumentItem[] = [];
+    if (activeCache && activeCache.length > 0) {
+      initialList = activeCache;
+    } else if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(localKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            initialList = parsed;
+          }
+        }
+      } catch {}
+    }
+    if (initialList.length === 0 && !isRealUser) {
+      initialList = INITIAL_DOCS;
+    }
+
+    setDocs(initialList);
+    setSelectedId(initialList.length > 0 ? initialList[0].id : null);
+    setIsLoading(initialList.length === 0 && isRealUser);
     fetchDocs();
-  }, [fetchDocs]);
+  }, [userId, localKey, isRealUser, fetchDocs]);
 
   const handleUpload = async (files: File[], customSubject = "MỚI TẢI LÊN"): Promise<void> => {
     const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB theo chuẩn Security.md mục 4
@@ -338,23 +499,37 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
 
     setStudioDoc(target);
 
-    // Nếu tài liệu chưa nạp sẵn pagesContent (do cơ chế tải nhẹ danh sách), nạp ngay cho tài liệu này
-    if (!target.pagesContent || target.pagesContent.length === 0) {
-      try {
-        const { data: detail } = await supabase
-          .from("documents")
-          .select("pages_content")
-          .eq("id", id)
-          .single();
+    // 1. Nếu tài liệu ĐÃ có sẵn pagesContent (do nạp ngầm xong), mở tức thì không cần tải thêm
+    if (target.pagesContent && target.pagesContent.length > 0) {
+      return;
+    }
 
-        if (detail && Array.isArray(detail.pages_content) && detail.pages_content.length > 0) {
-          const enriched = { ...target, pagesContent: detail.pages_content };
-          setStudioDoc(enriched);
-          setDocs((prev) => prev.map((d) => (d.id === id ? enriched : d)));
-        }
-      } catch (e) {
-        console.warn("Lỗi tải chi tiết trang tài liệu:", e);
+    // 2. Nếu chưa có, ngắt tiến trình ngầm và ƯU TIÊN TẢI NGAY LẬP TỨC tài liệu này
+    isUserActionActiveRef.current = true;
+    try {
+      const { data: detail } = await supabase
+        .from("documents")
+        .select("pages_content, total_pages")
+        .eq("id", id)
+        .single();
+
+      if (detail && Array.isArray(detail.pages_content) && detail.pages_content.length > 0) {
+        const enriched: DocumentItem = {
+          ...target,
+          pagesContent: detail.pages_content,
+          pagesCount: target.pagesCount || detail.total_pages || detail.pages_content.length,
+        };
+        setStudioDoc(enriched);
+        setDocs((prev) => {
+          const next = prev.map((d) => (d.id === id ? enriched : d));
+          if (userId) userDocsCache.set(userId, next);
+          return next;
+        });
       }
+    } catch (e) {
+      console.warn("Lỗi tải chi tiết trang tài liệu:", e);
+    } finally {
+      isUserActionActiveRef.current = false;
     }
   };
 
@@ -371,16 +546,24 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
       setDocs((prev) => {
         const next = prev.filter((d) => d.id !== id);
         if (userId) userDocsCache.set(userId, next);
+        try {
+          const metaOnly = next.map(({ pagesContent, ...rest }) => rest);
+          localStorage.setItem(localKey, JSON.stringify(metaOnly));
+        } catch {}
         if (selectedId === id) {
           setSelectedId(next.length > 0 ? next[0].id : null);
         }
         return next;
       });
       // Nếu có lưu trong localStorage của khách thì xóa khỏi localStorage
-      const localKey = `peermind_docs_${userId || "guest"}`;
-      const currentLocal = JSON.parse(localStorage.getItem(localKey) || "[]");
-      if (Array.isArray(currentLocal)) {
-        localStorage.setItem(localKey, JSON.stringify(currentLocal.filter((d: any) => d.id !== id)));
+      const stored = localStorage.getItem(localKey);
+      if (stored) {
+        try {
+          const currentLocal = JSON.parse(stored);
+          if (Array.isArray(currentLocal)) {
+            localStorage.setItem(localKey, JSON.stringify(currentLocal.filter((d: any) => d.id !== id)));
+          }
+        } catch {}
       }
     } catch (err) {
       console.error("Lỗi khi xóa tài liệu:", err);
