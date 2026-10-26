@@ -31,6 +31,7 @@ import { loginWithEmail, registerWithEmail, logoutUser, getCurrentUser } from ".
 import { supabase } from "./services/supabaseClient";
 import { idleService, IdleState } from "./services/idleService";
 import { IdleWarningModal } from "./components/common/IdleWarningModal";
+import { MotionShowcaseModal } from "./components/motion";
 
 type AuthView = "login" | "register" | "forgot";
 
@@ -106,6 +107,7 @@ const studentTestimonials = [
 
 export default function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isMotionLabOpen, setIsMotionLabOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [authView, setAuthView] = useState<AuthView>("login");
@@ -1152,11 +1154,25 @@ export default function App() {
             </a>
           </nav>
 
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            © 2026 PeerMind. Học thông minh hơn mỗi ngày.
-          </p>
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsMotionLabOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors cursor-pointer rounded-full px-3 py-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-teal-500/40"
+              title="Mở phòng thử nghiệm kiểm tra hiệu ứng chuyển động và hiển thị dấu tiếng Việt"
+            >
+              <Sparkles className="h-3 w-3 text-amber-500" />
+              <span>Thử nghiệm Motion (&quot;Ắng ễ ượ...&quot;)</span>
+            </button>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              © 2026 PeerMind. Học thông minh hơn mỗi ngày.
+            </p>
+          </div>
         </div>
       </footer>
+
+      {/* ─── PHÒNG THỬ NGHIỆM MOTION (NỘI BỘ) ───────────────────────────────── */}
+      <MotionShowcaseModal isOpen={isMotionLabOpen} onClose={() => setIsMotionLabOpen(false)} />
 
       {/* ─── AUTH MODAL ──────────────────────────────────────────────────────── */}
       {isLoginOpen && (

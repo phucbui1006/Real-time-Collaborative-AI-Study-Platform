@@ -63,6 +63,25 @@
   --radius-card-tr: var(--radius-md);
   --radius-card-br: var(--radius-md);
   --radius-card-bl: var(--radius-md);
+
+  /* Token chuyển động nhất quán (Motion Tokens) */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 600ms;
+  --stagger: 60ms;
+  --slide-offset: 16px;
+}
+
+/* Hỗ trợ prefers-reduced-motion: tắt trượt/nảy, chỉ giữ hiện mờ nhanh hoặc không hiệu ứng */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+    --stagger: 0ms;
+    --slide-offset: 0px;
+  }
 }
 
 [data-theme="dark"], html.dark {
