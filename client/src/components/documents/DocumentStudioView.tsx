@@ -111,22 +111,46 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
   // Tải ngầm toàn bộ tài liệu (đã siêu nhẹ < 50KB nhờ tách ảnh ra Storage) để AI hiểu trọn vẹn và lật trang 0ms
   useEffect(() => {
     let isMounted = true;
-    if (activeDoc.id > 0 && (!activeDoc.pagesContent || activeDoc.pagesContent.length <= 1)) {
+    if (!activeDoc.pagesContent || activeDoc.pagesContent.length <= 1) {
       (async () => {
-        try {
-          const { data, error } = await supabase
-            .from("documents")
-            .select("pages_content, total_pages")
-            .eq("id", activeDoc.id)
-            .single();
+        // 1. Thử tải từ Supabase
+        if (activeDoc.id > 0) {
+          try {
+            const { data, error } = await supabase
+              .from("documents")
+              .select("pages_content, total_pages")
+              .eq("id", activeDoc.id)
+              .single();
 
-          if (!error && data?.pages_content && Array.isArray(data.pages_content) && isMounted) {
-            setActiveDoc((prev) => ({
-              ...prev,
-              pagesContent: data.pages_content,
-              pagesCount: data.total_pages || data.pages_content.length,
-            }));
-            cacheAllDocumentPages(activeDoc.id, data.pages_content);
+            if (!error && data?.pages_content && Array.isArray(data.pages_content) && isMounted) {
+              setActiveDoc((prev) => ({
+                ...prev,
+                pagesContent: data.pages_content,
+                pagesCount: data.total_pages || data.pages_content.length,
+              }));
+              cacheAllDocumentPages(activeDoc.id, data.pages_content);
+              return;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        // 2. Thử tải từ localStorage nếu là Guest hoặc chưa có trong DB
+        try {
+          const localKey = `peermind_docs_${userId || "guest"}`;
+          const stored = localStorage.getItem(localKey);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            const found = parsed.find((d: any) => d.id === activeDoc.id);
+            if (found?.pagesContent && Array.isArray(found.pagesContent) && found.pagesContent.length > 0 && isMounted) {
+              setActiveDoc((prev) => ({
+                ...prev,
+                pagesContent: found.pagesContent,
+                pagesCount: found.pagesCount || found.pagesContent.length,
+              }));
+              cacheAllDocumentPages(activeDoc.id, found.pagesContent);
+            }
           }
         } catch {
           // ignore
@@ -136,7 +160,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [activeDoc.id, activeDoc.pagesContent]);
+  }, [activeDoc.id, activeDoc.pagesContent, userId]);
 
 
 
@@ -360,11 +384,74 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     });
 
     try {
+      // Đảm bảo có đầy đủ mảng pagesContent trước khi gửi cho AI
+      let fullPages = activeDoc.pagesContent && activeDoc.pagesContent.length > 1 ? activeDoc.pagesContent : [];
+
+      // 1. Thử lấy từ Supabase nếu chưa có
+      if (fullPages.length <= 1 && activeDoc.id > 0) {
+        try {
+          const { data: dbData } = await supabase
+            .from("documents")
+            .select("pages_content, total_pages")
+            .eq("id", activeDoc.id)
+            .single();
+          if (dbData?.pages_content && Array.isArray(dbData.pages_content) && dbData.pages_content.length > 0) {
+            fullPages = dbData.pages_content;
+            setActiveDoc((prev) => ({
+              ...prev,
+              pagesContent: fullPages,
+              pagesCount: dbData.total_pages || fullPages.length,
+            }));
+            cacheAllDocumentPages(activeDoc.id, fullPages);
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // 2. Thử lấy từ localStorage nếu là Guest/Demo
+      if (fullPages.length <= 1) {
+        try {
+          const localKey = `peermind_docs_${userId || "guest"}`;
+          const stored = localStorage.getItem(localKey);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            const found = parsed.find((d: any) => d.id === activeDoc.id);
+            if (found?.pagesContent && Array.isArray(found.pagesContent) && found.pagesContent.length > 0) {
+              fullPages = found.pagesContent;
+              setActiveDoc((prev) => ({ ...prev, pagesContent: fullPages }));
+              cacheAllDocumentPages(activeDoc.id, fullPages);
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // 3. Nếu người dùng hỏi một trang cụ thể (như Trang 3) hoặc trang hiện tại mà vẫn chưa có fullPages, nạp on-demand trang đó
+      const pageMatch = q.match(/(?:trang|page|slide|mục)\s*(?:số\s*)?(\d+)/i);
+      const targetPageNum = pageMatch ? parseInt(pageMatch[1], 10) : currentPage;
+      if (fullPages.length <= 1 && targetPageNum >= 1) {
+        try {
+          const pageData = await fetchDocumentPage(activeDoc.id, targetPageNum - 1, `Trang ${targetPageNum}`);
+          if (pageData && pageData !== `Trang ${targetPageNum}`) {
+            const temp = new Array(Math.max(targetPageNum, totalPages)).fill("");
+            temp[targetPageNum - 1] = pageData;
+            if (currentPage >= 1 && currentPage !== targetPageNum && pageText) {
+              temp[currentPage - 1] = pageText;
+            }
+            fullPages = temp;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       const docForAI: DocumentItem = {
         ...activeDoc,
         pagesContent:
-          activeDoc.pagesContent && activeDoc.pagesContent.length > 0
-            ? activeDoc.pagesContent
+          fullPages && fullPages.length > 0
+            ? fullPages
             : [cleanTextForAI(pageText || rawPageText)],
       };
       const res = await askAI(q, docForAI, newHistory, currentPage);

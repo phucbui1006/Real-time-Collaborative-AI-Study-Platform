@@ -35,7 +35,7 @@ function extractKeywords(query: string): string[] {
 export function findRelevantPages(
   query: string,
   pages: string[],
-  topK = 3,
+  topK = 4,
   currentPage?: number
 ): RelevantChunk[] {
   if (!pages || pages.length === 0) return [];
@@ -47,8 +47,8 @@ export function findRelevantPages(
     }));
   }
 
-  // 1. Kiểm tra xem người dùng có chỉ định số trang cụ thể không (ví dụ: "trang 3", "page 3", "slide 3")
-  const pageMatch = query.match(/(?:trang|page|slide)\s*(\d+)/i);
+  // 1. Kiểm tra xem người dùng có chỉ định số trang cụ thể không (ví dụ: "trang 3", "trang số 3", "page 3", "slide 3")
+  const pageMatch = query.match(/(?:trang|page|slide|mục)\s*(?:số\s*)?(\d+)/i);
   if (pageMatch) {
     const targetPageNum = parseInt(pageMatch[1], 10);
     if (targetPageNum >= 1 && targetPageNum <= pages.length) {
@@ -85,7 +85,8 @@ export function findRelevantPages(
       lowerQuery.includes("trang này") ||
       lowerQuery.includes("slide này") ||
       lowerQuery.includes("đoạn này") ||
-      lowerQuery.includes("nội dung này")
+      lowerQuery.includes("nội dung này") ||
+      lowerQuery.includes("hiện tại")
     ) {
       return [
         {
@@ -109,7 +110,7 @@ export function findRelevantPages(
         },
       ];
     }
-    return pages.slice(0, 2).map((text, idx) => ({
+    return pages.slice(0, topK).map((text, idx) => ({
       pageNumber: idx + 1,
       text,
       score: 0.5,
@@ -129,9 +130,20 @@ export function findRelevantPages(
         // Điểm thưởng nếu xuất hiện ở đầu trang (thường là tiêu đề hoặc khái niệm cốt lõi)
         const firstPos = textLower.indexOf(kw);
         if (firstPos < 200) {
-          score += 3.0;
+          score += 2.0;
         }
       }
+    }
+
+    // Nếu trang này thuần túy là trang Mục lục (chứa danh mục đề mục), giảm nhẹ điểm để ưu tiên trang nội dung thực tế
+    const isTocPage = textLower.includes("mục lục") || textLower.includes("_toc") || (textLower.match(/\.{4,}/g)?.length || 0) > 3;
+    if (isTocPage && score > 0) {
+      score = score * 0.4;
+    }
+
+    // Nếu là trang người dùng đang mở, ưu tiên nhẹ
+    if (currentPage && idx === currentPage - 1 && score > 0) {
+      score += 3.0;
     }
 
     return {
@@ -157,7 +169,7 @@ export function findRelevantPages(
         },
       ];
     }
-    return scoredPages.slice(0, 2);
+    return scoredPages.slice(0, topK);
   }
 
   // Sắp xếp lại kết quả theo thứ tự số trang tự nhiên để AI dễ đọc theo mạch
@@ -177,7 +189,7 @@ export function buildRAGContext(chunks: RelevantChunk[]): string {
         const cleanText = c.text
           .replace(/!\[(.*?)\]\(data:image\/[^;]+;base64,[A-Za-z0-9+/=\s\\]+\)/g, "[Hình ảnh minh họa: $1]")
           .replace(/!\[(.*?)\]\((https?:\/\/[^\s)]+)\)/g, "[Hình ảnh minh họa: $1]");
-        return `--- [TRANG ${c.pageNumber}] ---\n${cleanText.slice(0, 2500)}`;
+        return `--- [TRANG ${c.pageNumber}] ---\n${cleanText.slice(0, 3500)}`;
       }
     )
     .join("\n\n");

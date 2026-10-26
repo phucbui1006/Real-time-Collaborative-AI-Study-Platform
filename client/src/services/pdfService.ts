@@ -174,18 +174,59 @@ export async function extractTextFromDocx(file: File): Promise<ExtractedDoc> {
   try {
     const arrayBuffer = await file.arrayBuffer();
 
-    // 1. Chuyển đổi DOCX sang Markdown nhằm giữ nguyên tiêu đề (#, ##), danh sách, bảng biểu
+    // 1. Đọc metadata số trang thực tế mà Microsoft Word đã tính toán và lưu trong docProps/app.xml
+    let zip: JSZip | null = null;
+    let wordDeclaredPages = 0;
+    try {
+      zip = await JSZip.loadAsync(arrayBuffer);
+      const appXmlFile = zip.file("docProps/app.xml");
+      if (appXmlFile) {
+        const appXml = await appXmlFile.async("text");
+        const match = appXml.match(/<Pages>(\d+)<\/Pages>/i);
+        if (match) {
+          wordDeclaredPages = parseInt(match[1], 10);
+        }
+      }
+    } catch (zipErr) {
+      console.warn("Không thể đọc zip docProps/app.xml từ DOCX:", zipErr);
+    }
+
+    // 2. Kiểm tra ngắt trang vật lý (<w:br w:type="page"/> và <w:lastRenderedPageBreak/>) trong word/document.xml
+    const PAGE_BREAK_DELIMITER = "\n\n[[--PEERMIND_PAGE_BREAK--]]\n\n";
+    let bufferToParse: ArrayBuffer = arrayBuffer;
+    let hasExplicitBreaks = false;
+
+    if (zip) {
+      const docXmlFile = zip.file("word/document.xml");
+      if (docXmlFile) {
+        try {
+          let docXml = await docXmlFile.async("text");
+          if (docXml.includes('w:type="page"') || docXml.includes("lastRenderedPageBreak")) {
+            docXml = docXml
+              .replace(/<w:lastRenderedPageBreak\s*\/?>/gi, `<w:r><w:t>${PAGE_BREAK_DELIMITER}<\/w:t><\/w:r>`)
+              .replace(/<w:br[^>]*w:type=["']page["'][^>]*\/?>/gi, `<w:r><w:t>${PAGE_BREAK_DELIMITER}<\/w:t><\/w:r>`);
+            zip.file("word/document.xml", docXml);
+            bufferToParse = await zip.generateAsync({ type: "arraybuffer" });
+            hasExplicitBreaks = true;
+          }
+        } catch (breakErr) {
+          console.warn("Không thể chèn delimiter ngắt trang vào docXml:", breakErr);
+        }
+      }
+    }
+
+    // 3. Chuyển đổi DOCX sang Markdown nhằm giữ nguyên tiêu đề (#, ##), danh sách, bảng biểu
     let text = "";
     try {
-      const mdResult = await (mammoth as any).convertToMarkdown({ arrayBuffer });
+      const mdResult = await (mammoth as any).convertToMarkdown({ arrayBuffer: bufferToParse });
       text = (mdResult?.value || "").trim();
     } catch {
       // Fallback
     }
 
-    // 2. Nếu Markdown rỗng, thử trích xuất Raw Text
+    // Nếu Markdown rỗng, thử trích xuất Raw Text
     if (!text) {
-      const rawResult = await (mammoth as any).extractRawText({ arrayBuffer });
+      const rawResult = await (mammoth as any).extractRawText({ arrayBuffer: bufferToParse });
       text = (rawResult?.value || "").trim();
     }
 
@@ -202,34 +243,78 @@ export async function extractTextFromDocx(file: File): Promise<ExtractedDoc> {
     // Làm sạch các thẻ Word bookmark HTML trước khi phân trang
     text = sanitizeExtractedText(text);
 
-    // 3. Phân trang thông minh cho tài liệu Word:
-    // Tiêu chuẩn 1 trang A4 Word: ~1,400 - 1,800 ký tự (khoảng 250 - 350 từ).
-    // Tách theo đoạn văn và tiêu đề để các phần không bị ngắt quãng vô lý.
-    const rawParagraphs = text.split(/\n\s*\n/);
-    const pages: string[] = [];
-    let currentPage = "";
-    const TARGET_PAGE_LENGTH = 1500;
+    // 4. Phân trang thông minh và chuẩn xác:
+    let pages: string[] = [];
 
-    for (const para of rawParagraphs) {
-      const trimmed = para.trim();
-      if (!trimmed) continue;
+    // Trường hợp 4.1: File Word có đánh dấu ngắt trang vật lý rõ ràng
+    if (hasExplicitBreaks && text.includes("[[--PEERMIND_PAGE_BREAK--]]")) {
+      const rawSplit = text
+        .split(/\[\[--PEERMIND_PAGE_BREAK--\]\]/)
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0);
 
-      const isHeading = /^#{1,3}\s/.test(trimmed) || /^(chương|bài|phần|mục|\d+\.)/i.test(trimmed);
-
-      // Nếu đoạn văn bản khiến trang vượt độ dài mục tiêu, hoặc gặp Tiêu đề lớn khi trang đã có nội dung
-      if (
-        (currentPage.length + trimmed.length > TARGET_PAGE_LENGTH && currentPage.length > 500) ||
-        (isHeading && currentPage.length > 800)
-      ) {
-        pages.push(currentPage.trim());
-        currentPage = trimmed;
-      } else {
-        currentPage = currentPage ? `${currentPage}\n\n${trimmed}` : trimmed;
+      if (rawSplit.length > 0) {
+        pages = rawSplit;
       }
     }
 
-    if (currentPage.trim()) {
-      pages.push(currentPage.trim());
+    // Trường hợp 4.2: File Word có khai báo số trang chuẩn trong metadata Word (docProps/app.xml)
+    if (pages.length === 0 && wordDeclaredPages > 1) {
+      const rawParagraphs = text.split(/\n\s*\n/);
+      // Ước lượng độ dài ký tự cho mỗi trang dựa trên số trang thực tế của Word
+      const targetLen = Math.max(1800, Math.round(text.length / wordDeclaredPages));
+      let currentPage = "";
+
+      for (const para of rawParagraphs) {
+        const trimmed = para.trim();
+        if (!trimmed) continue;
+
+        // Chỉ ngắt khi gặp tiêu đề lớn cấp 1 (# hoặc Chương/Phần)
+        const isMajorHeading = /^#\s+/m.test(trimmed) || /^(chương\s+\d+|phần\s+\d+)/i.test(trimmed);
+
+        if (
+          (currentPage.length + trimmed.length > targetLen && currentPage.length >= 1200) ||
+          (isMajorHeading && currentPage.length >= Math.round(targetLen * 0.75))
+        ) {
+          pages.push(currentPage.trim());
+          currentPage = trimmed;
+        } else {
+          currentPage = currentPage ? `${currentPage}\n\n${trimmed}` : trimmed;
+        }
+      }
+
+      if (currentPage.trim()) {
+        pages.push(currentPage.trim());
+      }
+    }
+
+    // Trường hợp 4.3: Fallback phân trang theo tiêu chuẩn A4 Word chuẩn (khoảng 3.200 - 3.800 ký tự / trang)
+    if (pages.length === 0) {
+      const rawParagraphs = text.split(/\n\s*\n/);
+      const TARGET_PAGE_LENGTH = 3200;
+      let currentPage = "";
+
+      for (const para of rawParagraphs) {
+        const trimmed = para.trim();
+        if (!trimmed) continue;
+
+        // Không ngắt trang ở danh sách đánh số \d+\., chỉ ngắt khi gặp tiêu đề lớn H1
+        const isMajorHeading = /^#\s+/m.test(trimmed) || /^(chương\s+\d+|phần\s+\d+)/i.test(trimmed);
+
+        if (
+          (currentPage.length + trimmed.length > TARGET_PAGE_LENGTH && currentPage.length >= 2000) ||
+          (isMajorHeading && currentPage.length >= 2400)
+        ) {
+          pages.push(currentPage.trim());
+          currentPage = trimmed;
+        } else {
+          currentPage = currentPage ? `${currentPage}\n\n${trimmed}` : trimmed;
+        }
+      }
+
+      if (currentPage.trim()) {
+        pages.push(currentPage.trim());
+      }
     }
 
     return {

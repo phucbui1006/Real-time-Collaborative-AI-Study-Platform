@@ -339,6 +339,41 @@ HƯỚNG DẪN ĐỊNH DẠNG CÔNG THỨC TOÁN HỌC & TRÌNH BÀY:
 }
 
 /**
+ * Chuẩn bị ngữ cảnh toàn diện cho tài liệu: giữ trọn vẹn từ trang đầu đến trang cuối
+ * Tối đa 120.000 ký tự (phù hợp hoàn hảo với context window của Google Gemini 1.5/2.0 Flash)
+ */
+function formatFullDocumentForAI(pagesContent: string[], docTitle: string, maxTotalChars = 120000): string {
+  if (!pagesContent || pagesContent.length === 0) return docTitle;
+
+  const formatted = pagesContent.map((p, idx) => `--- [TRANG ${idx + 1}] ---\n${p.trim()}`);
+  const fullText = formatted.join("\n\n");
+
+  if (fullText.length <= maxTotalChars) {
+    return fullText;
+  }
+
+  // Nếu tài liệu siêu dài (> 120k ký tự), lấy mẫu thông minh trải đều từ đầu, giữa đến trang cuối cùng
+  const total = pagesContent.length;
+  const charsPerPage = Math.floor(maxTotalChars / total);
+
+  if (charsPerPage >= 800) {
+    return pagesContent
+      .map((p, idx) => `--- [TRANG ${idx + 1}] ---\n${p.slice(0, charsPerPage).trim()}`)
+      .join("\n\n");
+  }
+
+  // Nếu quá nhiều trang, giữ 3 trang đầu, lấy mẫu ở giữa và luôn giữ 3 trang cuối cùng
+  const step = Math.max(2, Math.ceil(total / 30));
+  const sampled: string[] = [];
+  for (let i = 0; i < total; i++) {
+    if (i < 3 || i >= total - 3 || i % step === 0) {
+      sampled.push(`--- [TRANG ${i + 1}] ---\n${pagesContent[i].slice(0, 3000).trim()}`);
+    }
+  }
+  return sampled.join("\n\n").slice(0, maxTotalChars);
+}
+
+/**
  * 2. Tóm tắt tài liệu tự nhiên, sinh động bằng Gemini
  */
 export async function summarizeDocumentWithGemini({
@@ -350,14 +385,14 @@ export async function summarizeDocumentWithGemini({
   docSubject?: string;
   pagesContent: string[];
 }): Promise<string> {
-  const contentText = pagesContent.length > 0 ? pagesContent.join("\n\n") : docTitle;
+  const contentText = formatFullDocumentForAI(pagesContent, docTitle);
 
   const prompt = `
 Bạn là bạn học cùng bàn kiêm trợ lý học tập thân thiện của PeerMind.
 Hãy tóm tắt tài liệu "${docTitle}" (${docSubject || "Tổng hợp"}) một cách sinh động, dễ hiểu, ngắn gọn và cuốn hút nhất.
 
 === NỘI DUNG TÀI LIỆU ===
-${contentText.slice(0, 10000)}
+${contentText}
 
 === YÊU CẦU TRÌNH BÀY ===
 Dùng giọng văn thân thiện, xưng "mình - bạn", có icon và định dạng Markdown đẹp mắt:
@@ -381,14 +416,14 @@ export async function generateMindmapTextWithGemini({
   docSubject?: string;
   pagesContent: string[];
 }): Promise<string> {
-  const contentText = pagesContent.length > 0 ? pagesContent.join("\n\n") : docTitle;
+  const contentText = formatFullDocumentForAI(pagesContent, docTitle);
 
   const prompt = `
 Bạn là chuyên gia trực quan hóa kiến thức và sơ đồ tư duy của PeerMind.
 Dựa vào nội dung tài liệu "${docTitle}" (${docSubject || "Chung"}), hãy dựng một sơ đồ tư duy (Mindmap) phân cấp bằng Markdown tuyệt đẹp, trực quan, sinh động.
 
 === NỘI DUNG TÀI LIỆU ===
-${contentText.slice(0, 9000)}
+${contentText}
 
 === YÊU CẦU TRÌNH BÀY ===
 - Dùng các ký tự cây phân nhánh: ├──, └──, │ và các emoji (🧠, 📦, 🌿, 📌, 💡, ⚡) để tạo thành sơ đồ tư duy trực quan, rõ ràng từng tầng lớp.
@@ -433,7 +468,7 @@ export async function generateQuizWithGemini({
 Bạn là người bạn đồng hành cùng ôn thi. Dựa vào nội dung tài liệu dưới đây, hãy soạn thảo ${count} câu hỏi trắc nghiệm thú vị, bám sát kiến thức:
 
 === TÀI LIỆU: "${docTitle}" ===
-${contentText.slice(0, 9000)}
+${contentText}
 
 === YÊU CẦU BẮT BUỘC ===
 Trả về kết quả ở dạng JSON thuần túy theo schema sau (KHÔNG bọc trong markdown \`\`\`json hay thêm văn bản giải thích nào khác):
