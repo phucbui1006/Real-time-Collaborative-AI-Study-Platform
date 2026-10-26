@@ -42,7 +42,7 @@ export function MembersModal({ open, onClose, members }: MembersModalProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Danh sách thành viên trong phòng"
-        className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-6 border border-slate-200/90 dark:border-slate-800 shadow-2xl transition-all"
+        className="w-full max-w-md rounded-lg bg-white dark:bg-slate-900 p-6 border border-slate-200/90 dark:border-slate-800 shadow-2xl transition-all"
       >
         {/* Header */}
         <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -57,7 +57,7 @@ export function MembersModal({ open, onClose, members }: MembersModalProps) {
           <button
             onClick={onClose}
             aria-label="Đóng"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="flex h-7 w-7 items-center justify-center rounded-sm text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="h-4 w-4" strokeWidth={1.75} />
           </button>
@@ -70,7 +70,7 @@ export function MembersModal({ open, onClose, members }: MembersModalProps) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm theo tên thành viên…"
-            className="w-full h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 pl-9 pr-3 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors"
+            className="w-full h-9 rounded-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 pl-9 pr-3 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors"
           />
         </div>
 
@@ -79,12 +79,12 @@ export function MembersModal({ open, onClose, members }: MembersModalProps) {
           {filteredMembers.map((m) => (
             <li
               key={m.id}
-              className="flex items-center justify-between rounded-lg p-2.5 border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/60 hover:bg-slate-50/70 dark:hover:bg-slate-800 transition-colors"
+              className="flex items-center justify-between rounded-[4px] p-2.5 border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/60 hover:bg-slate-50/70 dark:hover:bg-slate-800 transition-colors"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="relative shrink-0">
                   <div
-                    className="flex h-8 w-8 items-center justify-center rounded-md text-xs font-bold text-white shadow-2xs"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white shadow-2xs"
                     style={{ background: m.avatarColor }}
                   >
                     {m.name.slice(0, 2).toUpperCase()}
@@ -101,7 +101,7 @@ export function MembersModal({ open, onClose, members }: MembersModalProps) {
                   <div className="truncate font-medium text-xs text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <span className="truncate">{m.name}</span>
                     {m.role === "host" && (
-                      <span className="rounded px-1.5 py-0.2 text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 shrink-0">
+                      <span className="rounded-sharp px-1.5 py-0.2 text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 shrink-0">
                         Chủ phòng
                       </span>
                     )}
@@ -128,7 +128,7 @@ export function MembersModal({ open, onClose, members }: MembersModalProps) {
         <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
           <button
             onClick={onClose}
-            className="h-8 px-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer shadow-2xs"
+            className="h-8 px-4 rounded-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer shadow-2xs"
           >
             Đóng
           </button>

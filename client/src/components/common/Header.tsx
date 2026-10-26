@@ -60,7 +60,7 @@ export function Header({ activeTab, onSelectTab, onLogout, userName, userEmail }
           <ThemeToggle />
 
           {/* User profile & Đăng xuất */}
-          <div className="flex items-center gap-2 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-3 py-1 text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] dark:shadow-[0_1px_0_0_#000000]">
+          <div className="flex items-center gap-2 rounded-pill border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-3 py-1 text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] dark:shadow-[0_1px_0_0_#000000]">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#91d8ec] text-xs font-normal text-[#111118] border border-[#111118]">
               {initials}
             </span>
@@ -69,7 +69,7 @@ export function Header({ activeTab, onSelectTab, onLogout, userName, userEmail }
             </div>
             <button
               onClick={onLogout}
-              className="ml-1 text-[#111118]/60 dark:text-[#f0f6ff]/60 hover:text-rose-600 dark:hover:text-rose-400 transition-colors p-1 cursor-pointer"
+              className="ml-1 rounded-sm text-[#111118]/60 dark:text-[#f0f6ff]/60 hover:text-rose-600 dark:hover:text-rose-400 transition-colors p-1 cursor-pointer"
               title="Đăng xuất"
               aria-label="Đăng xuất"
             >

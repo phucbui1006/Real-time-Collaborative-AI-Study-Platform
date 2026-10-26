@@ -68,18 +68,18 @@ export function AIKeyModal({ isOpen, onClose, onKeyUpdated }: AIKeyModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl transition-all">
+      <div className="relative w-full max-w-lg rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl transition-all">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+          className="absolute top-5 right-5 flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
         >
           <X className="h-4 w-4" strokeWidth={2} />
         </button>
 
         {/* Title */}
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
+          <div className="w-10 h-10 rounded-sm bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
@@ -93,15 +93,15 @@ export function AIKeyModal({ isOpen, onClose, onKeyUpdated }: AIKeyModalProps) {
         </div>
 
         {/* Status Badge */}
-        <div className="mb-4 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/60 flex items-center justify-between text-xs">
+        <div className="mb-4 p-3 rounded-[4px] border border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/60 flex items-center justify-between text-xs">
           <span className="text-slate-600 dark:text-slate-300 font-medium">Trạng thái AI hiện tại:</span>
           {isConfigured ? (
-            <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-md border border-emerald-200 dark:border-emerald-800">
+            <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-sharp border border-emerald-200 dark:border-emerald-800">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Đã kích hoạt Gemini AI
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded-md border border-amber-200 dark:border-amber-800">
+            <span className="inline-flex items-center gap-1.5 font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded-sharp border border-amber-200 dark:border-amber-800">
               <span className="w-2 h-2 rounded-full bg-amber-500" />
               Chế độ mô phỏng dự phòng
             </span>
@@ -133,7 +133,7 @@ export function AIKeyModal({ isOpen, onClose, onKeyUpdated }: AIKeyModalProps) {
                   setTestResult(null);
                   setSavedSuccess(false);
                 }}
-                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 pr-20 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-mono"
+                className="w-full rounded-sm border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 pr-20 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-mono"
               />
               <button
                 type="button"
@@ -149,7 +149,7 @@ export function AIKeyModal({ isOpen, onClose, onKeyUpdated }: AIKeyModalProps) {
           {/* Test & Result Alerts */}
           {testResult && (
             <div
-              className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 ${
+              className={`p-3 rounded-[4px] border text-xs flex items-start gap-2.5 ${
                 testResult.success
                   ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
                   : "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300"
@@ -165,7 +165,7 @@ export function AIKeyModal({ isOpen, onClose, onKeyUpdated }: AIKeyModalProps) {
           )}
 
           {savedSuccess && (
-            <div className="p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
+            <div className="p-2.5 rounded-[4px] border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
               <Check className="w-4 h-4 shrink-0" />
               <span>Đã lưu API Key! Đang áp dụng...</span>
             </div>
@@ -177,7 +177,7 @@ export function AIKeyModal({ isOpen, onClose, onKeyUpdated }: AIKeyModalProps) {
               type="button"
               onClick={handleTestKey}
               disabled={testing || !keyInput.trim()}
-              className="px-3.5 py-2 rounded-xl text-xs font-medium border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors disabled:opacity-50 cursor-pointer"
+              className="px-3.5 py-2 rounded-sm text-xs font-medium border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors disabled:opacity-50 cursor-pointer"
             >
               {testing ? "Đang thử nghiệm..." : "Kiểm tra kết nối"}
             </button>
@@ -185,7 +185,7 @@ export function AIKeyModal({ isOpen, onClose, onKeyUpdated }: AIKeyModalProps) {
             <button
               type="button"
               onClick={handleSave}
-              className="flex-1 px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              className="flex-1 px-4 py-2 rounded-pill text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5"
             >
               <Key className="w-3.5 h-3.5" />
               <span>Lưu API Key</span>
@@ -195,7 +195,7 @@ export function AIKeyModal({ isOpen, onClose, onKeyUpdated }: AIKeyModalProps) {
               <button
                 type="button"
                 onClick={handleRemove}
-                className="p-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
+                className="p-2 rounded-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
                 title="Xóa Key đã lưu"
               >
                 <Trash2 className="w-4 h-4" />

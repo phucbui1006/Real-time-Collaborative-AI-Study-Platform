@@ -135,14 +135,14 @@ export function RoomHistory({
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 shrink-0">
             <button
               onClick={onOpenJoin}
-              className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-[48px] bg-[#000000] dark:bg-[#2a2a3a] text-white dark:text-[#f0f6ff] text-lg font-normal border border-[#111118] dark:border-[#2dd4bf] shadow-[0_4px_0_0_#0b7a75] dark:shadow-[0_4px_0_0_#2dd4bf] active:translate-y-[2px] transition-transform cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-sm bg-[#000000] dark:bg-[#2a2a3a] text-white dark:text-[#f0f6ff] text-lg font-normal border border-[#111118] dark:border-[#2dd4bf] shadow-[0_4px_0_0_#0b7a75] dark:shadow-[0_4px_0_0_#2dd4bf] active:translate-y-[2px] transition-transform cursor-pointer"
             >
               <SignIn size={22} weight="regular" />
               <span>Tham gia bằng mã</span>
             </button>
             <button
               onClick={onOpenCreate}
-              className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-[48px] bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white text-lg font-normal border border-[#111118] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] active:translate-y-[2px] transition-transform cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-pill bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white text-lg font-normal border border-[#111118] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] active:translate-y-[2px] transition-transform cursor-pointer"
             >
               <Plus size={22} weight="regular" />
               <span>Tạo phòng học mới →</span>
@@ -154,8 +154,8 @@ export function RoomHistory({
             3 CHỈ SỐ NHANH / YẾU TỐ CON NGƯỜI
            ========================================================================== */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4" aria-label="Thống kê học tập">
-          <div className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-[24px] p-5 flex items-center gap-4 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
-            <div className="w-12 h-12 rounded-full bg-[#ffda00] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0">
+          <div className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-md p-5 flex items-center gap-4 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+            <div className="w-12 h-12 rounded-sm bg-[#ffda00] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0">
               <Users size={24} weight="regular" />
             </div>
             <div>
@@ -164,8 +164,8 @@ export function RoomHistory({
             </div>
           </div>
 
-          <div className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-[24px] p-5 flex items-center gap-4 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
-            <div className="w-12 h-12 rounded-full bg-[#91d8ec] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0">
+          <div className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-md p-5 flex items-center gap-4 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+            <div className="w-12 h-12 rounded-sm bg-[#91d8ec] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0">
               <CalendarCheck size={24} weight="regular" />
             </div>
             <div>
@@ -174,8 +174,8 @@ export function RoomHistory({
             </div>
           </div>
 
-          <div className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-[24px] p-5 flex items-center gap-4 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
-            <div className="w-12 h-12 rounded-full bg-[#ffbac4] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0">
+          <div className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-md p-5 flex items-center gap-4 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+            <div className="w-12 h-12 rounded-sm bg-[#ffbac4] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0">
               <ChatsCircle size={24} weight="regular" />
             </div>
             <div>
@@ -188,7 +188,7 @@ export function RoomHistory({
         {/* ==========================================================================
             SEARCH & FILTER CONTROLS BAR
            ========================================================================== */}
-        <section className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-[24px] p-6 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+        <section className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-md p-6 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-5">
             <div className="relative flex-1 max-w-md">
               <MagnifyingGlass
@@ -200,7 +200,7 @@ export function RoomHistory({
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Tìm theo tên môn, mã phòng 6 số…"
-                className="w-full h-12 pl-12 pr-5 rounded-[5000px] bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a] text-[#111118] dark:text-[#f0f6ff] text-base placeholder:text-[#111118]/50 dark:placeholder:text-[#f0f6ff]/50 outline-none focus:border-[#0b7a75] dark:focus:border-[#2dd4bf] focus:ring-2 focus:ring-[#0b7a75] dark:focus:ring-[#2dd4bf] transition-colors"
+                className="w-full h-12 pl-12 pr-5 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a] text-[#111118] dark:text-[#f0f6ff] text-base placeholder:text-[#111118]/50 dark:placeholder:text-[#f0f6ff]/50 outline-none focus:border-[#0b7a75] dark:focus:border-[#2dd4bf] focus:ring-2 focus:ring-[#0b7a75] dark:focus:ring-[#2dd4bf] transition-colors"
               />
             </div>
 
@@ -215,10 +215,10 @@ export function RoomHistory({
                 <button
                   key={tab.id}
                   onClick={() => setCurrentFilter(tab.id)}
-                  className={`h-10 px-4 rounded-[5000px] text-base font-normal whitespace-nowrap transition-colors cursor-pointer ${
+                  className={`h-10 px-4 text-base font-normal whitespace-nowrap transition-colors cursor-pointer ${
                     currentFilter === tab.id
-                      ? "bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]"
-                      : "bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#d0e2ff] dark:hover:bg-[#2e2e42]"
+                      ? "rounded-pill bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]"
+                      : "rounded-[8px] bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#d0e2ff] dark:hover:bg-[#2e2e42]"
                   }`}
                 >
                   {tab.label}
@@ -232,7 +232,7 @@ export function RoomHistory({
             ROOM CARDS GRID
            ========================================================================== */}
         {filtered.length === 0 ? (
-          <div className="bg-white dark:bg-[#1b1b26] border border-dashed border-[#e1edff] dark:border-[#2a2a3a] rounded-[24px] p-12 text-center shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+          <div className="bg-white dark:bg-[#1b1b26] border border-dashed border-[#e1edff] dark:border-[#2a2a3a] rounded-md p-12 text-center shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
             <p className="text-base text-[#111118]/70 dark:text-[#f0f6ff]/70">
               {rooms.length === 0
                 ? 'Bạn chưa tham gia phòng nào. Bấm "Tạo phòng học mới" hoặc "Tham gia bằng mã" để bắt đầu nhé!'
@@ -241,7 +241,7 @@ export function RoomHistory({
             <div className="mt-5 flex justify-center gap-3">
               <button
                 onClick={onOpenCreate}
-                className="h-10 px-5 rounded-[48px] bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] text-base font-normal shadow-[0_3px_0_0_#111118] active:translate-y-[1px] cursor-pointer"
+                className="h-10 px-5 rounded-pill bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] text-base font-normal shadow-[0_3px_0_0_#111118] active:translate-y-[1px] cursor-pointer"
               >
                 Tạo phòng học mới →
               </button>
@@ -257,13 +257,13 @@ export function RoomHistory({
               return (
                 <article
                   key={r.id}
-                  className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-[24px] p-6 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] hover:-translate-y-0.5 hover:shadow-[0_4px_0_0_#111118] dark:hover:shadow-[0_4px_0_0_#000000] transition-all flex flex-col justify-between"
+                  className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-md p-6 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] hover:-translate-y-0.5 hover:shadow-[0_4px_0_0_#111118] dark:hover:shadow-[0_4px_0_0_#000000] transition-all flex flex-col justify-between"
                 >
                   <div>
                     {/* Header: Icon môn học & Tiêu đề */}
                     <div className="flex items-start gap-4">
                       <div
-                        className="w-13 h-13 rounded-full flex items-center justify-center text-[#111118] border border-[#111118] shadow-[0_2px_0_0_#111118] shrink-0"
+                        className="w-13 h-13 rounded-sm flex items-center justify-center text-[#111118] border border-[#111118] shadow-[0_2px_0_0_#111118] shrink-0"
                         style={{ backgroundColor: subject.bg }}
                       >
                         <SubjectIcon size={26} weight="regular" />
@@ -272,12 +272,12 @@ export function RoomHistory({
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-2">
                           <span
-                            className="inline-flex items-center px-3 py-1 rounded-[5000px] text-xs font-normal border border-[#111118] text-[#111118]"
+                            className="inline-flex items-center px-3 py-1 rounded-sharp text-xs font-normal border border-[#111118] text-[#111118]"
                             style={{ backgroundColor: subject.bg }}
                           >
                             {subject.name}
                           </span>
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[5000px] bg-[#e1edff] dark:bg-[#242436] text-xs text-[#111118] dark:text-[#f0f6ff]">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-sharp bg-[#e1edff] dark:bg-[#242436] text-xs text-[#111118] dark:text-[#f0f6ff]">
                             <span
                               className={`w-2 h-2 rounded-full ${
                                 isOnline ? "bg-[#16ab59]" : "bg-slate-400"
@@ -294,25 +294,25 @@ export function RoomHistory({
                       <button
                         onClick={() => onRemove(r.id)}
                         aria-label={`Xoá ${r.name} khỏi danh sách`}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-[#111118]/60 dark:text-[#f0f6ff]/60 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer shrink-0"
+                        className="w-8 h-8 rounded-sm flex items-center justify-center text-[#111118]/60 dark:text-[#f0f6ff]/60 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer shrink-0"
                       >
                         <X size={16} weight="regular" />
                       </button>
                     </div>
 
                     {/* Khối chi tiết: Mã phòng & Lịch học */}
-                    <div className="mt-4 bg-[#e1edff] dark:bg-[#242436] rounded-[20px] p-4 space-y-2.5">
+                    <div className="mt-4 bg-[#e1edff] dark:bg-[#242436] rounded-[4px] p-4 space-y-2.5">
                       <div className="flex items-center justify-between">
                         <span className="inline-flex items-center gap-1.5 text-sm text-[#111118]/85 dark:text-[#f0f6ff]/85">
                           <Hash size={16} weight="regular" /> Mã phòng:
                         </span>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-base tracking-[0.18em] bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] px-3 py-1 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_1px_0_0_#111118] dark:shadow-[0_1px_0_0_#000000]">
+                          <span className="font-mono text-base tracking-[0.18em] bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] px-3 py-1 rounded-[4px] border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_1px_0_0_#111118] dark:shadow-[0_1px_0_0_#000000]">
                             {r.code}
                           </span>
                           <button
                             onClick={(e) => handleCopyCode(r.code, e)}
-                            className="w-8 h-8 rounded-full bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_1px_0_0_#111118] hover:bg-[#f0f6ff] active:translate-y-[1px] transition-transform cursor-pointer"
+                            className="w-8 h-8 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_1px_0_0_#111118] hover:bg-[#f0f6ff] active:translate-y-[1px] transition-transform cursor-pointer"
                             title="Sao chép mã phòng"
                           >
                             {copiedCode === r.code ? (
@@ -352,7 +352,7 @@ export function RoomHistory({
 
                     <button
                       onClick={() => onRejoin(r)}
-                      className="inline-flex items-center gap-1.5 h-10 px-5 rounded-[48px] bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white text-sm font-normal border border-[#111118] shadow-[0_3px_0_0_#111118] dark:shadow-[0_3px_0_0_#000000] active:translate-y-[1px] transition-transform cursor-pointer"
+                      className="inline-flex items-center gap-1.5 h-10 px-5 rounded-pill bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white text-sm font-normal border border-[#111118] shadow-[0_3px_0_0_#111118] dark:shadow-[0_3px_0_0_#000000] active:translate-y-[1px] transition-transform cursor-pointer"
                     >
                       <span>Vào lại</span>
                       <ArrowRight size={14} weight="regular" />

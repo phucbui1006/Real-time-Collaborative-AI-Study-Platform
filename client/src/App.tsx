@@ -371,13 +371,13 @@ export default function App() {
             <ThemeToggle />
             <button
               onClick={handleGuestLogin}
-              className="rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-200 hover:border-teal-500 hover:text-teal-600 transition-all cursor-pointer"
+              className="rounded-sm border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-200 hover:border-teal-500 hover:text-teal-600 transition-all cursor-pointer"
             >
               Dùng thử ngay
             </button>
             <button
               onClick={openLogin}
-              className="inline-flex items-center gap-2 rounded-2xl bg-teal-700 hover:bg-teal-800 text-white px-5 py-2.5 text-sm font-bold shadow-sm shadow-teal-700/20 transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-pill bg-teal-700 hover:bg-teal-800 text-white px-5 py-2.5 text-sm font-bold shadow-sm shadow-teal-700/20 transition-all cursor-pointer"
             >
               <span>Đăng nhập</span>
               <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
@@ -389,7 +389,7 @@ export default function App() {
             <ThemeToggle />
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"
+              className="flex h-10 w-10 items-center justify-center rounded-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"
               aria-label="Mở menu"
               aria-expanded={isMenuOpen}
             >
@@ -399,7 +399,7 @@ export default function App() {
         </div>
 
         {isMenuOpen && (
-          <div className="mx-5 my-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xl md:hidden">
+          <div className="mx-5 my-2 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xl md:hidden">
             <div className="flex flex-col gap-1.5">
               {[
                 ["Học nhóm cùng bạn", "#hoc-nhom"],
@@ -412,7 +412,7 @@ export default function App() {
                   key={href}
                   href={href}
                   onClick={() => setIsMenuOpen(false)}
-                  className="rounded-xl px-3.5 py-2.5 text-base font-semibold text-slate-700 dark:text-slate-200 hover:bg-teal-50 dark:hover:bg-slate-800"
+                  className="rounded-sm px-3.5 py-2.5 text-base font-semibold text-slate-700 dark:text-slate-200 hover:bg-teal-50 dark:hover:bg-slate-800"
                 >
                   {label}
                 </a>
@@ -420,13 +420,13 @@ export default function App() {
               <div className="mt-2 grid grid-cols-1 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <button
                   onClick={handleGuestLogin}
-                  className="rounded-xl border-2 border-teal-500 py-2.5 text-base font-bold text-teal-700 dark:text-teal-300"
+                  className="rounded-sm border-2 border-teal-500 py-2.5 text-base font-bold text-teal-700 dark:text-teal-300"
                 >
                   Dùng thử không cần đăng ký
                 </button>
                 <button
                   onClick={openLogin}
-                  className="rounded-xl bg-teal-700 py-2.5 text-base font-bold text-white"
+                  className="rounded-pill bg-teal-700 py-2.5 text-base font-bold text-white"
                 >
                   Bắt đầu học ngay
                 </button>
@@ -1165,10 +1165,10 @@ export default function App() {
           role="dialog"
           aria-modal="true"
         >
-          <div className="relative w-full max-w-md rounded-3xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl sm:p-8 transition-colors duration-150">
+          <div className="relative w-full max-w-md rounded-lg border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl sm:p-8 transition-colors duration-150">
             <button
               onClick={() => setIsLoginOpen(false)}
-              className="absolute top-5 right-5 flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+              className="absolute top-5 right-5 flex h-9 w-9 items-center justify-center rounded-sm text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
               aria-label="Đóng cửa sổ"
             >
               <X className="h-5 w-5" />
@@ -1185,12 +1185,12 @@ export default function App() {
 
                 <form onSubmit={handleLoginSubmit} className="mt-6 space-y-4">
                   {authNotice && (
-                    <div className="p-3.5 text-sm rounded-xl bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-800 text-teal-800 dark:text-teal-200">
+                    <div className="p-3.5 text-sm rounded-sharp bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-800 text-teal-800 dark:text-teal-200">
                       {authNotice}
                     </div>
                   )}
                   {authError && (
-                    <div className="p-3.5 text-sm rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">
+                    <div className="p-3.5 text-sm rounded-sharp bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">
                       {authError}
                     </div>
                   )}
@@ -1279,7 +1279,7 @@ export default function App() {
 
                 <form onSubmit={handleRegisterSubmit} className="mt-6 space-y-4">
                   {authError && (
-                    <div className="p-3.5 text-sm rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">
+                    <div className="p-3.5 text-sm rounded-sharp bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">
                       {authError}
                     </div>
                   )}
@@ -1457,7 +1457,7 @@ function Dashboard({
 
       {/* Mobile navigation fallback */}
       <div className="mb-2 overflow-x-auto md:hidden px-5 pt-3">
-        <nav className="flex min-w-max gap-2 rounded-[5000px] bg-white dark:bg-[#1b1b26] p-1.5 border border-[#e1edff] dark:border-[#2a2a3a]" aria-label="Điều hướng mobile">
+        <nav className="flex min-w-max gap-2 rounded-sm bg-white dark:bg-[#1b1b26] p-1.5 border border-[#e1edff] dark:border-[#2a2a3a]" aria-label="Điều hướng mobile">
           {[
             { id: "documents" as const, label: "Tài liệu" },
             { id: "classrooms" as const, label: "Phòng học" },
@@ -1466,8 +1466,8 @@ function Dashboard({
             <button
               key={item.id}
               onClick={() => handleSelectTab(item.id)}
-              className={`flex items-center gap-2 rounded-[5000px] px-4 py-1.5 text-xs font-normal transition cursor-pointer ${
-                activeTab === item.id ? "bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] shadow-[0_2px_0_0_#111118]" : "text-[#111118]/70 dark:text-[#f0f6ff]/70 hover:text-[#111118] dark:hover:text-white"
+              className={`flex items-center gap-2 px-4 py-1.5 text-xs font-normal transition cursor-pointer ${
+                activeTab === item.id ? "rounded-pill bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] shadow-[0_2px_0_0_#111118]" : "rounded-[8px] text-[#111118]/70 dark:text-[#f0f6ff]/70 hover:text-[#111118] dark:hover:text-white"
               }`}
             >
               {item.label}

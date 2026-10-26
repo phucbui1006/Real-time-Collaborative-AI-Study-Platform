@@ -31,7 +31,7 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
   return (
     <div className="mx-auto max-w-[1200px] space-y-6 px-4 sm:px-8 py-8">
       {/* Header bar */}
-      <div className="flex items-center justify-between rounded-[24px] bg-white dark:bg-[#1b1b26] px-6 py-4 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+      <div className="flex items-center justify-between rounded-md bg-white dark:bg-[#1b1b26] px-6 py-4 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
         <div>
           <span className="text-xs font-normal uppercase tracking-wider text-[#111118]/70 dark:text-[#f0f6ff]/70">
             {live.set.subject}
@@ -43,7 +43,7 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
 
         {/* Countdown Timer with tabular-nums and JetBrains Mono */}
         <div
-          className={`flex items-center gap-2 px-4 py-2 rounded-[5000px] text-sm font-normal font-mono tabular-nums transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-pill text-sm font-normal font-mono tabular-nums transition-colors ${
             urgent
               ? "bg-[#ff4141] text-white border-2 border-[#111118] shadow-[0_2px_0_0_#111118] animate-pulse"
               : "bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] border border-[#111118] shadow-[0_2px_0_0_#111118]"
@@ -55,7 +55,7 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
-        <section className="col-span-12 lg:col-span-7 min-w-0 rounded-[24px] bg-white dark:bg-[#1b1b26] p-6 sm:p-7 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+        <section className="col-span-12 lg:col-span-7 min-w-0 rounded-md bg-white dark:bg-[#1b1b26] p-6 sm:p-7 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
           {/* Question pagination pills */}
           <div className="mb-6 flex flex-wrap gap-2">
             {qs.map((x, i) => {
@@ -108,7 +108,7 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
                   key={j}
                   disabled={chosen !== undefined || locked}
                   onClick={() => onAnswer(q.id, j)}
-                  className={`flex w-full items-center gap-3.5 rounded-[20px] p-4 text-left text-sm font-normal transition-all cursor-pointer disabled:cursor-not-allowed ${
+                  className={`flex w-full items-center gap-3.5 rounded-sm p-4 text-left text-sm font-normal transition-all cursor-pointer disabled:cursor-not-allowed ${
                     ok
                       ? "bg-[#16ab59] text-white border-2 border-[#111118] shadow-[0_3px_0_0_#111118]"
                       : bad
@@ -146,7 +146,7 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
 
           {chosen !== undefined && (
             <div
-              className={`mt-5 rounded-[20px] p-4 text-sm font-normal border-2 border-[#111118] shadow-[0_2px_0_0_#111118] ${
+              className={`mt-5 rounded-sharp p-4 text-sm font-normal border-2 border-[#111118] shadow-[0_2px_0_0_#111118] ${
                 chosen === q.correct
                   ? "bg-[#16ab59] text-white"
                   : "bg-[#ff4141] text-white"
@@ -168,7 +168,7 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
             <button
               onClick={() => setQi((i) => Math.max(0, i - 1))}
               disabled={qi === 0}
-              className="inline-flex items-center gap-1.5 h-12 px-6 rounded-[5000px] border-2 border-[#111118] bg-white dark:bg-[#1b1b26] text-sm font-normal text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#242436] transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer shadow-[0_2px_0_0_#111118] active:translate-y-[1px]"
+              className="inline-flex items-center gap-1.5 h-12 px-6 rounded-sm border-2 border-[#111118] bg-white dark:bg-[#1b1b26] text-sm font-normal text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#242436] transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer shadow-[0_2px_0_0_#111118] active:translate-y-[1px]"
             >
               <ChevronLeft className="h-4 w-4" strokeWidth={1.75} />
               <span>Câu trước</span>
@@ -177,7 +177,7 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
             {qi < qs.length - 1 ? (
               <button
                 onClick={() => setQi((i) => i + 1)}
-                className="inline-flex items-center gap-1.5 h-12 px-6 rounded-[5000px] bg-[#0b7a75] hover:bg-[#09635f] text-white text-sm font-normal transition-all cursor-pointer border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px]"
+                className="inline-flex items-center gap-1.5 h-12 px-6 rounded-pill bg-[#0b7a75] hover:bg-[#09635f] text-white text-sm font-normal transition-all cursor-pointer border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px]"
               >
                 <span>Câu tiếp</span>
                 <ChevronRight className="h-4 w-4" strokeWidth={1.75} />
@@ -185,7 +185,7 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
             ) : (
               <button
                 onClick={onFinish}
-                className="inline-flex items-center gap-2 h-12 px-7 rounded-[5000px] bg-[#0b7a75] text-white hover:bg-[#09635f] text-sm font-normal transition-all cursor-pointer border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px]"
+                className="inline-flex items-center gap-2 h-12 px-7 rounded-pill bg-[#0b7a75] text-white hover:bg-[#09635f] text-sm font-normal transition-all cursor-pointer border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px]"
               >
                 <span>
                   {answered < qs.length && !locked
@@ -199,7 +199,7 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
         </section>
 
         <aside className="col-span-12 lg:col-span-3 min-w-0 space-y-4">
-          <div className="rounded-[24px] bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] text-center">
+          <div className="rounded-md bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] text-center">
             <div className="text-xs font-normal uppercase tracking-wider text-[#111118]/70 dark:text-[#f0f6ff]/70">
               Điểm số hiện tại
             </div>
@@ -211,7 +211,7 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
             </div>
           </div>
 
-          <div className="rounded-[24px] bg-white dark:bg-[#1b1b26] p-5 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118]">
+          <div className="rounded-md bg-white dark:bg-[#1b1b26] p-5 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118]">
             <h3 className="mb-3 text-xs font-normal text-[#111118] dark:text-[#f0f6ff] tracking-tight uppercase">
               Bảng xếp hạng trực tiếp
             </h3>

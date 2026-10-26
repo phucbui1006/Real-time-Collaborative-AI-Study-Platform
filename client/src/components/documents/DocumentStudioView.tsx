@@ -316,7 +316,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                 key={i}
                 type="button"
                 onClick={() => handleJumpToPage(pageNo)}
-                className="inline-flex items-center gap-1 mx-1 px-2.5 py-0.5 rounded-[5000px] text-xs font-mono font-normal bg-[#91d8ec] dark:bg-[#2dd4bf]/20 text-[#111118] dark:text-[#2dd4bf] border border-[#111118] hover:scale-105 active:scale-95 transition-transform cursor-pointer shadow-[0_1px_0_0_#111118]"
+                className="inline-flex items-center gap-1 mx-1 px-2.5 py-0.5 rounded-sharp text-xs font-mono font-normal bg-[#91d8ec] dark:bg-[#2dd4bf]/20 text-[#111118] dark:text-[#2dd4bf] border border-[#111118] hover:scale-105 active:scale-95 transition-transform cursor-pointer shadow-[0_1px_0_0_#111118]"
                 title={`Nhấp để mở trang ${pageNo}`}
               >
                 📄 Trang {pageNo} →
@@ -353,7 +353,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={onBack}
-            className="inline-flex items-center gap-2 h-9 px-4 rounded-[5000px] bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-xs font-normal text-[#111118] dark:text-[#f0f6ff] shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] active:translate-y-[1px] transition-all cursor-pointer shrink-0"
+            className="inline-flex items-center gap-2 h-9 px-4 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-xs font-normal text-[#111118] dark:text-[#f0f6ff] shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] active:translate-y-[1px] transition-all cursor-pointer shrink-0"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Thư viện</span>
@@ -362,7 +362,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
           <div className="h-5 w-[1px] bg-[#e1edff] dark:bg-[#2a2a3a] shrink-0" />
 
           <div className="flex items-center gap-2 min-w-0">
-            <span className={`px-2.5 py-0.5 rounded-[5000px] text-[10px] font-mono shrink-0 border border-[#111118] ${subjectStyle.box}`}>
+            <span className={`px-2.5 py-0.5 rounded-sharp text-[10px] font-mono shrink-0 border border-[#111118] ${subjectStyle.box}`}>
               {activeDoc.subject}
             </span>
             <h1 className="text-sm sm:text-base font-normal text-[#111118] dark:text-[#f0f6ff] truncate">
@@ -375,7 +375,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => handleSendQuestion(`Hãy tóm tắt ngắn gọn các ý cốt lõi nhất của tài liệu "${activeDoc.title}"`)}
-            className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3.5 rounded-[5000px] bg-[#ffda00] text-[#111118] border border-[#111118] text-xs font-normal shadow-[0_2px_0_0_#111118] hover:bg-[#ebd000] active:translate-y-[1px] transition-all cursor-pointer"
+            className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3.5 rounded-sm bg-[#ffda00] text-[#111118] border border-[#111118] text-xs font-normal shadow-[0_2px_0_0_#111118] hover:bg-[#ebd000] active:translate-y-[1px] transition-all cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>Tóm tắt</span>
@@ -383,7 +383,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 
           <button
             onClick={() => handleSendQuestion(`Vẽ sơ đồ tư duy phân nhánh cho tài liệu "${activeDoc.title}"`)}
-            className="hidden md:inline-flex items-center gap-1.5 h-9 px-3.5 rounded-[5000px] bg-[#91d8ec] text-[#111118] border border-[#111118] text-xs font-normal shadow-[0_2px_0_0_#111118] hover:bg-[#80cee4] active:translate-y-[1px] transition-all cursor-pointer"
+            className="hidden md:inline-flex items-center gap-1.5 h-9 px-3.5 rounded-sm bg-[#91d8ec] text-[#111118] border border-[#111118] text-xs font-normal shadow-[0_2px_0_0_#111118] hover:bg-[#80cee4] active:translate-y-[1px] transition-all cursor-pointer"
           >
             <Network className="w-3.5 h-3.5" />
             <span>Mindmap</span>
@@ -391,7 +391,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 
           <button
             onClick={() => handleSendQuestion(`Soạn 3 câu hỏi trắc nghiệm ôn tập cho tài liệu "${activeDoc.title}"`)}
-            className="hidden md:inline-flex items-center gap-1.5 h-9 px-3.5 rounded-[5000px] bg-[#ffbac4] text-[#111118] border border-[#111118] text-xs font-normal shadow-[0_2px_0_0_#111118] hover:bg-[#f3abb6] active:translate-y-[1px] transition-all cursor-pointer"
+            className="hidden md:inline-flex items-center gap-1.5 h-9 px-3.5 rounded-sm bg-[#ffbac4] text-[#111118] border border-[#111118] text-xs font-normal shadow-[0_2px_0_0_#111118] hover:bg-[#f3abb6] active:translate-y-[1px] transition-all cursor-pointer"
           >
             <HelpCircle className="w-3.5 h-3.5" />
             <span>Tạo Quiz</span>
@@ -410,20 +410,20 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage <= 1}
-                className="w-8 h-8 rounded-full border border-[#111118] bg-white dark:bg-[#1b1b26] flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#e1edff] active:scale-95 transition-all cursor-pointer shadow-[0_1px_0_0_#111118]"
+                className="w-8 h-8 rounded-sm border border-[#111118] bg-white dark:bg-[#1b1b26] flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#e1edff] active:scale-95 transition-all cursor-pointer shadow-[0_1px_0_0_#111118]"
                 title="Trang trước"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
 
-              <span className="font-mono px-3 py-1 bg-[#e1edff] dark:bg-[#242436] rounded-[5000px] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] font-normal">
+              <span className="font-mono px-3 py-1 bg-[#e1edff] dark:bg-[#242436] rounded-sharp border border-[#111118] text-[#111118] dark:text-[#f0f6ff] font-normal">
                 Trang {currentPage} / {totalPages}
               </span>
 
               <button
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage >= totalPages}
-                className="w-8 h-8 rounded-full border border-[#111118] bg-white dark:bg-[#1b1b26] flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#e1edff] active:scale-95 transition-all cursor-pointer shadow-[0_1px_0_0_#111118]"
+                className="w-8 h-8 rounded-sm border border-[#111118] bg-white dark:bg-[#1b1b26] flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#e1edff] active:scale-95 transition-all cursor-pointer shadow-[0_1px_0_0_#111118]"
                 title="Trang sau"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -435,14 +435,14 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
               <span className="text-[#111118]/60 dark:text-[#f0f6ff]/60 hidden sm:inline">Cỡ chữ:</span>
               <button
                 onClick={() => setFontSize((s) => Math.max(13, s - 1))}
-                className="px-2 py-0.5 rounded border border-[#111118] bg-white dark:bg-[#1b1b26] font-mono hover:bg-[#e1edff] text-xs"
+                className="px-2 py-0.5 rounded-sharp border border-[#111118] bg-white dark:bg-[#1b1b26] font-mono hover:bg-[#e1edff] text-xs cursor-pointer"
                 title="Giảm cỡ chữ"
               >
                 A-
               </button>
               <button
                 onClick={() => setFontSize((s) => Math.min(22, s + 1))}
-                className="px-2 py-0.5 rounded border border-[#111118] bg-white dark:bg-[#1b1b26] font-mono hover:bg-[#e1edff] text-xs"
+                className="px-2 py-0.5 rounded-sharp border border-[#111118] bg-white dark:bg-[#1b1b26] font-mono hover:bg-[#e1edff] text-xs cursor-pointer"
                 title="Tăng cỡ chữ"
               >
                 A+
@@ -458,13 +458,13 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
           >
             <div
               style={{ fontSize: `${fontSize}px` }}
-              className="w-full max-w-3xl min-h-[550px] h-auto bg-white dark:bg-[#1b1b26] rounded-[24px] border-2 border-[#111118] dark:border-[#2a2a3a] p-6 sm:p-10 shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] leading-relaxed text-[#111118] dark:text-[#f0f6ff] transition-all select-text flex flex-col justify-between break-words mb-10 shrink-0"
+              className="w-full max-w-3xl min-h-[550px] h-auto bg-white dark:bg-[#1b1b26] rounded-md border-2 border-[#111118] dark:border-[#2a2a3a] p-6 sm:p-10 shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] leading-relaxed text-[#111118] dark:text-[#f0f6ff] transition-all select-text flex flex-col justify-between break-words mb-10 shrink-0"
             >
               <div>
                 {/* Tiêu đề đầu trang */}
                 <div className="flex items-center justify-between pb-4 mb-6 border-b border-[#e1edff] dark:border-[#2a2a3a] text-xs font-mono text-[#111118]/60 dark:text-[#f0f6ff]/60">
                   <span className="truncate max-w-[200px] sm:max-w-md">{activeDoc.title}</span>
-                  <span className="bg-[#e1edff] dark:bg-[#242436] px-2.5 py-0.5 rounded-[5000px] border border-[#111118] shrink-0">
+                  <span className="bg-[#e1edff] dark:bg-[#242436] px-2.5 py-0.5 rounded-sharp border border-[#111118] shrink-0">
                     TRANG {currentPage}
                   </span>
                 </div>
@@ -494,17 +494,17 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                 top: `${tooltipPos.y}px`,
                 transform: "translateX(-50%)",
               }}
-              className="z-50 flex items-center gap-1.5 bg-[#111118] text-white p-1.5 rounded-[5000px] shadow-[0_4px_12px_rgba(0,0,0,0.3)] text-xs border border-white/20 animate-in fade-in zoom-in-95"
+              className="z-50 flex items-center gap-1.5 bg-[#111118] text-white p-1.5 rounded-sm shadow-[0_4px_12px_rgba(0,0,0,0.3)] text-xs border border-white/20 animate-in fade-in zoom-in-95"
             >
               <button
                 onClick={() => handleSendQuestion(`Giải thích chi tiết đoạn sau trong trang ${currentPage}: "${selectedText}"`)}
-                className="px-3 py-1 rounded-[5000px] bg-[#0b7a75] hover:bg-[#08635f] text-white font-normal transition-colors cursor-pointer"
+                className="px-3 py-1 rounded-sharp bg-[#0b7a75] hover:bg-[#08635f] text-white font-normal transition-colors cursor-pointer"
               >
                 ✨ Hỏi AI đoạn này
               </button>
               <button
                 onClick={() => handleSendQuestion(`Tóm tắt ý chính của đoạn sau: "${selectedText}"`)}
-                className="px-3 py-1 rounded-[5000px] bg-[#ffda00] hover:bg-[#ebd000] text-[#111118] font-normal transition-colors cursor-pointer"
+                className="px-3 py-1 rounded-sharp bg-[#ffda00] hover:bg-[#ebd000] text-[#111118] font-normal transition-colors cursor-pointer"
               >
                 Tóm tắt
               </button>
@@ -525,7 +525,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
             <div className="flex items-center gap-2">
               <button
                 onClick={handleCreateNewSession}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[5000px] bg-[#0b7a75] hover:bg-[#08635f] text-white text-[11px] font-medium border border-[#111118] shadow-[0_1px_0_0_#111118] active:translate-y-[1px] transition-all cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-pill bg-[#0b7a75] hover:bg-[#08635f] text-white text-[11px] font-medium border border-[#111118] shadow-[0_1px_0_0_#111118] active:translate-y-[1px] transition-all cursor-pointer"
                 title="Tạo cuộc trò chuyện mới (+ New Chat)"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -549,11 +549,11 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                     }}
                     autoFocus
                     placeholder="Tên cuộc trò chuyện..."
-                    className="w-full text-xs px-2.5 py-1 rounded-[8px] border-2 border-[#0b7a75] bg-white dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] focus:outline-none"
+                    className="w-full text-xs px-2.5 py-1 rounded-sm border-2 border-[#0b7a75] bg-white dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] focus:outline-none"
                   />
                   <button
                     onClick={handleSaveRename}
-                    className="p-1 rounded-[8px] bg-[#0b7a75] text-white hover:bg-[#08635f] cursor-pointer"
+                    className="p-1 rounded-sm bg-[#0b7a75] text-white hover:bg-[#08635f] cursor-pointer"
                     title="Lưu tên"
                   >
                     <Check className="w-3.5 h-3.5" />
@@ -562,7 +562,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
               ) : (
                 <button
                   onClick={() => setIsSessionDropdownOpen(!isSessionDropdownOpen)}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-[12px] bg-[#f0f6ff] dark:bg-[#242436] hover:bg-[#e1edff] dark:hover:bg-[#2e2e42] text-[#111118] dark:text-[#f0f6ff] border border-[#111118] dark:border-[#2a2a3a] shadow-[0_1px_0_0_#111118] text-xs transition-colors cursor-pointer text-left"
+                  className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-sm bg-[#f0f6ff] dark:bg-[#242436] hover:bg-[#e1edff] dark:hover:bg-[#2e2e42] text-[#111118] dark:text-[#f0f6ff] border border-[#111118] dark:border-[#2a2a3a] shadow-[0_1px_0_0_#111118] text-xs transition-colors cursor-pointer text-left"
                   title="Bấm để xem & đổi danh sách cuộc trò chuyện"
                 >
                   <span className="truncate font-medium flex items-center gap-1.5">
@@ -575,7 +575,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 
               {/* Menu Dropdown danh sách các phiên */}
               {isSessionDropdownOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-full bg-white dark:bg-[#1b1b26] border-2 border-[#111118] dark:border-[#2a2a3a] rounded-[16px] shadow-[0_6px_16px_rgba(0,0,0,0.2)] z-50 p-1.5 max-h-64 overflow-y-auto animate-in fade-in zoom-in-95">
+                <div className="absolute left-0 top-full mt-1.5 w-full bg-white dark:bg-[#1b1b26] border-2 border-[#111118] dark:border-[#2a2a3a] rounded-md shadow-[0_6px_16px_rgba(0,0,0,0.2)] z-50 p-1.5 max-h-64 overflow-y-auto animate-in fade-in zoom-in-95">
                   <div className="px-2 py-1 text-[10px] font-mono uppercase text-[#111118]/50 dark:text-[#f0f6ff]/50 border-b border-[#e1edff] dark:border-[#2a2a3a] mb-1 flex items-center justify-between">
                     <span>Lịch sử các phiên ({sessions.length})</span>
                     <span className="text-[9px] text-[#0b7a75] dark:text-[#2dd4bf] font-sans">Multi-Chat</span>
@@ -585,7 +585,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                     return (
                       <div
                         key={sess.id}
-                        className={`flex items-center justify-between p-2 rounded-[10px] text-xs cursor-pointer transition-colors ${
+                        className={`flex items-center justify-between p-2 rounded-sharp text-xs cursor-pointer transition-colors ${
                           isActive
                             ? "bg-[#0b7a75] text-white font-medium"
                             : "hover:bg-[#f0f6ff] dark:hover:bg-[#242436] text-[#111118] dark:text-[#f0f6ff]"
@@ -601,7 +601,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                             e.stopPropagation();
                             handleDeleteSession(sess.id);
                           }}
-                          className={`p-1 rounded hover:bg-black/20 ${isActive ? "text-white" : "text-rose-500 hover:text-rose-700"} shrink-0`}
+                          className={`p-1 rounded-sharp hover:bg-black/20 ${isActive ? "text-white" : "text-rose-500 hover:text-rose-700"} shrink-0 cursor-pointer`}
                           title="Xóa phiên trò chuyện này"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -621,14 +621,14 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                     setEditTitleInput(currentSession?.title || "");
                     setIsEditingTitle(true);
                   }}
-                  className="p-1.5 rounded-full hover:bg-[#e1edff] dark:hover:bg-[#242436] text-[#111118]/70 dark:text-[#f0f6ff]/70 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-sm hover:bg-[#e1edff] dark:hover:bg-[#242436] text-[#111118]/70 dark:text-[#f0f6ff]/70 transition-colors cursor-pointer"
                   title="Đổi tên cuộc trò chuyện này"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => handleDeleteSession(currentSessionId)}
-                  className="p-1.5 rounded-full hover:bg-rose-100 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-sm hover:bg-rose-100 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
                   title="Xóa cuộc trò chuyện này"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -650,7 +650,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                   className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
                 >
                   <div
-                    className={`max-w-[90%] rounded-[20px] p-3.5 text-sm leading-relaxed border ${
+                    className={`max-w-[90%] rounded-sm p-3.5 text-sm leading-relaxed border ${
                       msg.role === "user"
                         ? "bg-[#0b7a75] text-white border-[#111118] shadow-[0_2px_0_0_#111118]"
                         : "bg-[#f0f6ff] dark:bg-[#111118] text-[#111118] dark:text-[#f0f6ff] border-[#111118] shadow-[0_2px_0_0_#111118]"
@@ -667,7 +667,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 
             {loading && (
               <div className="flex items-start gap-2">
-                <div className="rounded-[20px] p-3.5 bg-[#f0f6ff] dark:bg-[#111118] border border-[#111118] shadow-[0_2px_0_0_#111118] text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 flex items-center gap-2">
+                <div className="rounded-sm p-3.5 bg-[#f0f6ff] dark:bg-[#111118] border border-[#111118] shadow-[0_2px_0_0_#111118] text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-[#0b7a75] animate-ping" />
                   <span>AI đang đọc trang liên quan và soạn câu trả lời...</span>
                 </div>
@@ -681,13 +681,13 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
             <span className="text-[#111118]/50 dark:text-[#f0f6ff]/50 shrink-0 font-mono">Gợi ý:</span>
             <button
               onClick={() => handleSendQuestion(`Tóm tắt nội dung chính của Trang ${currentPage}`)}
-              className="shrink-0 px-2.5 py-1 rounded-[5000px] border border-[#111118] bg-white dark:bg-[#242436] hover:bg-[#e1edff] text-[#111118] dark:text-[#f0f6ff] cursor-pointer shadow-[0_1px_0_0_#111118]"
+              className="shrink-0 px-2.5 py-1 rounded-sm border border-[#111118] bg-white dark:bg-[#242436] hover:bg-[#e1edff] text-[#111118] dark:text-[#f0f6ff] cursor-pointer shadow-[0_1px_0_0_#111118]"
             >
               📄 Tóm tắt trang {currentPage}
             </button>
             <button
               onClick={() => handleSendQuestion(`Những điểm cần ghi nhớ ở Trang ${currentPage} là gì?`)}
-              className="shrink-0 px-2.5 py-1 rounded-[5000px] border border-[#111118] bg-white dark:bg-[#242436] hover:bg-[#e1edff] text-[#111118] dark:text-[#f0f6ff] cursor-pointer shadow-[0_1px_0_0_#111118]"
+              className="shrink-0 px-2.5 py-1 rounded-sm border border-[#111118] bg-white dark:bg-[#242436] hover:bg-[#e1edff] text-[#111118] dark:text-[#f0f6ff] cursor-pointer shadow-[0_1px_0_0_#111118]"
             >
               💡 Điểm cần nhớ trang {currentPage}
             </button>
@@ -708,12 +708,12 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Đặt câu hỏi về tài liệu hoặc yêu cầu giải thích..."
                 disabled={loading}
-                className="flex-1 h-11 px-4 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#f0f6ff] dark:bg-[#111118] text-sm text-[#111118] dark:text-[#f0f6ff] focus:outline-none focus:border-[#0b7a75] disabled:opacity-50"
+                className="flex-1 h-11 px-4 rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-[#f0f6ff] dark:bg-[#111118] text-sm text-[#111118] dark:text-[#f0f6ff] focus:outline-none focus:border-[#0b7a75] disabled:opacity-50"
               />
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
-                className="w-11 h-11 rounded-full bg-[#0b7a75] hover:bg-[#08635f] text-white flex items-center justify-center border border-[#111118] shadow-[0_2px_0_0_#111118] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all active:translate-y-[1px]"
+                className="w-11 h-11 rounded-pill bg-[#0b7a75] hover:bg-[#08635f] text-white flex items-center justify-center border border-[#111118] shadow-[0_2px_0_0_#111118] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all active:translate-y-[1px]"
               >
                 <Send className="w-4 h-4" />
               </button>

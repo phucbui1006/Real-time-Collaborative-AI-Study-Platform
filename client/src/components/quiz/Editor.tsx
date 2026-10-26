@@ -66,7 +66,7 @@ export function Editor({ initial, docs = AI_DOCS, onSave, onCancel }: EditorProp
         {initial.isNew ? "Tạo bộ câu hỏi mới" : "Chỉnh sửa bộ câu hỏi"}
       </h1>
 
-      <div className="mt-6 grid grid-cols-6 gap-4 rounded-[24px] bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+      <div className="mt-6 grid grid-cols-6 gap-4 rounded-md bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
         <label className="col-span-6 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
           Tên bộ câu hỏi
           <input
@@ -99,7 +99,7 @@ export function Editor({ initial, docs = AI_DOCS, onSave, onCancel }: EditorProp
 
       <div className="mt-6 space-y-4">
         {qs.map((q, i) => (
-          <div key={q.id} className="rounded-[24px] bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+          <div key={q.id} className="rounded-md bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
             <div className="mb-4 flex items-center justify-between">
               <span className="text-base font-normal text-[#111118] dark:text-[#f0f6ff]">Câu {i + 1}</span>
               <button
@@ -113,7 +113,7 @@ export function Editor({ initial, docs = AI_DOCS, onSave, onCancel }: EditorProp
           </div>
         ))}
 
-        {notice && <div className="rounded-[20px] bg-[#16ab59]/10 border border-[#16ab59] px-4 py-3 text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">{notice}</div>}
+        {notice && <div className="rounded-sharp bg-[#16ab59]/10 border border-[#16ab59] px-4 py-3 text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">{notice}</div>}
 
         {aiOpen ? (
           <AIPanel docs={docs} onAdd={addFromAI} onClose={() => setAiOpen(false)} />
@@ -124,7 +124,7 @@ export function Editor({ initial, docs = AI_DOCS, onSave, onCancel }: EditorProp
                 setNotice("");
                 setQs((a) => [...a, newQ()]);
               }}
-              className="rounded-[5000px] border-2 border-dashed border-[#111118]/30 dark:border-[#2a2a3a] py-4 text-base font-normal text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#242436] cursor-pointer transition-colors shadow-[0_2px_0_0_#111118]"
+              className="rounded-sm border-2 border-dashed border-[#111118]/30 dark:border-[#2a2a3a] py-4 text-base font-normal text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#242436] cursor-pointer transition-colors shadow-[0_2px_0_0_#111118]"
             >
               + Thêm câu hỏi thủ công
             </button>
@@ -133,7 +133,7 @@ export function Editor({ initial, docs = AI_DOCS, onSave, onCancel }: EditorProp
                 setNotice("");
                 setAiOpen(true);
               }}
-              className="rounded-[5000px] py-4 text-base font-normal text-white cursor-pointer border-2 border-[#111118] shadow-[0_4px_0_0_#111118] bg-[#0b7a75] hover:bg-[#09635f] transition-all"
+              className="rounded-pill py-4 text-base font-normal text-white cursor-pointer border-2 border-[#111118] shadow-[0_4px_0_0_#111118] bg-[#0b7a75] hover:bg-[#09635f] transition-all"
             >
               ✨ Tạo câu hỏi bằng AI
             </button>
@@ -141,7 +141,7 @@ export function Editor({ initial, docs = AI_DOCS, onSave, onCancel }: EditorProp
         )}
       </div>
 
-      {err && <div className="mt-4 rounded-[20px] bg-[#ff4141]/10 border border-[#ff4141] px-4 py-3 text-sm font-normal text-[#ff4141]">{err}</div>}
+      {err && <div className="mt-4 rounded-sharp bg-[#ff4141]/10 border border-[#ff4141] px-4 py-3 text-sm font-normal text-[#ff4141]">{err}</div>}
       <div className="mt-8 flex justify-end gap-3">
         <button onClick={onCancel} className={BTN_OUT}>
           Huỷ

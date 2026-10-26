@@ -3,7 +3,7 @@ import { ChartItem } from "../../services/aiService";
 
 export function MiniBarChart({ data }: { data: ChartItem[] }) {
   return (
-    <div className="mt-3 space-y-2 rounded-xl bg-white dark:bg-slate-900/90 p-3 ring-1 ring-slate-200 dark:ring-slate-700/80">
+    <div className="mt-3 space-y-2 rounded-sm bg-white dark:bg-slate-900/90 p-3 ring-1 ring-slate-200 dark:ring-slate-700/80">
       {data.map((d) => (
         <div key={d.label}>
           <div className="mb-1 flex justify-between text-xs text-slate-500 dark:text-slate-400">

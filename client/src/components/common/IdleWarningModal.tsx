@@ -23,7 +23,7 @@ export const IdleWarningModal: React.FC<IdleWarningModalProps> = ({
       aria-modal="true"
       aria-labelledby="idle-warning-title"
     >
-      <div className="relative w-full max-w-md rounded-[24px] border-2 border-[#111118] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] p-7 shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000] transition-colors duration-150 text-center">
+      <div className="relative w-full max-w-md rounded-lg border-2 border-[#111118] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] p-7 shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000] transition-colors duration-150 text-center">
         {/* Biểu tượng đồng hồ đếm ngược SuperHi */}
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#ffda00] text-[#111118] border-2 border-[#111118] shadow-[0_3px_0_0_#111118] mb-4">
           <Timer className="h-7 w-7" strokeWidth={1.75} />
@@ -42,7 +42,7 @@ export const IdleWarningModal: React.FC<IdleWarningModalProps> = ({
 
         {/* Khối hiển thị số giây đếm ngược chuẩn font-mono */}
         <div className="my-5 flex items-center justify-center">
-          <div className="font-mono text-5xl font-normal text-[#0b7a75] dark:text-[#2dd4bf] px-8 py-3 rounded-[20px] bg-[#e1edff] dark:bg-[#242436] border-2 border-[#111118] shadow-[0_4px_0_0_#111118] tabular-nums">
+          <div className="font-mono text-5xl font-normal text-[#0b7a75] dark:text-[#2dd4bf] px-8 py-3 rounded-[4px] bg-[#e1edff] dark:bg-[#242436] border-2 border-[#111118] shadow-[0_4px_0_0_#111118] tabular-nums">
             {remainingSeconds}s
           </div>
         </div>

@@ -18,7 +18,7 @@ export function Leaderboard({ rows, total, limit }: LeaderboardProps) {
         return (
           <li
             key={r.name}
-            className={`flex items-center gap-3 rounded-[5000px] px-4 py-2.5 text-sm font-normal border-2 border-[#111118] transition-all ${
+            className={`flex items-center gap-3 rounded-[4px] px-4 py-2.5 text-sm font-normal border-2 border-[#111118] transition-all ${
               r.me
                 ? "bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] shadow-[0_2px_0_0_#0b7a75]"
                 : "bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] shadow-[0_2px_0_0_#111118]"

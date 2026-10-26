@@ -388,7 +388,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
       <div className="fixed bottom-6 right-6 z-40">
         <button
           onClick={onOpen}
-          className="inline-flex items-center gap-2.5 rounded-[5000px] bg-[#0b7a75] px-5 py-3 text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] hover:bg-[#09635f] transition-all cursor-pointer active:translate-y-[2px]"
+          className="inline-flex items-center gap-2.5 rounded-pill bg-[#0b7a75] px-5 py-3 text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] hover:bg-[#09635f] transition-all cursor-pointer active:translate-y-[2px]"
           title="Mở khung Trợ lý AI"
         >
           <span className="relative flex h-2 w-2">
@@ -405,13 +405,13 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
   // Xác định chiều rộng & chiều cao theo từng chế độ
   const getContainerSizeClasses = () => {
     if (chatSizeMode === "minimized") {
-      return "w-[300px] h-14 rounded-[20px] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] cursor-pointer";
+      return "w-[300px] h-14 rounded-lg shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] cursor-pointer";
     }
     if (chatSizeMode === "expanded") {
-      return `${customWidth ? "" : "w-[680px] lg:w-[740px]"} h-[82vh] max-w-[95vw] rounded-[24px] shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000]`;
+      return `${customWidth ? "" : "w-[680px] lg:w-[740px]"} h-[82vh] max-w-[95vw] rounded-lg shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000]`;
     }
     // Normal mode: cân đối chiều cao và chiều rộng
-    return `${customWidth ? "" : "w-[430px] sm:w-[460px]"} h-[580px] max-h-[75vh] max-w-[92vw] rounded-[24px] shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000]`;
+    return `${customWidth ? "" : "w-[430px] sm:w-[460px]"} h-[580px] max-h-[75vh] max-w-[92vw] rounded-lg shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000]`;
   };
 
   return (
@@ -453,22 +453,22 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
             <div className="font-normal text-xs text-[#111118] dark:text-[#f0f6ff] flex items-center gap-1.5">
               <span>Trợ lý AI</span>
               {loading ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[5000px] text-[10px] font-mono font-normal bg-[#ffda00] text-[#111118] border border-[#111118]">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sharp text-[10px] font-mono font-normal bg-[#ffda00] text-[#111118] border border-[#111118]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#111118] animate-ping" />
                   Đang suy nghĩ...
                 </span>
               ) : isTyping ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[5000px] text-[10px] font-mono font-normal bg-[#e1edff] text-[#111118] border border-[#111118]">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sharp text-[10px] font-mono font-normal bg-[#e1edff] text-[#111118] border border-[#111118]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#0b7a75] animate-pulse" />
                   Đang trả lời...
                 </span>
               ) : isGeminiReady ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[5000px] text-[10px] font-mono font-normal bg-[#16ab59] text-white border border-[#111118]">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sharp text-[10px] font-mono font-normal bg-[#16ab59] text-white border border-[#111118]">
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                   Gemini Flash
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[5000px] text-[10px] font-mono font-normal bg-[#e1edff] text-[#111118] border border-[#111118]">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sharp text-[10px] font-mono font-normal bg-[#e1edff] text-[#111118] border border-[#111118]">
                   Sẵn sàng
                 </span>
               )}
@@ -494,7 +494,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                 e.stopPropagation();
                 setChatSizeMode("normal");
               }}
-              className="w-7 h-7 rounded-full bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer"
+              className="w-7 h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer"
               title="Mở lại khung chat"
             >
               <ChevronUp className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -505,7 +505,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                 e.stopPropagation();
                 setChatSizeMode("minimized");
               }}
-              className="w-7 h-7 rounded-full bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer"
+              className="w-7 h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer"
               title="Thu gọn khung chat"
             >
               <Minus className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -520,7 +520,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                 setCustomWidth(null);
                 setChatSizeMode("normal");
               }}
-              className="w-7 h-7 rounded-full bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer"
+              className="w-7 h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer"
               title="Thu nhỏ về mặc định"
             >
               <Minimize2 className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -532,7 +532,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                 setCustomWidth(null);
                 setChatSizeMode("expanded");
               }}
-              className="w-7 h-7 rounded-full bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer"
+              className="w-7 h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer"
               title="Phóng to khung chat"
             >
               <Maximize2 className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -545,7 +545,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
               e.stopPropagation();
               onClose();
             }}
-            className="w-7 h-7 rounded-full bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#ff4141] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#ffbac4]/30 transition-all cursor-pointer"
+            className="w-7 h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#ff4141] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#ffbac4]/30 transition-all cursor-pointer"
             title="Đóng khung chat"
           >
             <X className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -569,7 +569,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
               {messages.map((m, i) => (
                 <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
                   <div
-                    className={`max-w-[88%] rounded-[20px] px-4 py-3 text-xs leading-relaxed ${
+                    className={`max-w-[88%] rounded-sm px-4 py-3 text-xs leading-relaxed ${
                       m.role === "user"
                         ? "bg-[#0b7a75] text-white border-2 border-[#111118] shadow-[0_2px_0_0_#111118] font-normal whitespace-pre-wrap"
                         : "bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] border-2 border-[#111118] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] font-normal"
@@ -612,9 +612,9 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                     <button
                       onClick={() => !loading && !isTyping && send("Bạn có thể cho tôi biết công thức tính chu vi và diện tích hình tròn là gì không?")}
                       disabled={loading || isTyping}
-                      className="flex items-center gap-3 p-3 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] hover:bg-[#e1edff] dark:hover:bg-[#242436] transition-all text-left shadow-[0_2px_0_0_#111118] cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
+                      className="flex items-center gap-3 p-3 rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] hover:bg-[#e1edff] dark:hover:bg-[#242436] transition-all text-left shadow-[0_2px_0_0_#111118] cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
                     >
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#91d8ec] text-[#111118] border border-[#111118] shrink-0">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-[#91d8ec] text-[#111118] border border-[#111118] shrink-0">
                         <Compass className="h-3.5 w-3.5" strokeWidth={1.75} />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -629,9 +629,9 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                         <button
                           onClick={() => !loading && !isTyping && send("Tóm tắt nội dung chính của tài liệu này")}
                           disabled={loading || isTyping}
-                          className="flex items-center gap-3 p-3 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] hover:bg-[#e1edff] dark:hover:bg-[#242436] transition-all text-left shadow-[0_2px_0_0_#111118] cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
+                          className="flex items-center gap-3 p-3 rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] hover:bg-[#e1edff] dark:hover:bg-[#242436] transition-all text-left shadow-[0_2px_0_0_#111118] cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
                         >
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ffbac4] text-[#111118] border border-[#111118] shrink-0">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-[#ffbac4] text-[#111118] border border-[#111118] shrink-0">
                             <FileText className="h-3.5 w-3.5" strokeWidth={1.75} />
                           </div>
                           <div className="min-w-0 flex-1">
@@ -644,9 +644,9 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                         <button
                           onClick={() => !loading && !isTyping && send("Vẽ mô hình tư duy cho tôi")}
                           disabled={loading || isTyping}
-                          className="flex items-center gap-3 p-3 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] hover:bg-[#e1edff] dark:hover:bg-[#242436] transition-all text-left shadow-[0_2px_0_0_#111118] cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
+                          className="flex items-center gap-3 p-3 rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] hover:bg-[#e1edff] dark:hover:bg-[#242436] transition-all text-left shadow-[0_2px_0_0_#111118] cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
                         >
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#16ab59] text-white border border-[#111118] shrink-0">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-[#16ab59] text-white border border-[#111118] shrink-0">
                             <Network className="h-3.5 w-3.5" strokeWidth={1.75} />
                           </div>
                           <div className="min-w-0 flex-1">
@@ -659,9 +659,9 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                         <button
                           onClick={() => !loading && !isTyping && send("Tạo 3 câu hỏi ôn tập từ tài liệu này")}
                           disabled={loading || isTyping}
-                          className="flex items-center gap-3 p-3 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] hover:bg-[#e1edff] dark:hover:bg-[#242436] transition-all text-left shadow-[0_2px_0_0_#111118] cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
+                          className="flex items-center gap-3 p-3 rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] hover:bg-[#e1edff] dark:hover:bg-[#242436] transition-all text-left shadow-[0_2px_0_0_#111118] cursor-pointer group disabled:opacity-50 disabled:pointer-events-none"
                         >
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ffda00] text-[#111118] border border-[#111118] shrink-0">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-[#ffda00] text-[#111118] border border-[#111118] shrink-0">
                             <HelpCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
                           </div>
                           <div className="min-w-0 flex-1">
@@ -679,7 +679,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
               {/* 1. HIỆU ỨNG ĐANG SUY NGHĨ (Thinking Bubble) */}
               {loading && (
                 <div className="flex justify-start animate-fade-in">
-                  <div className="max-w-[88%] rounded-[20px] px-4 py-3 bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] border-2 border-[#111118] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] space-y-2">
+                  <div className="max-w-[88%] rounded-sm px-4 py-3 bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] border-2 border-[#111118] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] space-y-2">
                     <div className="flex items-center gap-1.5 text-[11px] font-normal text-[#0b7a75] dark:text-[#2dd4bf]">
                       <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: "3s" }} />
                       <span>Trợ lý AI PeerMind</span>
@@ -709,7 +709,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
             <button
               type="button"
               onClick={() => scrollToBottom(true)}
-              className="absolute bottom-16 left-1/2 -translate-x-1/2 z-20 bg-[#111118] text-white border border-[#111118] shadow-[0_2px_0_0_#0b7a75] rounded-[5000px] px-4 py-2 text-xs font-normal flex items-center gap-1.5 transition-all cursor-pointer animate-fade-in group whitespace-nowrap"
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 z-20 bg-[#111118] text-white border border-[#111118] shadow-[0_2px_0_0_#0b7a75] rounded-pill px-4 py-2 text-xs font-normal flex items-center gap-1.5 transition-all cursor-pointer animate-fade-in group whitespace-nowrap"
               title="Cuộn xuống tin nhắn mới nhất"
             >
               <ChevronDown className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" />
@@ -732,13 +732,13 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                     ? "AI đang viết câu trả lời..."
                     : "Hỏi bất kỳ điều gì (giải toán, lập trình, tóm tắt bài...)..."
                 }
-                className="flex-1 h-11 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-4 text-xs font-normal text-[#111118] dark:text-[#f0f6ff] placeholder:text-[#111118]/50 dark:placeholder:text-[#f0f6ff]/50 outline-none focus:border-[#0b7a75] transition-colors disabled:opacity-60"
+                className="flex-1 h-11 rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-4 text-xs font-normal text-[#111118] dark:text-[#f0f6ff] placeholder:text-[#111118]/50 dark:placeholder:text-[#f0f6ff]/50 outline-none focus:border-[#0b7a75] transition-colors disabled:opacity-60"
               />
               {loading || isTyping ? (
                 <button
                   type="button"
                   onClick={handleStopGenerating}
-                  className="inline-flex items-center justify-center h-11 px-4 rounded-[5000px] bg-[#ff4141] hover:bg-[#d63232] text-white border border-[#111118] shadow-[0_2px_0_0_#111118] text-xs font-normal transition-all cursor-pointer shrink-0"
+                  className="inline-flex items-center justify-center h-11 px-4 rounded-sm bg-[#ff4141] hover:bg-[#d63232] text-white border border-[#111118] shadow-[0_2px_0_0_#111118] text-xs font-normal transition-all cursor-pointer shrink-0"
                   title="Dừng tạo câu trả lời"
                 >
                   <Square className="h-3.5 w-3.5 fill-current" />
@@ -748,7 +748,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                   type="button"
                   onClick={() => send(input)}
                   disabled={!input.trim()}
-                  className="inline-flex items-center justify-center h-11 px-5 rounded-[5000px] bg-[#0b7a75] hover:bg-[#09635f] text-white border border-[#111118] shadow-[0_2px_0_0_#111118] text-xs font-normal transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0 active:translate-y-[1px]"
+                  className="inline-flex items-center justify-center h-11 px-5 rounded-pill bg-[#0b7a75] hover:bg-[#09635f] text-white border border-[#111118] shadow-[0_2px_0_0_#111118] text-xs font-normal transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0 active:translate-y-[1px]"
                   title="Gửi câu hỏi"
                 >
                   <Send className="h-3.5 w-3.5" strokeWidth={1.75} />

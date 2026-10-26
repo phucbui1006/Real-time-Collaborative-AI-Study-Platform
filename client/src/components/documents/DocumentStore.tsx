@@ -232,7 +232,7 @@ export function DocumentStore({
           <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={() => setIsUploadModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-[48px] bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white font-normal border border-[#111118] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] active:translate-y-[2px] transition-transform cursor-pointer text-base"
+              className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-pill bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white font-normal border border-[#111118] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] active:translate-y-[2px] transition-transform cursor-pointer text-base"
             >
               <Upload className="h-5 w-5" strokeWidth={1.75} />
               <span>Tải tài liệu lên</span>
@@ -249,7 +249,7 @@ export function DocumentStore({
         </div>
 
       {/* ── 2. Thanh Tìm Kiếm & Bộ Lọc ────────────────────────────────────────── */}
-      <div className="mt-8 space-y-4 rounded-[24px] bg-white dark:bg-[#1b1b26] p-5 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+      <div className="mt-8 space-y-4 rounded-md bg-white dark:bg-[#1b1b26] p-5 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
         {/* Hàng 1: Ô tìm kiếm toàn diện + Bộ chọn sắp xếp */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="relative flex-1">
@@ -261,7 +261,7 @@ export function DocumentStore({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm tài liệu theo tên hoặc môn học…"
-              className="w-full h-12 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] pl-12 pr-4 text-base text-[#111118] dark:text-[#f0f6ff] placeholder:text-[#111118]/50 dark:placeholder:text-[#f0f6ff]/50 outline-none focus:border-[#0b7a75] dark:focus:border-[#2dd4bf] focus:ring-2 focus:ring-[#0b7a75] dark:focus:ring-[#2dd4bf] transition-colors"
+              className="w-full h-12 rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] pl-12 pr-4 text-base text-[#111118] dark:text-[#f0f6ff] placeholder:text-[#111118]/50 dark:placeholder:text-[#f0f6ff]/50 outline-none focus:border-[#0b7a75] dark:focus:border-[#2dd4bf] focus:ring-2 focus:ring-[#0b7a75] dark:focus:ring-[#2dd4bf] transition-colors"
             />
           </div>
 
@@ -269,7 +269,7 @@ export function DocumentStore({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="h-12 shrink-0 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-5 text-sm font-normal text-[#111118] dark:text-[#f0f6ff] outline-none cursor-pointer focus:border-[#0b7a75]"
+            className="h-12 shrink-0 rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-5 text-sm font-normal text-[#111118] dark:text-[#f0f6ff] outline-none cursor-pointer focus:border-[#0b7a75]"
           >
             <option value="newest">Mới nhất</option>
             <option value="name">Tên A-Z</option>
@@ -285,10 +285,10 @@ export function DocumentStore({
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`h-9 rounded-[5000px] px-4 text-sm font-normal transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+              className={`h-9 px-4 text-sm font-normal transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 activeCategory === cat
-                  ? "bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]"
-                  : "bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#d0e2ff] dark:hover:bg-[#2e2e42]"
+                  ? "rounded-pill bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]"
+                  : "rounded-[8px] bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#d0e2ff] dark:hover:bg-[#2e2e42]"
               }`}
             >
               {cat}
@@ -311,12 +311,12 @@ export function DocumentStore({
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
                 key={i}
-                className="flex flex-col justify-between rounded-xl p-5 border border-slate-200/70 dark:border-slate-800 bg-white dark:bg-slate-900 h-[210px] animate-pulse shadow-2xs"
+                className="flex flex-col justify-between rounded-md p-5 border border-slate-200/70 dark:border-slate-800 bg-white dark:bg-slate-900 h-[210px] animate-pulse shadow-2xs"
               >
                 <div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                      <div className="h-9 w-9 rounded-sm bg-slate-100 dark:bg-slate-800" />
                       <div className="h-3 w-20 rounded bg-slate-100 dark:bg-slate-800" />
                     </div>
                     <div className="h-4 w-4 rounded bg-slate-100 dark:bg-slate-800" />
@@ -341,7 +341,7 @@ export function DocumentStore({
             ))}
           </div>
         ) : filteredDocs.length === 0 ? (
-          <div className="rounded-[24px] border border-dashed border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] p-12 text-center shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+          <div className="rounded-md border border-dashed border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] p-12 text-center shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
             <FileText className="mx-auto h-10 w-10 text-[#0b7a75] dark:text-[#2dd4bf]" strokeWidth={1.75} />
             <h3 className="mt-3 text-base font-normal text-[#111118] dark:text-[#f0f6ff]">
               {docs.length === 0 ? "Kho tài liệu của bạn đang trống" : "Không tìm thấy tài liệu phù hợp"}
@@ -391,7 +391,7 @@ export function DocumentStore({
                       onSelect(doc.id);
                     }
                   }}
-                  className={`group relative flex flex-col justify-between rounded-[24px] p-6 border transition-[border-color,box-shadow,transform] duration-200 ${
+                  className={`group relative flex flex-col justify-between rounded-md p-6 border transition-[border-color,box-shadow,transform] duration-200 ${
                     isDocUploading
                       ? "bg-[#f0f6ff] dark:bg-[#1f1f2e] border-2 border-dashed border-[#0b7a75] dark:border-[#2dd4bf] shadow-[0_2px_0_0_#111118] cursor-wait"
                       : doc.uploadError
@@ -405,7 +405,7 @@ export function DocumentStore({
                   <div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`flex h-11 w-11 items-center justify-center rounded-full border border-[#111118] shrink-0 shadow-[0_1px_0_0_#111118] ${subjectStyle.box}`}>
+                        <div className={`flex h-11 w-11 items-center justify-center rounded-sm border border-[#111118] shrink-0 shadow-[0_1px_0_0_#111118] ${subjectStyle.box}`}>
                           {isDocUploading ? (
                             <Loader2 className="h-5 w-5 animate-spin text-[#0b7a75] dark:text-[#2dd4bf]" />
                           ) : (
@@ -414,29 +414,29 @@ export function DocumentStore({
                         </div>
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`rounded-[5000px] px-3 py-0.5 text-xs font-normal border border-[#111118] ${subjectStyle.box}`}>
+                            <span className={`rounded-sharp px-3 py-0.5 text-xs font-normal border border-[#111118] ${subjectStyle.box}`}>
                               {doc.subject}
                             </span>
                             {doc.fileType && (
-                              <span className="rounded-[5000px] px-2.5 py-0.5 text-xs uppercase border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff]">
+                              <span className="rounded-sharp px-2.5 py-0.5 text-xs uppercase border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff]">
                                 {doc.fileType}
                               </span>
                             )}
                             {isDocUploading ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-[5000px] px-2.5 py-0.5 text-xs font-normal bg-[#ffda00] text-[#111118] border border-[#111118] animate-pulse">
+                              <span className="inline-flex items-center gap-1.5 rounded-sharp px-2.5 py-0.5 text-xs font-normal bg-[#ffda00] text-[#111118] border border-[#111118] animate-pulse">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#111118] animate-ping" />
                                 Đang bóc tách...
                               </span>
                             ) : doc.uploadError ? (
-                              <span className="rounded-[5000px] px-2.5 py-0.5 text-xs font-normal bg-rose-500 text-white border border-[#111118]">
+                              <span className="rounded-sharp px-2.5 py-0.5 text-xs font-normal bg-rose-500 text-white border border-[#111118]">
                                 Lỗi tải lên
                               </span>
                             ) : doc.isPublic ? (
-                              <span className="rounded-[5000px] px-2.5 py-0.5 text-xs font-normal bg-[#16ab59] text-white border border-[#111118]">
+                              <span className="rounded-sharp px-2.5 py-0.5 text-xs font-normal bg-[#16ab59] text-white border border-[#111118]">
                                 Mẫu chung
                               </span>
                             ) : (
-                              <span className="rounded-[5000px] px-2.5 py-0.5 text-xs font-normal bg-[#91d8ec] text-[#111118] border border-[#111118]">
+                              <span className="rounded-sharp px-2.5 py-0.5 text-xs font-normal bg-[#91d8ec] text-[#111118] border border-[#111118]">
                                 Cá nhân
                               </span>
                             )}
@@ -449,18 +449,18 @@ export function DocumentStore({
                         <div className="relative doc-menu-container" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => setActiveMenuId(activeMenuId === doc.id ? null : doc.id)}
-                            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
+                            className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
                           >
                             <MoreVertical className="h-4 w-4" strokeWidth={1.75} />
                           </button>
                           {activeMenuId === doc.id && (
-                            <div className="absolute right-0 top-9 z-20 w-36 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 shadow-md">
+                            <div className="absolute right-0 top-9 z-20 w-36 rounded-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 shadow-md">
                               <button
                                 onClick={() => {
                                   onDelete(doc.id);
                                   setActiveMenuId(null);
                                 }}
-                                className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors"
+                                className="flex w-full items-center gap-2 rounded-sharp px-2.5 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors"
                               >
                                 <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
                                 {doc.isPublic ? "Ẩn tài liệu" : "Xóa tài liệu"}
@@ -523,12 +523,12 @@ export function DocumentStore({
           onClick={handleCloseModal}
         >
           <div
-            className="relative w-full max-w-lg rounded-[24px] border-2 border-[#111118] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] p-7 shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000]"
+            className="relative w-full max-w-lg rounded-lg border-2 border-[#111118] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] p-7 shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000]"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={handleCloseModal}
-              className="absolute top-5 right-5 w-9 h-9 rounded-full bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d5e5ff] active:translate-y-[1px] transition-transform cursor-pointer"
+              className="absolute top-5 right-5 w-9 h-9 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d5e5ff] active:translate-y-[1px] transition-transform cursor-pointer"
             >
               <X className="h-4 w-4" strokeWidth={1.75} />
             </button>
@@ -542,7 +542,7 @@ export function DocumentStore({
 
             {/* Thông báo lỗi nếu chọn file không hợp lệ */}
             {uploadErrorMsg && (
-              <div className="mt-4 rounded-[16px] border-2 border-[#111118] bg-[#fee2e2] dark:bg-[#7f1d1d]/40 p-4 flex items-start gap-3 shadow-[0_2px_0_0_#111118]">
+              <div className="mt-4 rounded-[4px] border-2 border-[#111118] bg-[#fee2e2] dark:bg-[#7f1d1d]/40 p-4 flex items-start gap-3 shadow-[0_2px_0_0_#111118]">
                 <div className="w-8 h-8 rounded-full bg-rose-500 text-white flex items-center justify-center border border-[#111118] shrink-0">
                   <AlertCircle className="h-4 w-4" strokeWidth={2} />
                 </div>
@@ -571,7 +571,7 @@ export function DocumentStore({
                 <select
                   value={selectedSubject}
                   onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="w-full h-12 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-4 text-base font-normal text-[#111118] dark:text-[#f0f6ff] outline-none focus:border-[#0b7a75]"
+                  className="w-full h-12 rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-4 text-base font-normal text-[#111118] dark:text-[#f0f6ff] outline-none focus:border-[#0b7a75]"
                 >
                   <option value="TOÁN HỌC">Toán học</option>
                   <option value="NGOẠI NGỮ">Ngoại ngữ</option>
@@ -594,7 +594,7 @@ export function DocumentStore({
                   handleFileChange(e.dataTransfer.files);
                 }}
                 onClick={() => modalFileInputRef.current?.click()}
-                className={`flex flex-col items-center justify-center rounded-[20px] border-2 border-dashed p-8 text-center transition-all cursor-pointer ${
+                className={`flex flex-col items-center justify-center rounded-[4px] border-2 border-dashed p-8 text-center transition-all cursor-pointer ${
                   dragging
                     ? "border-[#0b7a75] bg-[#e1edff] dark:bg-[#242436]"
                     : "border-[#111118]/30 dark:border-[#2a2a3a] bg-[#f0f6ff] dark:bg-[#242436]/50 hover:border-[#0b7a75] hover:bg-[#e1edff]/60"

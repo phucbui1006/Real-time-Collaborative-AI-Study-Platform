@@ -77,9 +77,9 @@ export type LeaderboardRow = {
 export const DARK = "#111118";
 export const ACTION = "#0b7a75";
 export const PURPLE = "#0b7a75";
-export const BTN = "inline-flex items-center justify-center gap-2 rounded-[5000px] h-12 px-6 text-base font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] active:shadow-none transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer";
-export const BTN_OUT = "inline-flex items-center justify-center gap-2 rounded-[5000px] h-12 border-2 border-[#111118] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] px-6 text-base font-normal text-[#111118] dark:text-[#f0f6ff] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] hover:bg-[#e1edff] dark:hover:bg-[#242436] active:translate-y-[2px] transition-all cursor-pointer";
-export const INP = "w-full h-12 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-5 text-base font-normal text-[#111118] dark:text-[#f0f6ff] placeholder:text-[#111118]/50 dark:placeholder:text-[#f0f6ff]/50 outline-none focus:border-[#0b7a75] transition-colors";
+export const BTN = "inline-flex items-center justify-center gap-2 rounded-pill h-12 px-6 text-base font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] active:shadow-none transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer";
+export const BTN_OUT = "inline-flex items-center justify-center gap-2 rounded-sm h-12 border-2 border-[#111118] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] px-6 text-base font-normal text-[#111118] dark:text-[#f0f6ff] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] hover:bg-[#e1edff] dark:hover:bg-[#242436] active:translate-y-[2px] transition-all cursor-pointer";
+export const INP = "w-full h-12 rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-5 text-base font-normal text-[#111118] dark:text-[#f0f6ff] placeholder:text-[#111118]/50 dark:placeholder:text-[#f0f6ff]/50 outline-none focus:border-[#0b7a75] transition-colors";
 
 
 export const SEED_SETS: ExamSet[] = [

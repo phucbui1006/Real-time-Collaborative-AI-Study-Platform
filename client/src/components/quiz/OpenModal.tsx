@@ -26,7 +26,7 @@ export function OpenModal({ set, onStart, onClose }: OpenModalProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Mở bài kiểm tra trực tuyến"
-        className="w-full max-w-[440px] rounded-[24px] p-7 border-2 border-[#111118] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000]"
+        className="w-full max-w-[440px] rounded-lg p-7 border-2 border-[#111118] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000]"
       >
         <div className="flex items-start justify-between">
           <div>
@@ -40,7 +40,7 @@ export function OpenModal({ set, onStart, onClose }: OpenModalProps) {
           <button
             onClick={onClose}
             aria-label="Đóng"
-            className="w-9 h-9 rounded-full bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] cursor-pointer transition-all"
+            className="w-9 h-9 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] cursor-pointer transition-all"
           >
             <X className="h-4 w-4" strokeWidth={1.75} />
           </button>

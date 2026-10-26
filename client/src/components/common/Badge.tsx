@@ -14,7 +14,7 @@ export const Badge: React.FC<BadgeProps> = ({
   ...props
 }) => {
   const baseStyle =
-    'inline-flex items-center gap-1.5 rounded-md font-medium border select-none leading-none'
+    'inline-flex items-center gap-1.5 rounded-sharp font-medium border select-none leading-none'
 
   const variants = {
     default: 'bg-slate-100 text-slate-700 border-slate-200',

@@ -28,7 +28,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={inputId}
-            className={`w-full h-9 rounded-md border bg-white px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-colors duration-150 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed ${
+            className={`w-full h-9 rounded-sm border bg-white px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-colors duration-150 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed ${
               icon ? 'pl-9' : ''
             } ${
               error

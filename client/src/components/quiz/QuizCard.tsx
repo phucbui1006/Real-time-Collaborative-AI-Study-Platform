@@ -24,7 +24,7 @@ export const QuizCard: React.FC<QuizCardProps> = ({
   disabled = false
 }) => {
   return (
-    <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl">
+    <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-md p-6 shadow-xl">
       <h3 className="text-xl font-bold text-white mb-6 leading-relaxed">
         {question.questionText}
       </h3>
@@ -36,7 +36,7 @@ export const QuizCard: React.FC<QuizCardProps> = ({
               key={idx}
               disabled={disabled}
               onClick={() => onSelectOption(idx)}
-              className={`p-4 rounded-lg text-left font-medium transition duration-200 cursor-pointer border ${
+              className={`p-4 rounded-sm text-left font-medium transition duration-200 cursor-pointer border ${
                 isSelected
                   ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200'
                   : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-800'

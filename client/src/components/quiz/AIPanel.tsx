@@ -59,13 +59,13 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
   };
 
   return (
-    <div className="rounded-[24px] bg-white dark:bg-[#1b1b26] p-6 shadow-[0_4px_0_0_#111118] border-2 border-[#111118] dark:border-[#2a2a3a]">
+    <div className="rounded-md bg-white dark:bg-[#1b1b26] p-6 shadow-[0_4px_0_0_#111118] border-2 border-[#111118] dark:border-[#2a2a3a]">
       <div className="flex items-center justify-between">
         <h3 className="font-normal text-xl text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">✨ Tạo câu hỏi bằng AI</h3>
         <button
           onClick={onClose}
           aria-label="Đóng"
-          className="w-8 h-8 rounded-full bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] cursor-pointer transition-all"
+          className="w-8 h-8 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] cursor-pointer transition-all"
         >
           ✕
         </button>
@@ -75,7 +75,7 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
         <label className="col-span-6 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
           Chủ đề / nội dung muốn ra đề
           <textarea
-            className="w-full rounded-[20px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] p-4 text-sm font-normal text-[#111118] dark:text-[#f0f6ff] placeholder:text-[#111118]/50 outline-none focus:border-[#0b7a75] mt-1.5"
+            className="w-full rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] p-4 text-sm font-normal text-[#111118] dark:text-[#f0f6ff] placeholder:text-[#111118]/50 outline-none focus:border-[#0b7a75] mt-1.5"
             rows={2}
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
@@ -117,10 +117,10 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
                 type="button"
                 onClick={() => setLevel(l)}
                 aria-pressed={level === l}
-                className={`flex-1 rounded-[5000px] py-2 text-xs font-normal cursor-pointer transition-all border border-[#111118] ${
+                className={`flex-1 py-2 text-xs font-normal cursor-pointer transition-all border border-[#111118] ${
                   level === l
-                    ? "bg-[#0b7a75] text-white shadow-[0_2px_0_0_#111118]"
-                    : "bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#242436]"
+                    ? "rounded-pill bg-[#0b7a75] text-white shadow-[0_2px_0_0_#111118]"
+                    : "rounded-[8px] bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#242436]"
                 }`}
               >
                 {l}
@@ -139,7 +139,7 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
         <span aria-hidden="true">→</span>
       </button>
 
-      {err && <div className="mt-3 rounded-[20px] bg-[#ff4141]/10 border border-[#ff4141] px-4 py-2.5 text-xs font-normal text-[#ff4141]">{err}</div>}
+      {err && <div className="mt-3 rounded-sharp bg-[#ff4141]/10 border border-[#ff4141] px-4 py-2.5 text-xs font-normal text-[#ff4141]">{err}</div>}
 
       {drafts.length > 0 && !loading && (
         <div className="mt-6">
@@ -151,7 +151,7 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
             {drafts.map((d, i) => (
               <div
                 key={d.id}
-                className="rounded-[20px] p-5 bg-[#f0f6ff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a]"
+                className="rounded-[4px] p-5 bg-[#f0f6ff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a]"
                 style={{ opacity: d.keep ? 1 : 0.5 }}
               >
                 <label className="mb-3 flex items-center gap-2 text-sm font-normal text-[#111118] dark:text-[#f0f6ff] cursor-pointer">

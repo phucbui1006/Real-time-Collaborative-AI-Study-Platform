@@ -309,7 +309,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                 },
               })
             }
-            className="inline-flex items-center justify-center gap-2 rounded-[5000px] h-12 px-6 text-base font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer shrink-0"
+            className="inline-flex items-center justify-center gap-2 rounded-pill h-12 px-6 text-base font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer shrink-0"
           >
             <Plus className="h-5 w-5" strokeWidth={1.75} />
             <span>Tạo bộ câu hỏi</span>
@@ -320,7 +320,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
         {/* Bài đang mở + tham gia bằng mã (Cân đối không gian & nút rõ ràng) */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Thẻ tham gia bài kiểm tra */}
-          <div className="rounded-[24px] p-6 border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] flex flex-col justify-between">
+          <div className="rounded-md p-6 border border-[#e1edff] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] flex flex-col justify-between">
             <div>
               <h2 className="font-normal text-[#111118] dark:text-[#f0f6ff] text-xl tracking-[-0.015em]">Tham gia bài kiểm tra</h2>
               <p className="mt-1 text-xs font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">Nhập mã phòng 6 số do bạn bè hoặc người tạo phòng gửi cho bạn.</p>
@@ -332,7 +332,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                 }}
               >
                 <input
-                  className="flex-1 h-12 rounded-[5000px] border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-5 text-base font-mono tracking-[0.25em] uppercase text-[#111118] dark:text-[#f0f6ff] placeholder:font-sans placeholder:tracking-normal placeholder:font-normal placeholder:text-[#111118]/40 dark:placeholder:text-[#f0f6ff]/40 outline-none focus:border-[#0b7a75] transition-colors"
+                  className="flex-1 h-12 rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-5 text-base font-mono tracking-[0.25em] uppercase text-[#111118] dark:text-[#f0f6ff] placeholder:font-sans placeholder:tracking-normal placeholder:font-normal placeholder:text-[#111118]/40 dark:placeholder:text-[#f0f6ff]/40 outline-none focus:border-[#0b7a75] transition-colors"
                   inputMode="numeric"
                   maxLength={6}
                   value={joinCode}
@@ -342,7 +342,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                 <button
                   type="submit"
                   disabled={joinCode.length !== 6}
-                  className={`whitespace-nowrap shrink-0 px-6 h-12 font-normal rounded-[5000px] border-2 border-[#111118] text-base transition-all active:translate-y-[2px] ${
+                  className={`whitespace-nowrap shrink-0 px-6 h-12 font-normal rounded-pill border-2 border-[#111118] text-base transition-all active:translate-y-[2px] ${
                     joinCode.length === 6
                       ? "bg-[#0b7a75] hover:bg-[#09635f] text-white shadow-[0_4px_0_0_#111118] cursor-pointer"
                       : "bg-[#e1edff] dark:bg-[#242436] text-[#111118]/60 dark:text-[#f0f6ff]/60 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] cursor-not-allowed"
@@ -364,11 +364,11 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
           </div>
 
           {/* Khung bài kiểm tra đang mở */}
-          <div className="rounded-[24px] bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] flex flex-col justify-between">
+          <div className="rounded-md bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] flex flex-col justify-between">
             <div>
               <h2 className="font-normal text-[#111118] dark:text-[#f0f6ff] text-xl tracking-[-0.015em]">Bài kiểm tra bạn đang mở</h2>
               {live ? (
-                <div className="mt-4 flex items-center justify-between gap-3 p-4 rounded-[20px] bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a]">
+                <div className="mt-4 flex items-center justify-between gap-3 p-4 rounded-[4px] bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a]">
                   <div className="min-w-0">
                     <div className="truncate text-base font-normal text-[#111118] dark:text-[#f0f6ff]">{live.set.title}</div>
                     <div className="text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-mono tabular-nums mt-0.5">
@@ -377,7 +377,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                   </div>
                   <button
                     onClick={() => setView({ name: "host" })}
-                    className="inline-flex items-center gap-1.5 h-10 px-4 rounded-[5000px] bg-white dark:bg-[#1b1b26] border border-[#111118] text-xs font-normal text-[#111118] dark:text-[#f0f6ff] hover:bg-[#f0f6ff] dark:hover:bg-[#2a2a3a] transition-all shadow-[0_2px_0_0_#111118] cursor-pointer"
+                    className="inline-flex items-center gap-1.5 h-10 px-4 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-xs font-normal text-[#111118] dark:text-[#f0f6ff] hover:bg-[#f0f6ff] dark:hover:bg-[#2a2a3a] transition-all shadow-[0_2px_0_0_#111118] cursor-pointer"
                   >
                     <span>Xem bảng điểm</span>
                     <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -385,7 +385,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                 </div>
               ) : (
                 <div className="py-5 flex flex-col items-center justify-center text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#91d8ec] text-[#111118] border border-[#111118] mb-2 shadow-[0_2px_0_0_#111118]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-sm bg-[#91d8ec] text-[#111118] border border-[#111118] mb-2 shadow-[0_2px_0_0_#111118]">
                     <Radio className="h-5 w-5" strokeWidth={1.75} />
                   </div>
                   <p className="text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">Chưa có phòng thi nào đang hoạt động</p>
@@ -406,7 +406,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
         </div>
 
       {/* Tabs */}
-      <div className="mt-10 inline-flex p-1 rounded-[5000px] bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a] gap-1">
+      <div className="mt-10 inline-flex p-1 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a] gap-1">
         {[
           ["sets", "Bộ câu hỏi của tôi"],
           ["history", "Lịch sử làm bài"],
@@ -414,10 +414,10 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
           <button
             key={id}
             onClick={() => setTab(id as "sets" | "history")}
-            className={`rounded-[5000px] px-5 py-2 text-sm font-normal transition-all cursor-pointer ${
+            className={`px-5 py-2 text-sm font-normal transition-all cursor-pointer ${
               tab === id
-                ? "bg-[#0b7a75] text-white shadow-[0_2px_0_0_#111118]"
-                : "text-[#111118] dark:text-[#f0f6ff] hover:bg-white/50 dark:hover:bg-[#1b1b26]/50"
+                ? "rounded-pill bg-[#0b7a75] text-white shadow-[0_2px_0_0_#111118]"
+                : "rounded-[8px] text-[#111118] dark:text-[#f0f6ff] hover:bg-white/50 dark:hover:bg-[#1b1b26]/50"
             }`}
           >
             {l}
@@ -425,7 +425,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
         ))}
       </div>
 
-      <div className="mt-4 rounded-[24px] bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+      <div className="mt-4 rounded-md bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
         {tab === "sets" ? (
           sets.length === 0 ? (
             <p className="py-10 text-center text-sm font-normal text-[#111118]/60 dark:text-[#f0f6ff]/60">
@@ -437,7 +437,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                 const subStyle = getSubjectStyle(s.subject);
                 return (
                   <li key={s.id} className="flex flex-col sm:flex-row sm:items-center gap-4 py-4 first:pt-0 last:pb-0">
-                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#111118] shadow-[0_2px_0_0_#111118] ${subStyle.box}`}>
+                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-[#111118] shadow-[0_2px_0_0_#111118] ${subStyle.box}`}>
                       {subStyle.icon}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -456,7 +456,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                         onClick={() => setOpenFor(s)}
                         disabled={running}
                         title={running ? "Đang có một bài kiểm tra mở" : ""}
-                        className="inline-flex items-center gap-1.5 rounded-[5000px] h-12 px-5 text-sm font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer disabled:opacity-40"
+                        className="inline-flex items-center gap-1.5 rounded-pill h-12 px-5 text-sm font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer disabled:opacity-40"
                       >
                         <PlayCircle className="h-4 w-4" strokeWidth={1.75} />
                         Mở bài kiểm tra →
@@ -475,7 +475,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                           }
                         }}
                         aria-label={`Xoá ${s.title}`}
-                        className="w-10 h-10 rounded-full border border-[#111118]/30 flex items-center justify-center text-[#ff4141] hover:bg-[#ffbac4]/30 text-base cursor-pointer transition-colors"
+                        className="w-10 h-10 rounded-sm border border-[#111118]/30 flex items-center justify-center text-[#ff4141] hover:bg-[#ffbac4]/30 text-base cursor-pointer transition-colors"
                       >
                         ✕
                       </button>
@@ -495,7 +495,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
               const subStyle = getSubjectStyle(h.subject);
               return (
                 <li key={h.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
-                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#111118] shadow-[0_2px_0_0_#111118] ${subStyle.box}`}>
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-[#111118] shadow-[0_2px_0_0_#111118] ${subStyle.box}`}>
                     {subStyle.icon}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -505,7 +505,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                       {h.date} · Hạng {h.rank}/{h.of}
                     </div>
                   </div>
-                  <span className="rounded-[5000px] px-4 py-2 text-xs font-mono font-normal bg-[#16ab59] text-white border-2 border-[#111118] shadow-[0_2px_0_0_#111118] tabular-nums">
+                  <span className="rounded-sharp px-4 py-2 text-xs font-mono font-normal bg-[#16ab59] text-white border-2 border-[#111118] shadow-[0_2px_0_0_#111118] tabular-nums">
                     Đã đạt {h.score.toFixed(1)}
                   </span>
                 </li>

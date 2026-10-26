@@ -236,7 +236,7 @@ function SlideStage({ doc, index, objs, onChange, canEdit, tool, color }: SlideS
   return (
     <div
       ref={box}
-      className="relative w-full overflow-hidden rounded-2xl shadow-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900"
+      className="relative w-full overflow-hidden rounded-md shadow-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900"
       style={{ aspectRatio: "16 / 9", containerType: "inline-size" }}
     >
       <div className="absolute inset-0" style={{ padding: "6cqw" }}>
@@ -321,7 +321,7 @@ function DocPicker({ docs, current, onPick, onClose }: DocPickerProps) {
       <div
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-6 border border-slate-200/90 dark:border-slate-800 shadow-2xl"
+        className="w-full max-w-md rounded-lg bg-white dark:bg-slate-900 p-6 border border-slate-200/90 dark:border-slate-800 shadow-2xl"
       >
         <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
           <div>
@@ -333,7 +333,7 @@ function DocPicker({ docs, current, onPick, onClose }: DocPickerProps) {
           <button
             onClick={onClose}
             aria-label="Đóng"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="flex h-7 w-7 items-center justify-center rounded-sm text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="h-4 w-4" strokeWidth={1.75} />
           </button>
@@ -343,14 +343,14 @@ function DocPicker({ docs, current, onPick, onClose }: DocPickerProps) {
             <li key={d.id}>
               <button
                 onClick={() => onPick(d)}
-                className={`flex w-full items-center gap-3 rounded-lg p-3 text-left border transition-all cursor-pointer ${
+                className={`flex w-full items-center gap-3 rounded-[4px] p-3 text-left border transition-all cursor-pointer ${
                   current?.id === d.id
                     ? "bg-indigo-50/60 dark:bg-indigo-950/40 border-indigo-500 ring-1 ring-indigo-500/30"
                     : "bg-white dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600"
                 }`}
               >
                 <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white shadow-2xs"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-xs font-bold text-white shadow-2xs"
                   style={{ background: d.color }}
                 >
                   {d.title.slice(0, 1)}
@@ -362,7 +362,7 @@ function DocPicker({ docs, current, onPick, onClose }: DocPickerProps) {
                   </span>
                 </span>
                 {current?.id === d.id && (
-                  <span className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800/80">
+                  <span className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-950/80 px-2 py-0.5 rounded-sharp border border-indigo-200 dark:border-indigo-800/80">
                     Đang chọn
                   </span>
                 )}
@@ -373,7 +373,7 @@ function DocPicker({ docs, current, onPick, onClose }: DocPickerProps) {
         <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
           <button
             onClick={onClose}
-            className="h-8 px-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer shadow-2xs"
+            className="h-8 px-4 rounded-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer shadow-2xs"
           >
             Đóng
           </button>
@@ -431,7 +431,7 @@ function ChatPanel({ open, msgs, members, onSend, onOpenMembers }: ChatPanelProp
           <button
             onClick={onOpenMembers}
             title={`Xem danh sách thành viên (${members.length})`}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
           >
             <Users className="h-4 w-4" strokeWidth={1.75} />
           </button>
@@ -476,8 +476,8 @@ function ChatPanel({ open, msgs, members, onSend, onOpenMembers }: ChatPanelProp
                     <div
                       className={`px-3.5 py-2 text-sm leading-relaxed shadow-2xs ${
                         isMe
-                          ? "bg-indigo-600 text-white rounded-2xl rounded-tr-xs"
-                          : "bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-100 rounded-2xl rounded-tl-xs mt-1"
+                          ? "bg-indigo-600 text-white rounded-sm rounded-tr-xs"
+                          : "bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-100 rounded-sm rounded-tl-xs mt-1"
                       }`}
                     >
                       {m.text}
@@ -496,12 +496,12 @@ function ChatPanel({ open, msgs, members, onSend, onOpenMembers }: ChatPanelProp
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Nhắn tin trong phòng…"
-            className="flex-1 h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 focus-visible:ring-indigo-600 transition-colors"
+            className="flex-1 h-10 rounded-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 focus-visible:ring-indigo-600 transition-colors"
           />
           <button
             type="submit"
             disabled={!text.trim()}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 w-10 rounded-xl flex items-center justify-center shadow-xs transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-4 rounded-pill flex items-center justify-center shadow-xs transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             aria-label="Gửi tin nhắn"
           >
             <Send className="h-4 w-4" strokeWidth={2} />
@@ -625,7 +625,7 @@ export default function RoomView({
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <button
             onClick={onLeave}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer shrink-0"
+            className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer shrink-0"
             title="Quay lại"
           >
             <ArrowLeft className="h-4 w-4" strokeWidth={2} />
@@ -638,7 +638,7 @@ export default function RoomView({
           {/* Badge Mã phòng tương tác: Click để Copy */}
           <button
             onClick={copyRoomCode}
-            className="font-mono tabular-nums font-semibold text-xs bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 px-2.5 py-1 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/40 flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
+            className="font-mono tabular-nums font-semibold text-xs bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 px-2.5 py-1 rounded-sharp hover:bg-indigo-100 dark:hover:bg-indigo-900/40 flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
             title="Nhấn để sao chép mã phòng"
           >
             {copiedCode ? (
@@ -655,7 +655,7 @@ export default function RoomView({
           </button>
 
           {isHost && (
-            <span className="hidden md:inline-flex rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 shrink-0">
+            <span className="hidden md:inline-flex rounded-sharp px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 shrink-0">
               Chủ phòng
             </span>
           )}
@@ -693,7 +693,7 @@ export default function RoomView({
           {isHost && (
             <button
               onClick={() => setPicker(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer shadow-2xs"
+              className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 rounded-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer shadow-2xs"
             >
               <FileText className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" strokeWidth={1.75} />
               <span>{doc ? "Đổi tài liệu" : "Chọn tài liệu"}</span>
@@ -703,7 +703,7 @@ export default function RoomView({
           {/* Nút Ẩn/Mở chat */}
           <button
             onClick={() => setChatOpen((v) => !v)}
-            className={`relative bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 h-9 px-3 rounded-lg text-sm font-medium flex items-center gap-2 cursor-pointer transition-colors shadow-2xs ${
+            className={`relative bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 h-9 px-3 rounded-sm text-sm font-medium flex items-center gap-2 cursor-pointer transition-colors shadow-2xs ${
               chatOpen ? "bg-slate-100 dark:bg-slate-700/80 text-slate-900 dark:text-white border-slate-300 dark:border-slate-600" : ""
             }`}
           >
@@ -719,7 +719,7 @@ export default function RoomView({
           {/* Nút Rời phòng */}
           <button
             onClick={onLeave}
-            className="bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/60 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600 dark:hover:text-white h-9 px-3 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            className="bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/60 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600 dark:hover:text-white h-9 px-3 rounded-sm text-sm font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
           >
             <LogOut className="h-4 w-4" strokeWidth={1.75} />
             <span>Rời phòng</span>
@@ -733,8 +733,8 @@ export default function RoomView({
           {!doc ? (
             <>
               {/* Thẻ Empty State làm mới */}
-              <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 shadow-xl rounded-2xl p-8 max-w-md w-full text-center relative z-1">
-                <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-800/60 flex items-center justify-center relative">
+              <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 shadow-xl rounded-md p-8 max-w-md w-full text-center relative z-1">
+                <div className="w-14 h-14 mx-auto mb-4 rounded-md bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-800/60 flex items-center justify-center relative">
                   <Presentation className="w-7 h-7 text-indigo-600 dark:text-indigo-400" strokeWidth={1.75} />
                   <span className="w-3 h-3 bg-sky-500 rounded-full animate-ping absolute -top-1 -right-1" />
                   <span className="w-3 h-3 bg-sky-500 rounded-full absolute -top-1 -right-1" />
@@ -751,7 +751,7 @@ export default function RoomView({
                   {isHost && (
                     <button
                       onClick={() => setPicker(true)}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2.5 rounded-lg text-sm inline-flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2.5 rounded-pill text-sm inline-flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
                     >
                       <FileText className="w-4 h-4" strokeWidth={2} />
                       <span>+ Chọn tài liệu trình chiếu</span>
@@ -760,7 +760,7 @@ export default function RoomView({
 
                   <button
                     onClick={copyRoomCode}
-                    className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700 font-medium px-4 py-2 rounded-lg text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700 font-medium px-4 py-2 rounded-sm text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     {copiedCode ? (
                       <>
@@ -778,10 +778,10 @@ export default function RoomView({
               </div>
 
               {/* 3. Thanh công cụ nổi (Floating Workspace Toolbar) khi chưa có tài liệu */}
-              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 shadow-xl rounded-xl px-2 py-1.5 flex items-center gap-1 z-10">
+              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 shadow-xl rounded-sm px-2 py-1.5 flex items-center gap-1 z-10">
                 <button
                   disabled
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
+                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
                   title="Sẽ mở khóa khi có Slide"
                 >
                   <ChevronLeft className="w-4 h-4" strokeWidth={1.75} />
@@ -789,7 +789,7 @@ export default function RoomView({
                 <span className="font-mono text-xs px-2 text-slate-500 dark:text-slate-400 tabular-nums">-- / --</span>
                 <button
                   disabled
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
+                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
                   title="Sẽ mở khóa khi có Slide"
                 >
                   <ChevronRight className="w-4 h-4" strokeWidth={1.75} />
@@ -799,28 +799,28 @@ export default function RoomView({
 
                 <button
                   disabled
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
+                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
                   title="Sẽ mở khóa khi có Slide"
                 >
                   <Highlighter className="w-4 h-4" strokeWidth={1.75} />
                 </button>
                 <button
                   disabled
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
+                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
                   title="Sẽ mở khóa khi có Slide"
                 >
                   <StickyNote className="w-4 h-4" strokeWidth={1.75} />
                 </button>
                 <button
                   disabled
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
+                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
                   title="Sẽ mở khóa khi có Slide"
                 >
                   <Hand className="w-4 h-4" strokeWidth={1.75} />
                 </button>
                 <button
                   disabled
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
+                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
                   title="Sẽ mở khóa khi có Slide"
                 >
                   <Maximize2 className="w-4 h-4" strokeWidth={1.75} />
@@ -845,14 +845,14 @@ export default function RoomView({
               </div>
 
               {/* Floating Workspace Toolbar khi đã có Slide */}
-              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 shadow-xl rounded-xl px-2 py-1.5 flex items-center gap-1 z-10 max-w-[95vw] overflow-x-auto">
+              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 shadow-xl rounded-sm px-2 py-1.5 flex items-center gap-1 z-10 max-w-[95vw] overflow-x-auto">
                 {isHost && (
                   <>
                     <div className="flex items-center gap-0.5">
                       <button
                         onClick={() => setTool("pen")}
                         title="Vẽ tự do"
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs cursor-pointer transition-colors ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-sm text-xs cursor-pointer transition-colors ${
                           tool === "pen"
                             ? "bg-indigo-600 text-white"
                             : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -863,7 +863,7 @@ export default function RoomView({
                       <button
                         onClick={() => setTool("line")}
                         title="Gạch chân"
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs cursor-pointer transition-colors ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-sm text-xs cursor-pointer transition-colors ${
                           tool === "line"
                             ? "bg-indigo-600 text-white"
                             : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -874,7 +874,7 @@ export default function RoomView({
                       <button
                         onClick={() => setTool("ellipse")}
                         title="Khoanh tròn"
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs cursor-pointer transition-colors ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-sm text-xs cursor-pointer transition-colors ${
                           tool === "ellipse"
                             ? "bg-indigo-600 text-white"
                             : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -885,7 +885,7 @@ export default function RoomView({
                       <button
                         onClick={() => setTool("arrow")}
                         title="Mũi tên"
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs cursor-pointer transition-colors ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-sm text-xs cursor-pointer transition-colors ${
                           tool === "arrow"
                             ? "bg-indigo-600 text-white"
                             : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -896,7 +896,7 @@ export default function RoomView({
                       <button
                         onClick={() => setTool("text")}
                         title="Viết chữ"
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs cursor-pointer transition-colors ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-sm text-xs cursor-pointer transition-colors ${
                           tool === "text"
                             ? "bg-indigo-600 text-white"
                             : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -907,7 +907,7 @@ export default function RoomView({
                       <button
                         onClick={() => setTool("eraser")}
                         title="Xóa nét"
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs cursor-pointer transition-colors ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-sm text-xs cursor-pointer transition-colors ${
                           tool === "eraser"
                             ? "bg-indigo-600 text-white"
                             : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -942,7 +942,7 @@ export default function RoomView({
                       onClick={() => setObjs(objs.slice(0, -1))}
                       disabled={!objs.length}
                       title="Hoàn tác"
-                      className="inline-flex items-center gap-1 h-8 px-2 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                      className="inline-flex items-center gap-1 h-8 px-2 rounded-sm text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
                     >
                       <Undo2 className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" strokeWidth={1.75} />
                       <span className="hidden sm:inline">Hoàn tác</span>
@@ -951,7 +951,7 @@ export default function RoomView({
                       onClick={() => setObjs([])}
                       disabled={!objs.length}
                       title="Xóa tất cả nét vẽ"
-                      className="inline-flex items-center gap-1 h-8 px-2 rounded-lg text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                      className="inline-flex items-center gap-1 h-8 px-2 rounded-sm text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
                       <span className="hidden sm:inline">Xóa hết</span>
@@ -966,7 +966,7 @@ export default function RoomView({
                   <button
                     onClick={() => go(index - 1)}
                     disabled={!isHost || index === 0}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
                     title="Slide trước"
                   >
                     <ChevronLeft className="w-4 h-4" strokeWidth={1.75} />
@@ -977,7 +977,7 @@ export default function RoomView({
                   <button
                     onClick={() => go(index + 1)}
                     disabled={!isHost || index === doc.slides.length - 1}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
                     title="Slide sau"
                   >
                     <ChevronRight className="w-4 h-4" strokeWidth={1.75} />
@@ -990,21 +990,21 @@ export default function RoomView({
                 <button
                   onClick={() => setTool("pen")}
                   title="Bút dạ quang (Highlighter)"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <Highlighter className="w-4 h-4" strokeWidth={1.75} />
                 </button>
                 <button
                   onClick={() => setTool("text")}
                   title="Ghi chú (StickyNote)"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <StickyNote className="w-4 h-4" strokeWidth={1.75} />
                 </button>
                 <button
                   onClick={() => send("✋ [Giơ tay] Xin phát biểu!")}
                   title="Giơ tay phát biểu"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
+                  className="flex h-8 w-8 items-center justify-center rounded-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
                 >
                   <Hand className="w-4 h-4" strokeWidth={1.75} />
                 </button>
@@ -1017,14 +1017,14 @@ export default function RoomView({
                     }
                   }}
                   title="Toàn màn hình"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <Maximize2 className="w-4 h-4" strokeWidth={1.75} />
                 </button>
               </div>
 
               {!isHost && (
-                <p className="absolute bottom-16 text-center text-xs text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs px-3 py-1 rounded-full border border-slate-200 dark:border-slate-800 shadow-2xs pointer-events-none">
+                <p className="absolute bottom-16 text-center text-xs text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs px-3 py-1 rounded-sharp border border-slate-200 dark:border-slate-800 shadow-2xs pointer-events-none">
                   Bạn đang theo dõi bài trình bày của chủ phòng — slide và ghi chú vẽ đồng bộ theo thời gian thực.
                 </p>
               )}

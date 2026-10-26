@@ -27,11 +27,11 @@ export function Field({
   );
 }
 
-export const inputClassName = "w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 px-3 py-2 text-sm outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors";
+export const inputClassName = "w-full rounded-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 px-3 py-2 text-sm outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition-colors";
 
 export const inputStyle: React.CSSProperties = {
   width: "100%",
-  borderRadius: 6,
+  borderRadius: "var(--radius-sm)",
   padding: "8px 12px",
   fontSize: 14,
   outline: "none",
@@ -76,7 +76,7 @@ export function PasswordInput({
 export function ErrorBox({ children }: { children?: React.ReactNode }) {
   if (!children) return null;
   return (
-    <div className="rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-xs font-medium text-rose-600 dark:text-rose-400">
+    <div className="rounded-sharp border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-xs font-medium text-rose-600 dark:text-rose-400">
       {children}
     </div>
   );
@@ -94,7 +94,7 @@ export function JoinPanel({ form, setForm, onSubmit, busy, error }: JoinPanelPro
   return (
     <aside className="col-span-12 lg:col-span-4 min-w-0">
       <div
-        className="sticky top-6 overflow-hidden rounded-3xl p-6 shadow-xl"
+        className="sticky top-6 overflow-hidden rounded-md p-6 shadow-xl"
         style={{ background: "#141a3d", color: "#fff" }}
       >
         <h2 className="text-lg font-semibold">Tham gia phòng học</h2>
@@ -135,7 +135,7 @@ export function JoinPanel({ form, setForm, onSubmit, busy, error }: JoinPanelPro
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-full py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+            className="w-full rounded-pill py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
             style={{ background: "#7c3aed" }}
           >
             {busy ? "Đang xử lý…" : "Vào phòng"}
