@@ -30,12 +30,13 @@ function extractKeywords(query: string): string[] {
 }
 
 /**
- * Tìm các trang liên quan nhất trong tài liệu dựa trên thuật toán TF-IDF / Term Matching
+ * Tìm các trang liên quan nhất trong tài liệu dựa trên thuật toán TF-IDF / Term Matching kết hợp nhận diện số trang
  */
 export function findRelevantPages(
   query: string,
   pages: string[],
-  topK = 3
+  topK = 3,
+  currentPage?: number
 ): RelevantChunk[] {
   if (!pages || pages.length === 0) return [];
   if (pages.length <= topK) {
@@ -46,9 +47,68 @@ export function findRelevantPages(
     }));
   }
 
+  // 1. Kiểm tra xem người dùng có chỉ định số trang cụ thể không (ví dụ: "trang 3", "page 3", "slide 3")
+  const pageMatch = query.match(/(?:trang|page|slide)\s*(\d+)/i);
+  if (pageMatch) {
+    const targetPageNum = parseInt(pageMatch[1], 10);
+    if (targetPageNum >= 1 && targetPageNum <= pages.length) {
+      const chunks: RelevantChunk[] = [
+        {
+          pageNumber: targetPageNum,
+          text: pages[targetPageNum - 1],
+          score: 100,
+        },
+      ];
+      // Bổ sung thêm trang kế tiếp hoặc trước đó để AI có mạch ngữ cảnh nếu cần
+      if (topK > 1 && targetPageNum < pages.length) {
+        chunks.push({
+          pageNumber: targetPageNum + 1,
+          text: pages[targetPageNum],
+          score: 50,
+        });
+      }
+      if (topK > 2 && targetPageNum > 1) {
+        chunks.unshift({
+          pageNumber: targetPageNum - 1,
+          text: pages[targetPageNum - 2],
+          score: 40,
+        });
+      }
+      return chunks.slice(0, topK);
+    }
+  }
+
+  // 2. Nếu người dùng hỏi về "trang này", "slide này" và có currentPage hợp lệ
+  if (currentPage && currentPage >= 1 && currentPage <= pages.length) {
+    const lowerQuery = query.toLowerCase();
+    if (
+      lowerQuery.includes("trang này") ||
+      lowerQuery.includes("slide này") ||
+      lowerQuery.includes("đoạn này") ||
+      lowerQuery.includes("nội dung này")
+    ) {
+      return [
+        {
+          pageNumber: currentPage,
+          text: pages[currentPage - 1],
+          score: 100,
+        },
+      ];
+    }
+  }
+
+  // 3. TF-IDF / Term Matching
   const keywords = extractKeywords(query);
   if (keywords.length === 0) {
-    // Nếu không có từ khóa đặc thù (câu hỏi chào hỏi thông thường): lấy 2 trang đầu
+    if (currentPage && currentPage >= 1 && currentPage <= pages.length) {
+      return [
+        {
+          pageNumber: currentPage,
+          text: pages[currentPage - 1],
+          score: 1.0,
+        },
+      ];
+    }
     return pages.slice(0, 2).map((text, idx) => ({
       pageNumber: idx + 1,
       text,
@@ -88,6 +148,15 @@ export function findRelevantPages(
   const topResults = scoredPages.filter((p) => p.score > 0).slice(0, topK);
 
   if (topResults.length === 0) {
+    if (currentPage && currentPage >= 1 && currentPage <= pages.length) {
+      return [
+        {
+          pageNumber: currentPage,
+          text: pages[currentPage - 1],
+          score: 1.0,
+        },
+      ];
+    }
     return scoredPages.slice(0, 2);
   }
 
@@ -104,9 +173,11 @@ export function buildRAGContext(chunks: RelevantChunk[]): string {
   return chunks
     .map(
       (c) => {
-        // Làm sạch chuỗi Base64 ảnh để AI nhận ngữ cảnh văn bản thuần khiết, phản hồi nhanh và chuẩn xác
-        const cleanText = c.text.replace(/!\[(.*?)\]\(data:image\/[^;]+;base64,[A-Za-z0-9+/=\s\\]+\)/g, "[Hình ảnh: $1]");
-        return `--- [TRANG ${c.pageNumber}] ---\n${cleanText.slice(0, 1800)}`;
+        // Làm sạch chuỗi Base64 ảnh và định dạng liên kết ảnh để AI nhận ngữ cảnh văn bản thuần khiết, phản hồi nhanh và chuẩn xác
+        const cleanText = c.text
+          .replace(/!\[(.*?)\]\(data:image\/[^;]+;base64,[A-Za-z0-9+/=\s\\]+\)/g, "[Hình ảnh minh họa: $1]")
+          .replace(/!\[(.*?)\]\((https?:\/\/[^\s)]+)\)/g, "[Hình ảnh minh họa: $1]");
+        return `--- [TRANG ${c.pageNumber}] ---\n${cleanText.slice(0, 2500)}`;
       }
     )
     .join("\n\n");

@@ -141,7 +141,8 @@ export const SUGGESTIONS = [
 export async function askAI(
   prompt: string,
   doc: DocumentItem | null,
-  history?: ChatMessage[]
+  history?: ChatMessage[],
+  currentPage?: number
 ): Promise<{ text: string; chart?: ChartItem[]; isGemini?: boolean }> {
   const lower = prompt.toLowerCase().trim();
   const pages = doc?.pagesContent || [];
@@ -210,6 +211,7 @@ export async function askAI(
       docSubject: doc?.subject,
       pagesContent: pages,
       history,
+      currentPage,
     });
 
     return { text: response, isGemini: true };

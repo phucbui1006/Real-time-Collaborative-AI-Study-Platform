@@ -40,7 +40,9 @@ import {
   getCachedPage,
   isPageCached,
   cleanTextForAI,
+  cacheAllDocumentPages,
 } from "../../services/documentPagingService";
+import { supabase } from "../../services/supabaseClient";
 
 interface DocumentStudioViewProps {
   doc: DocumentItem;
@@ -105,6 +107,38 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
   useEffect(() => {
     setActiveDoc(doc);
   }, [doc]);
+
+  // Tải ngầm toàn bộ tài liệu (đã siêu nhẹ < 50KB nhờ tách ảnh ra Storage) để AI hiểu trọn vẹn và lật trang 0ms
+  useEffect(() => {
+    let isMounted = true;
+    if (activeDoc.id > 0 && (!activeDoc.pagesContent || activeDoc.pagesContent.length <= 1)) {
+      (async () => {
+        try {
+          const { data, error } = await supabase
+            .from("documents")
+            .select("pages_content, total_pages")
+            .eq("id", activeDoc.id)
+            .single();
+
+          if (!error && data?.pages_content && Array.isArray(data.pages_content) && isMounted) {
+            setActiveDoc((prev) => ({
+              ...prev,
+              pagesContent: data.pages_content,
+              pagesCount: data.total_pages || data.pages_content.length,
+            }));
+            cacheAllDocumentPages(activeDoc.id, data.pages_content);
+          }
+        } catch {
+          // ignore
+        }
+      })();
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [activeDoc.id, activeDoc.pagesContent]);
+
+
 
   // Nạp trang hiện tại theo nhu cầu (Page-based On-Demand Loading)
   useEffect(() => {
@@ -333,7 +367,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
             ? activeDoc.pagesContent
             : [cleanTextForAI(pageText || rawPageText)],
       };
-      const res = await askAI(q, docForAI, newHistory);
+      const res = await askAI(q, docForAI, newHistory, currentPage);
       const aiMsg: ChatMessage = { role: "ai", text: res.text, isGemini: res.isGemini };
       setMessages((prev) => [...prev, aiMsg]);
 

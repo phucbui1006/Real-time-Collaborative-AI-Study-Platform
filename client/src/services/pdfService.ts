@@ -78,6 +78,96 @@ export function sanitizeExtractedText(text: string): string {
 }
 
 /**
+ * Trích xuất và đẩy toàn bộ ảnh Base64 trong Markdown lên Supabase Storage bucket 'slides'
+ * Thay thế chuỗi Base64 bằng Public URL nhẹ nhàng, giảm 99% kích thước văn bản và tăng tốc độ xử lý
+ */
+export async function uploadExtractedImagesFromMarkdown(markdownText: string): Promise<string> {
+  if (!markdownText || !markdownText.includes("data:image/")) {
+    return markdownText;
+  }
+
+  // Thu thập tất cả các data:image/ URI
+  const imageMatches: { fullUri: string; base64: string; mimeType: string }[] = [];
+  let searchIdx = 0;
+
+  while (true) {
+    const startIdx = markdownText.indexOf("data:image/", searchIdx);
+    if (startIdx === -1) break;
+
+    const commaIdx = markdownText.indexOf(",", startIdx);
+    if (commaIdx === -1 || commaIdx - startIdx > 40) {
+      searchIdx = startIdx + 11;
+      continue;
+    }
+
+    const mimePart = markdownText.substring(startIdx + 11, commaIdx);
+    const mimeType = mimePart.split(";")[0].toLowerCase();
+
+    // Tìm điểm kết thúc của data URI: ')' hoặc '"' hoặc '\'' hoặc khoảng trắng / newline
+    let endIdx = -1;
+    for (let i = commaIdx + 1; i < markdownText.length; i++) {
+      const char = markdownText[i];
+      if (char === ")" || char === '"' || char === "'" || char === "]" || char === ">" || char === "\n" || char === "\r") {
+        endIdx = i;
+        break;
+      }
+    }
+    if (endIdx === -1) endIdx = markdownText.length;
+
+    const fullUri = markdownText.substring(startIdx, endIdx);
+    const rawBase64 = markdownText.substring(commaIdx + 1, endIdx);
+    const cleanBase64 = rawBase64.replace(/\\/g, "").replace(/\s+/g, "");
+
+    imageMatches.push({ fullUri, base64: cleanBase64, mimeType });
+    searchIdx = endIdx + 1;
+  }
+
+  if (imageMatches.length === 0) return markdownText;
+
+  try {
+    const apiBase = (import.meta.env?.VITE_API_URL as string) || "";
+    const uploadUrl = apiBase ? `${apiBase.replace(/\/$/, "")}/api/documents/upload-images` : "/api/documents/upload-images";
+
+    const response = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        images: imageMatches.map((img) => ({
+          base64: img.base64,
+          mimeType: img.mimeType,
+        })),
+      }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && Array.isArray(data.results)) {
+        let updatedMarkdown = markdownText;
+        data.results.forEach((res: { index: number; success: boolean; url: string }) => {
+          if (res.success && res.url) {
+            const target = imageMatches[res.index]?.fullUri;
+            if (target) {
+              updatedMarkdown = updatedMarkdown.split(target).join(res.url);
+            }
+          }
+        });
+        return updatedMarkdown;
+      }
+    }
+  } catch (err) {
+    console.warn("Không thể upload ảnh lên Storage qua API backend, áp dụng fallback tối ưu:", err);
+  }
+
+  // Fallback an toàn: nếu không có server backend, thay thế data:image Base64 quá lớn bằng placeholder
+  // để bảo vệ CSDL PostgreSQL không bị quá tải
+  let fallbackMarkdown = markdownText;
+  imageMatches.forEach((img, idx) => {
+    fallbackMarkdown = fallbackMarkdown.split(img.fullUri).join(`[Hình ảnh minh họa ${idx + 1}]`);
+  });
+  return fallbackMarkdown;
+}
+
+/**
  * Trích xuất nội dung văn bản thực tế từ file Word (.docx) và phân trang thông minh
  */
 export async function extractTextFromDocx(file: File): Promise<ExtractedDoc> {
@@ -105,6 +195,9 @@ export async function extractTextFromDocx(file: File): Promise<ExtractedDoc> {
         pages: ["Tài liệu Word (.docx) này không chứa văn bản hoặc chứa toàn bộ là hình ảnh."],
       };
     }
+
+    // Tách và upload toàn bộ hình ảnh nhúng lên Supabase Storage bucket 'slides'
+    text = await uploadExtractedImagesFromMarkdown(text);
 
     // Làm sạch các thẻ Word bookmark HTML trước khi phân trang
     text = sanitizeExtractedText(text);

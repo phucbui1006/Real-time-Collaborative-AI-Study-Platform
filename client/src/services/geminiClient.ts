@@ -253,19 +253,21 @@ export async function askGeminiRAG({
   docSubject,
   pagesContent = [],
   history = [],
+  currentPage,
 }: {
   question: string;
   docTitle?: string;
   docSubject?: string;
   pagesContent?: string[];
   history?: { role: "user" | "ai"; text: string }[];
+  currentPage?: number;
 }): Promise<string> {
   const documentTitle = docTitle ? `${docTitle}${docSubject ? ` (${docSubject})` : ""}` : "Chưa chọn tài liệu nào";
 
   // Áp dụng RAG lọc ra các trang liên quan nhất trong tài liệu
   let documentContent = "";
   if (pagesContent && pagesContent.length > 0) {
-    const relevantChunks = findRelevantPages(question, pagesContent, 3);
+    const relevantChunks = findRelevantPages(question, pagesContent, 3, currentPage);
     documentContent = buildRAGContext(relevantChunks);
   } else if (docTitle) {
     documentContent = docTitle;

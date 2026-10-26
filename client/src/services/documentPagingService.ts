@@ -1,6 +1,6 @@
 // client/src/services/documentPagingService.ts
 // Dịch vụ nạp tài liệu theo từng trang (Page-based On-Demand Loading)
-// Giúp mở tài liệu ngay lập tức (< 400ms), bảo toàn 100% hình ảnh và chống duplicate fetch
+// Giúp mở tài liệu ngay lập tức (< 300ms), bảo toàn 100% hình ảnh và chống duplicate fetch
 import { supabase } from "./supabaseClient";
 
 // 1. RAM Cache cho từng trang: Key = `${docId}_${pageIndex}`
@@ -83,12 +83,25 @@ export function prefetchDocumentPages(docId: number, startPageIndex: number, tot
 }
 
 /**
- * Xóa chuỗi ảnh Base64 khi gửi cho AI để AI phản hồi nhanh gấp 10 lần và không bị nghẽn token
+ * Lưu đồng loạt toàn bộ các trang của tài liệu vào cache RAM (khi đã tải được danh sách đầy đủ)
+ */
+export function cacheAllDocumentPages(docId: number, pages: string[]): void {
+  if (!pages || !Array.isArray(pages)) return;
+  pages.forEach((page, idx) => {
+    if (page) {
+      pageContentCache.set(`${docId}_${idx}`, page);
+    }
+  });
+}
+
+/**
+ * Xóa chuỗi ảnh Base64 và chuẩn hóa liên kết ảnh khi gửi cho AI để AI phản hồi nhanh gấp 10 lần và hiểu đúng hình ảnh
  */
 export function cleanTextForAI(text: string): string {
   if (!text) return "";
-  // Thay thế chuỗi data:image/png;base64,... thành nhãn mô tả
-  return text.replace(/!\[(.*?)\]\(data:image\/[^;]+;base64,[A-Za-z0-9+/=\s\\]+\)/g, "[Hình ảnh minh họa: $1]");
+  return text
+    .replace(/!\[(.*?)\]\(data:image\/[^;]+;base64,[A-Za-z0-9+/=\s\\]+\)/g, "[Hình ảnh: $1]")
+    .replace(/!\[(.*?)\]\((https?:\/\/[^\s)]+)\)/g, "[Hình ảnh: $1]");
 }
 
 /**

@@ -103,4 +103,65 @@ async function deleteDocument(req, res, next) {
   }
 }
 
-module.exports = { uploadDocument, getDocuments, deleteDocument }
+/**
+ * POST /api/documents/upload-images
+ * Tách và lưu trữ hình ảnh trích xuất từ tài liệu lên Supabase Storage bucket 'slides'
+ * Nhận payload: { images: [{ base64: string, mimeType?: string, filename?: string }] }
+ * Trả về: { success: true, results: [{ index: number, success: boolean, url: string }] }
+ */
+async function uploadDocumentImages(req, res, next) {
+  try {
+    const { images } = req.body
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({ error: 'Không có hình ảnh để tải lên.' })
+    }
+
+    const results = []
+    const now = Date.now()
+
+    for (let i = 0; i < images.length; i++) {
+      const item = images[i]
+      try {
+        const rawBase64 = (item.base64 || '')
+          .replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '')
+          .replace(/\\/g, '')
+          .replace(/\s+/g, '')
+
+        if (!rawBase64) {
+          results.push({ index: i, success: false, error: 'Dữ liệu ảnh rỗng' })
+          continue
+        }
+
+        const buffer = Buffer.from(rawBase64, 'base64')
+        let ext = (item.mimeType || 'png').toLowerCase().replace('image/', '')
+        if (ext === 'jpeg') ext = 'jpg'
+        if (!ext || ext.length > 5) ext = 'png'
+
+        const randomStr = Math.random().toString(36).substring(2, 8)
+        const filename = `doc-images/img_${now}_${i}_${randomStr}.${ext}`
+        const contentType = item.mimeType || `image/${ext === 'jpg' ? 'jpeg' : ext}`
+
+        const { error: upErr } = await supabaseAdmin.storage
+          .from('slides')
+          .upload(filename, buffer, { contentType, upsert: true })
+
+        if (upErr) {
+          console.warn(`Lỗi upload ảnh vị trí ${i}:`, upErr.message)
+          results.push({ index: i, success: false, error: upErr.message })
+        } else {
+          const { data: urlData } = supabaseAdmin.storage.from('slides').getPublicUrl(filename)
+          results.push({ index: i, success: true, url: urlData.publicUrl })
+        }
+      } catch (err) {
+        console.warn(`Lỗi giải mã ảnh vị trí ${i}:`, err.message)
+        results.push({ index: i, success: false, error: err.message })
+      }
+    }
+
+    res.json({ success: true, results })
+  } catch (err) {
+    next(err)
+  }
+}
+
+module.exports = { uploadDocument, getDocuments, deleteDocument, uploadDocumentImages }
