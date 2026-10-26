@@ -272,20 +272,20 @@ export async function fetchDocSessions(docId: number, userId?: string): Promise<
           merged.push(ls);
         }
       });
-      if (merged.length > 0) return merged;
+      // Giới hạn tối đa 5 cuộc trò chuyện gần nhất theo thời gian
+      const top5 = merged.slice(0, 5);
+      try {
+        localStorage.setItem(localKey, JSON.stringify(top5));
+      } catch {}
+      return top5;
     }
   } catch (err) {
     console.warn("Lỗi tải sessions từ Supabase:", err);
   }
 
-  if (localSessions.length > 0) return localSessions;
+  if (localSessions.length > 0) return localSessions.slice(0, 5);
 
-  const defaultSession: ChatSession = {
-    id: "default",
-    title: "Cuộc trò chuyện chính",
-    createdAt: new Date().toISOString(),
-  };
-  return [defaultSession];
+  return [];
 }
 
 /**
@@ -408,7 +408,8 @@ export async function saveDocConversation(
         createdAt: new Date().toISOString(),
       });
     }
-    localStorage.setItem(sessionsKey, JSON.stringify(sessionsList));
+    // Giữ tối đa 5 phiên gần nhất trong localStorage
+    localStorage.setItem(sessionsKey, JSON.stringify(sessionsList.slice(0, 5)));
   } catch (e) {
     console.warn("Lỗi lưu local session:", e);
   }
@@ -445,7 +446,7 @@ export async function deleteDocSession(
     const sessionsKey = `peermind_sessions_${docId}`;
     const sessionsList: ChatSession[] = JSON.parse(localStorage.getItem(sessionsKey) || "[]");
     const filtered = sessionsList.filter((s) => s.id !== sessionId);
-    localStorage.setItem(sessionsKey, JSON.stringify(filtered));
+    localStorage.setItem(sessionsKey, JSON.stringify(filtered.slice(0, 5)));
   } catch {}
 }
 

@@ -53,17 +53,25 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 }) => {
   const [activeDoc, setActiveDoc] = useState<DocumentItem>(doc);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
-  const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
+  const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
   const [fontSize, setFontSize] = useState<number>(16);
   const [selectedText, setSelectedText] = useState<string>("");
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
 
-  // Quản lý nhiều phiên trò chuyện (Sessions - Phương án 3)
+  // Mặc định khởi tạo một phiên trò chuyện mới tinh để tránh load lại chat cũ khi vừa mở tài liệu
+  const [currentSessionId, setCurrentSessionId] = useState<string>(() => `sess_${Date.now()}`);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    {
+      role: "ai",
+      text: `Chào ${userName}! Mình là Trợ lý AI của tài liệu **"${doc.title}"**. Mình đã đọc hiểu toàn bộ ${doc.pagesCount || 1} trang của tài liệu này. Bạn có thể hỏi mình bất kỳ chi tiết nào hoặc bôi đen văn bản bên trái để mình giải thích nha! ✨`,
+      isGemini: true,
+    },
+  ]);
+
+  // Quản lý nhiều phiên trò chuyện (lưu tối đa 5 phiên gần nhất)
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [currentSessionId, setCurrentSessionId] = useState<string>("default");
   const [isSessionDropdownOpen, setIsSessionDropdownOpen] = useState<boolean>(false);
   const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
   const [editTitleInput, setEditTitleInput] = useState<string>("");
@@ -104,54 +112,18 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 
   const subjectStyle = getSubjectStyle(activeDoc.subject);
 
-  // 1. Tải danh sách các phiên trò chuyện (Sessions) của tài liệu
+  // 1. Tải danh sách 5 phiên trò chuyện gần nhất của tài liệu (không tự ý đổi phiên chat hiện tại)
   useEffect(() => {
     async function loadSessions() {
       try {
         const sList = await fetchDocSessions(activeDoc.id, userId);
         setSessions(sList);
-        if (sList.length > 0 && !sList.some((s) => s.id === currentSessionId)) {
-          setCurrentSessionId(sList[0].id);
-        }
       } catch (err) {
         console.warn("Lỗi tải danh sách phiên chat:", err);
       }
     }
     loadSessions();
   }, [activeDoc.id, userId]);
-
-  // 2. Tải lịch sử trò chuyện theo Session đang chọn
-  useEffect(() => {
-    async function loadHistory() {
-      setLoadingHistory(true);
-      const defaultWelcome: ChatMessage = {
-        role: "ai",
-        text: `Chào ${userName}! Mình là Trợ lý AI của tài liệu **"${activeDoc.title}"**. Mình đã đọc hiểu toàn bộ ${totalPages} trang của tài liệu này. Bạn có thể hỏi mình bất kỳ chi tiết nào hoặc bôi đen văn bản bên trái để mình giải thích nha! ✨`,
-        isGemini: true,
-      };
-
-      try {
-        const history = await fetchDocConversations(activeDoc.id, currentSessionId, userId);
-        if (history.length > 0) {
-          const updatedHistory = history.map((msg, idx) => {
-            if (idx === 0 && msg.role === "ai" && (msg.text.includes("Mình là Trợ lý AI của tài liệu") || msg.text.startsWith("Chào "))) {
-              return defaultWelcome;
-            }
-            return msg;
-          });
-          setMessages(updatedHistory);
-        } else {
-          setMessages([defaultWelcome]);
-        }
-      } catch (err) {
-        console.warn("Lỗi tải lịch sử chat:", err);
-        setMessages([defaultWelcome]);
-      } finally {
-        setLoadingHistory(false);
-      }
-    }
-    loadHistory();
-  }, [activeDoc.id, activeDoc.title, currentSessionId, totalPages, userId, userName]);
 
   // Cuộn khung đọc sách về đầu trang mỗi khi chuyển trang
   useEffect(() => {
@@ -164,55 +136,80 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
   }, [messages, loading]);
 
   // Tìm thông tin session hiện tại
-  const currentSession = sessions.find((s) => s.id === currentSessionId) || sessions[0] || {
-    id: "default",
-    title: "Cuộc trò chuyện chính",
+  const currentSession = sessions.find((s) => s.id === currentSessionId) || {
+    id: currentSessionId,
+    title: "Cuộc trò chuyện mới",
     createdAt: new Date().toISOString(),
   };
 
-  // Tạo phiên trò chuyện mới (+ New Chat)
+  // Tạo phiên trò chuyện mới (+ Chat mới)
   const handleCreateNewSession = () => {
     const newId = `sess_${Date.now()}`;
-    const newSession: ChatSession = {
-      id: newId,
-      title: "Cuộc trò chuyện mới",
-      createdAt: new Date().toISOString(),
-    };
-    setSessions((prev) => [newSession, ...prev]);
     setCurrentSessionId(newId);
+    setMessages([
+      {
+        role: "ai",
+        text: `Chào ${userName}! Mình là Trợ lý AI của tài liệu **"${activeDoc.title}"**. Mình đã đọc hiểu toàn bộ ${totalPages} trang của tài liệu này. Bạn có thể hỏi mình bất kỳ chi tiết nào hoặc bôi đen văn bản bên trái để mình giải thích nha! ✨`,
+        isGemini: true,
+      },
+    ]);
     setIsSessionDropdownOpen(false);
+    setIsEditingTitle(false);
   };
 
-  // Đổi phiên trò chuyện
-  const handleSwitchSession = (sessionId: string) => {
+  // Đổi sang xem lịch sử của phiên trò chuyện cũ từ Dropdown (Lazy Load On-demand)
+  const handleSwitchSession = async (sessionId: string) => {
+    if (sessionId === currentSessionId) {
+      setIsSessionDropdownOpen(false);
+      return;
+    }
     setCurrentSessionId(sessionId);
     setIsSessionDropdownOpen(false);
+    setIsEditingTitle(false);
+
+    setLoadingHistory(true);
+    const defaultWelcome: ChatMessage = {
+      role: "ai",
+      text: `Chào ${userName}! Mình là Trợ lý AI của tài liệu **"${activeDoc.title}"**. Mình đã đọc hiểu toàn bộ ${totalPages} trang của tài liệu này. Bạn có thể hỏi mình bất kỳ chi tiết nào hoặc bôi đen văn bản bên trái để mình giải thích nha! ✨`,
+      isGemini: true,
+    };
+
+    try {
+      const history = await fetchDocConversations(activeDoc.id, sessionId, userId);
+      if (history.length > 0) {
+        const updatedHistory = history.map((msg, idx) => {
+          if (idx === 0 && msg.role === "ai" && (msg.text.includes("Mình là Trợ lý AI của tài liệu") || msg.text.startsWith("Chào "))) {
+            return defaultWelcome;
+          }
+          return msg;
+        });
+        setMessages(updatedHistory);
+      } else {
+        setMessages([defaultWelcome]);
+      }
+    } catch (err) {
+      console.warn("Lỗi tải lịch sử chat:", err);
+      setMessages([defaultWelcome]);
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   // Xóa phiên trò chuyện
   const handleDeleteSession = async (sessionId: string) => {
     const target = sessions.find((s) => s.id === sessionId);
-    const confirmName = target?.title || "phiên trò chuyện này";
+    const confirmName = target?.title || (sessionId === currentSessionId ? "cuộc trò chuyện hiện tại" : "phiên trò chuyện này");
     if (!window.confirm(`Bạn có chắc chắn muốn xóa "${confirmName}" và toàn bộ lịch sử tin nhắn của phiên này?`)) {
       return;
     }
 
     await deleteDocSession(activeDoc.id, sessionId, userId);
     const remaining = sessions.filter((s) => s.id !== sessionId);
+    setSessions(remaining);
 
-    if (remaining.length > 0) {
-      setSessions(remaining);
-      if (currentSessionId === sessionId) {
-        setCurrentSessionId(remaining[0].id);
-      }
-    } else {
-      const defaultSess: ChatSession = {
-        id: "default",
-        title: "Cuộc trò chuyện chính",
-        createdAt: new Date().toISOString(),
-      };
-      setSessions([defaultSess]);
-      setCurrentSessionId("default");
+    // Nếu xóa chính phiên đang mở, tự động đưa về một phiên chat mới tinh
+    if (currentSessionId === sessionId) {
+      handleCreateNewSession();
     }
     setIsSessionDropdownOpen(false);
   };
@@ -264,16 +261,31 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     setLoading(true);
     setTooltipPos(null);
 
-    // Tự động đặt tên cho phiên nếu còn là tên mặc định
-    let activeTitle = currentSession?.title || "Cuộc trò chuyện chính";
-    if (activeTitle === "Cuộc trò chuyện mới" || activeTitle === "Cuộc trò chuyện") {
+    // Tự động đặt tên cho phiên nếu còn là tên mặc định hoặc phiên mới
+    let activeTitle = currentSession?.title || "Cuộc trò chuyện mới";
+    if (
+      activeTitle === "Cuộc trò chuyện mới" ||
+      activeTitle === "Cuộc trò chuyện" ||
+      activeTitle === "Cuộc trò chuyện chính"
+    ) {
       const autoTitle = q.length > 28 ? q.slice(0, 28) + "..." : q;
       activeTitle = autoTitle;
-      setSessions((prev) =>
-        prev.map((s) => (s.id === currentSessionId ? { ...s, title: autoTitle } : s))
-      );
       renameDocSession(activeDoc.id, currentSessionId, autoTitle, userId);
     }
+
+    // Đưa phiên này vào danh sách 5 phiên gần nhất
+    setSessions((prev) => {
+      const exists = prev.some((s) => s.id === currentSessionId);
+      if (exists) {
+        return prev.map((s) => (s.id === currentSessionId ? { ...s, title: activeTitle } : s));
+      }
+      const newSess: ChatSession = {
+        id: currentSessionId,
+        title: activeTitle,
+        createdAt: new Date().toISOString(),
+      };
+      return [newSess, ...prev].slice(0, 5);
+    });
 
     try {
       const res = await askAI(q, activeDoc, newHistory);
@@ -567,7 +579,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                 >
                   <span className="truncate font-medium flex items-center gap-1.5">
                     <MessageSquare className="w-3.5 h-3.5 text-[#0b7a75] dark:text-[#2dd4bf] shrink-0" />
-                    <span className="truncate">{currentSession?.title || "Cuộc trò chuyện chính"}</span>
+                    <span className="truncate">{currentSession?.title || "Cuộc trò chuyện mới"}</span>
                   </span>
                   <ChevronDown className="w-3.5 h-3.5 text-[#111118]/60 dark:text-[#f0f6ff]/60 shrink-0" />
                 </button>
@@ -577,38 +589,52 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
               {isSessionDropdownOpen && (
                 <div className="absolute left-0 top-full mt-1.5 w-full bg-white dark:bg-[#1b1b26] border-2 border-[#111118] dark:border-[#2a2a3a] rounded-md shadow-[0_6px_16px_rgba(0,0,0,0.2)] z-50 p-1.5 max-h-64 overflow-y-auto animate-in fade-in zoom-in-95">
                   <div className="px-2 py-1 text-[10px] font-mono uppercase text-[#111118]/50 dark:text-[#f0f6ff]/50 border-b border-[#e1edff] dark:border-[#2a2a3a] mb-1 flex items-center justify-between">
-                    <span>Lịch sử các phiên ({sessions.length})</span>
-                    <span className="text-[9px] text-[#0b7a75] dark:text-[#2dd4bf] font-sans">Multi-Chat</span>
+                    <span>Lịch sử gần đây ({sessions.length}/5)</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCreateNewSession();
+                      }}
+                      className="text-[9px] text-[#0b7a75] dark:text-[#2dd4bf] font-sans hover:underline cursor-pointer flex items-center gap-0.5"
+                    >
+                      <Plus className="w-2.5 h-2.5" /> Chat mới
+                    </button>
                   </div>
-                  {sessions.map((sess) => {
-                    const isActive = sess.id === currentSessionId;
-                    return (
-                      <div
-                        key={sess.id}
-                        className={`flex items-center justify-between p-2 rounded-sharp text-xs cursor-pointer transition-colors ${
-                          isActive
-                            ? "bg-[#0b7a75] text-white font-medium"
-                            : "hover:bg-[#f0f6ff] dark:hover:bg-[#242436] text-[#111118] dark:text-[#f0f6ff]"
-                        }`}
-                        onClick={() => handleSwitchSession(sess.id)}
-                      >
-                        <div className="flex items-center gap-2 truncate min-w-0 pr-2">
-                          <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                          <span className="truncate">{sess.title}</span>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteSession(sess.id);
-                          }}
-                          className={`p-1 rounded-sharp hover:bg-black/20 ${isActive ? "text-white" : "text-rose-500 hover:text-rose-700"} shrink-0 cursor-pointer`}
-                          title="Xóa phiên trò chuyện này"
+                  {sessions.length === 0 ? (
+                    <div className="p-3 text-center text-[11px] text-[#111118]/50 dark:text-[#f0f6ff]/50">
+                      Chưa có lịch sử cuộc trò chuyện nào
+                    </div>
+                  ) : (
+                    sessions.map((sess) => {
+                      const isActive = sess.id === currentSessionId;
+                      return (
+                        <div
+                          key={sess.id}
+                          className={`flex items-center justify-between p-2 rounded-sharp text-xs cursor-pointer transition-colors ${
+                            isActive
+                              ? "bg-[#0b7a75] text-white font-medium"
+                              : "hover:bg-[#f0f6ff] dark:hover:bg-[#242436] text-[#111118] dark:text-[#f0f6ff]"
+                          }`}
+                          onClick={() => handleSwitchSession(sess.id)}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    );
-                  })}
+                          <div className="flex items-center gap-2 truncate min-w-0 pr-2">
+                            <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{sess.title}</span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSession(sess.id);
+                            }}
+                            className={`p-1 rounded-sharp hover:bg-black/20 ${isActive ? "text-white" : "text-rose-500 hover:text-rose-700"} shrink-0 cursor-pointer`}
+                            title="Xóa phiên trò chuyện này"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               )}
             </div>
