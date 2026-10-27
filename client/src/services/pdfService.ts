@@ -3,14 +3,18 @@ import * as pdfjsLib from "pdfjs-dist";
 import mammoth from "mammoth";
 import JSZip from "jszip";
 
-// Cấu hình worker cho pdfjs-dist trong môi trường trình duyệt Vite
+// Nhập worker trực tiếp từ gói pdfjs-dist nội bộ qua Vite URL bundling (?url)
+// Giải pháp này giải quyết triệt để lỗi CSP (Content Security Policy) và không phụ thuộc CDN mạng ngoài
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+
 if (typeof window !== "undefined") {
   try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || "4.8.69"}/pdf.worker.min.mjs`;
-  } catch (err) {
-    console.warn("Không thể tải PDF worker từ CDN, fallback worker nội bộ:", err);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+  } catch (err: any) {
+    console.warn("Không thể gán PDF worker nội bộ:", err);
   }
 }
+
 
 export interface ExtractedDoc {
   totalPages: number;
@@ -54,6 +58,9 @@ export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
     return { totalPages, pages };
   } catch (err) {
     console.error("Lỗi khi đọc file PDF bằng pdfjs-dist:", err);
+    if ((err as any)?.name === "PasswordException") {
+      throw new Error("File PDF này có mật khẩu bảo vệ. Vui lòng gỡ mật khẩu trước khi tải lên.");
+    }
     throw new Error("Không thể bóc tách nội dung file PDF. File có thể bị khóa hoặc lỗi định dạng.");
   }
 }
