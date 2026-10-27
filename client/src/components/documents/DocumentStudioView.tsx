@@ -664,7 +664,21 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                   </div>
                 ) : (
                   <div className="prose dark:prose-invert max-w-none text-base leading-relaxed break-words overflow-x-auto selection:bg-[#ffda00] selection:text-[#111118]">
-                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
+                      components={{
+                        img: ({ node: _node, ...props }) => (
+                          <div className="w-full flex justify-center my-4">
+                            <img
+                              {...props}
+                              className="max-w-full max-h-[640px] w-auto h-auto object-contain rounded-md border-2 border-[#111118] dark:border-[#2a2a3a] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] bg-white dark:bg-[#1b1b26]"
+                              loading="lazy"
+                            />
+                          </div>
+                        ),
+                      }}
+                    >
                       {currentPageText}
                     </ReactMarkdown>
                   </div>

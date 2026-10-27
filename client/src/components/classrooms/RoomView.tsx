@@ -27,7 +27,13 @@ import {
   Maximize2,
 } from "lucide-react";
 
-export type SlideItem = [string, string[]];
+export type SlideItem =
+  | [string, string[]]
+  | {
+      title: string;
+      points: string[];
+      imageUrl?: string;
+    };
 export type DocItem = {
   id: number;
   title: string;
@@ -156,7 +162,11 @@ function SlideStage({ doc, index, objs, onChange, canEdit, tool, color }: SlideS
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [textAt, setTextAt] = useState<[number, number] | null>(null);
   const [txt, setTxt] = useState("");
-  const [title, points] = doc.slides[index];
+  const currentSlide = doc.slides[index] || ["Trang " + (index + 1), []];
+  const isTuple = Array.isArray(currentSlide);
+  const title = isTuple ? currentSlide[0] : currentSlide.title;
+  const points = isTuple ? currentSlide[1] : currentSlide.points || [];
+  const imageUrl = !isTuple ? currentSlide.imageUrl : undefined;
 
   useEffect(() => {
     if (!box.current) return;
@@ -239,27 +249,37 @@ function SlideStage({ doc, index, objs, onChange, canEdit, tool, color }: SlideS
       className="relative w-full overflow-hidden rounded-md shadow-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900"
       style={{ aspectRatio: "16 / 9", containerType: "inline-size" }}
     >
-      <div className="absolute inset-0" style={{ padding: "6cqw" }}>
-        <div style={{ height: "1.2cqw", width: "10cqw", background: doc.color, borderRadius: 99 }} />
-        <h2 className="text-slate-900 dark:text-slate-50" style={{ fontSize: "4.4cqw", fontWeight: 700, marginTop: "2cqw" }}>{title}</h2>
-        <ul
-          className="text-slate-700 dark:text-slate-300"
-          style={{
-            marginTop: "3cqw",
-            fontSize: "2.6cqw",
-            lineHeight: 1.9,
-            listStyle: "disc",
-            paddingLeft: "3cqw",
-          }}
-        >
-          {points.map((p) => (
-            <li key={p}>{p}</li>
-          ))}
-        </ul>
-        <div className="text-slate-300 dark:text-slate-600" style={{ position: "absolute", right: "3cqw", bottom: "2cqw", fontSize: "1.5cqw" }}>
-          {doc.title}
+      {imageUrl ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/5 dark:bg-slate-950/40">
+          <img
+            src={imageUrl}
+            alt={title}
+            className="w-full h-full object-contain pointer-events-none select-none"
+          />
         </div>
-      </div>
+      ) : (
+        <div className="absolute inset-0" style={{ padding: "6cqw" }}>
+          <div style={{ height: "1.2cqw", width: "10cqw", background: doc.color, borderRadius: 99 }} />
+          <h2 className="text-slate-900 dark:text-slate-50" style={{ fontSize: "4.4cqw", fontWeight: 700, marginTop: "2cqw" }}>{title}</h2>
+          <ul
+            className="text-slate-700 dark:text-slate-300"
+            style={{
+              marginTop: "3cqw",
+              fontSize: "2.6cqw",
+              lineHeight: 1.9,
+              listStyle: "disc",
+              paddingLeft: "3cqw",
+            }}
+          >
+            {points.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+          <div className="text-slate-300 dark:text-slate-600" style={{ position: "absolute", right: "3cqw", bottom: "2cqw", fontSize: "1.5cqw" }}>
+            {doc.title}
+          </div>
+        </div>
+      )}
 
       <canvas
         ref={cv}

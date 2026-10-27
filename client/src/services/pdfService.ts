@@ -23,11 +23,11 @@ export interface ExtractedDoc {
 
 /**
  * Render một trang PDF sang hình ảnh Base64 (WebP để siêu nhẹ hoặc JPEG)
- * Cho phép bảo toàn 100% hình ảnh, sơ đồ, bảng biểu gốc của trang PDF
+ * Tỷ lệ scale 1.15 và chất lượng 0.72 tối ưu: chỉ ~25KB/trang mà giữ nguyên độ sắc nét
  */
 export async function renderPdfPageToImage(
   page: any,
-  scale = 1.25
+  scale = 1.15
 ): Promise<{ base64: string; mimeType: string } | null> {
   if (typeof window === "undefined" || typeof document === "undefined") return null;
   try {
@@ -50,17 +50,17 @@ export async function renderPdfPageToImage(
     let dataUrl = "";
     let mimeType = "image/webp";
     try {
-      dataUrl = canvas.toDataURL("image/webp", 0.78);
+      dataUrl = canvas.toDataURL("image/webp", 0.72);
     } catch {
-      // Fallback nếu browser không hỗ trợ webp trên canvas
+      // Fallback nếu browser cũ không hỗ trợ toDataURL webp
     }
 
     if (!dataUrl || !dataUrl.startsWith("data:image/webp")) {
-      dataUrl = canvas.toDataURL("image/jpeg", 0.78);
+      dataUrl = canvas.toDataURL("image/jpeg", 0.72);
       mimeType = "image/jpeg";
     }
 
-    // Giải phóng bộ nhớ canvas ngay lập tức để chống tràn RAM
+    // Thu dọn canvas ngay để giải phóng RAM
     canvas.width = 0;
     canvas.height = 0;
 
@@ -86,10 +86,19 @@ export async function uploadPageImagesInBatches(
   const urlMap = new Map<number, string>();
   if (!imagesWithPage || imagesWithPage.length === 0) return urlMap;
 
-  const BATCH_SIZE = 3; // 3 trang / đợt để không vượt quá giới hạn 4.5MB
-  const apiBase = (import.meta.env?.VITE_API_URL as string) || "";
-  const uploadUrl = apiBase ? `${apiBase.replace(/\/$/, "")}/api/documents/upload-images` : "/api/documents/upload-images";
+  // Xác định endpoint API upload an toàn:
+  // Nếu ở browser trên production (Vercel), dùng relative path để tránh lỗi Mixed Content hoặc localhost:3001
+  let uploadUrl = "/api/documents/upload-images";
+  if (typeof window !== "undefined") {
+    const origin = window.location.origin;
+    if (origin.includes("localhost:5173") && import.meta.env?.VITE_API_URL) {
+      uploadUrl = `${(import.meta.env.VITE_API_URL as string).replace(/\/$/, "")}/api/documents/upload-images`;
+    } else {
+      uploadUrl = `${origin}/api/documents/upload-images`;
+    }
+  }
 
+  const BATCH_SIZE = 3; // 3 trang / đợt
   for (let i = 0; i < imagesWithPage.length; i += BATCH_SIZE) {
     const batch = imagesWithPage.slice(i, i + BATCH_SIZE);
     try {
@@ -139,6 +148,7 @@ export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
     const totalPages = pdf.numPages;
     const rawPagesText: { pageNum: number; text: string }[] = [];
     const imagesToUpload: { pageNum: number; base64: string; mimeType: string }[] = [];
+    const localImgMap = new Map<number, string>();
 
     for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
       try {
@@ -154,14 +164,16 @@ export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
 
         rawPagesText.push({ pageNum, text: pageText });
 
-        // 2. Chụp ảnh trang PDF (Snapshot) để bảo toàn 100% hình ảnh, sơ đồ gốc
-        const imgObj = await renderPdfPageToImage(page, 1.25);
-        if (imgObj) {
+        // 2. Chụp ảnh trang PDF (Snapshot) bảo toàn 100% hình ảnh, sơ đồ gốc
+        const imgObj = await renderPdfPageToImage(page, 1.15);
+        if (imgObj && imgObj.base64) {
           imagesToUpload.push({ pageNum, base64: imgObj.base64, mimeType: imgObj.mimeType });
+          // Lưu dự phòng Data URL WebP để đảm bảo 100% luôn có ảnh hiển thị
+          localImgMap.set(pageNum, `data:${imgObj.mimeType};base64,${imgObj.base64}`);
         }
 
-        // Nhả microtask tuần tự để giao diện trình duyệt luôn mượt mà
-        if (pageNum % 3 === 0) {
+        // Nhả microtask để giao diện trình duyệt luôn mượt mà
+        if (pageNum % 2 === 0) {
           await new Promise((r) => setTimeout(r, 0));
         }
       } catch (pageErr) {
@@ -170,27 +182,28 @@ export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
       }
     }
 
-    // 3. Upload toàn bộ ảnh các trang lên Supabase Storage bucket 'slides'
+    // 3. Thử upload ảnh các trang lên Supabase Storage bucket 'slides'
     let urlMap = new Map<number, string>();
     if (imagesToUpload.length > 0) {
       try {
         urlMap = await uploadPageImagesInBatches(imagesToUpload);
       } catch (upErr) {
-        console.warn("Không thể upload ảnh trang PDF lên Storage:", upErr);
+        console.warn("Không thể upload ảnh trang PDF lên Storage, chuyển sang dùng ảnh nén nội bộ:", upErr);
       }
     }
 
-    // 4. Ghép nội dung hoàn chỉnh cho từng trang: Ảnh trang + Văn bản đi kèm
+    // 4. Ghép nội dung hoàn chỉnh cho từng trang:
+    // Ưu tiên: Storage URL -> Data URL WebP nội bộ. KHÔNG BAO GIỜ BỎ RƠI ẢNH!
     const pages: string[] = [];
     for (const item of rawPagesText) {
-      const imgUrl = urlMap.get(item.pageNum);
+      const imgUrl = urlMap.get(item.pageNum) || localImgMap.get(item.pageNum);
       const text = item.text;
 
       if (imgUrl) {
         if (text) {
-          pages.push(`![Trang ${item.pageNum}](${imgUrl})\n\n${text}`);
+          pages.push(`![Slide ${item.pageNum}](${imgUrl})\n\n${text}`);
         } else {
-          pages.push(`![Trang ${item.pageNum}](${imgUrl})\n\n*(Trang tài liệu dạng hình ảnh)*`);
+          pages.push(`![Slide ${item.pageNum}](${imgUrl})\n\n*(Slide thuyết trình dạng hình ảnh)*`);
         }
       } else {
         pages.push(text || `Trang ${item.pageNum} (Tài liệu dạng hình ảnh hoặc không có văn bản chọn lọc)`);

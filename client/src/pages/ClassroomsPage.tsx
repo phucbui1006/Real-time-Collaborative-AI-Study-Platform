@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { RoomHistory } from "../components/classrooms/RoomHistory";
 import { JoinRoomModal } from "../components/classrooms/JoinRoomModal";
 import { CreateRoomModal } from "../components/classrooms/CreateRoomModal";
-import RoomView from "../components/classrooms/RoomView";
+import RoomView, { DOCS, DocItem, SlideItem } from "../components/classrooms/RoomView";
 import {
   INITIAL_HISTORY,
   COLORS,
@@ -40,6 +40,97 @@ export default function ClassroomsPage({
   });
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinCode, setJoinCode] = useState("");
+  const [libraryDocs, setLibraryDocs] = useState<DocItem[]>(DOCS);
+
+  // Nạp toàn bộ tài liệu đã import từ Thư viện để phục vụ trình chiếu slide/ảnh trong phòng học
+  useEffect(() => {
+    async function loadLibraryDocs() {
+      try {
+        const loaded: DocItem[] = [];
+
+        // 1. Tải từ Supabase (nếu đã đăng nhập)
+        if (isValidUUID(userId)) {
+          const { data } = await supabase
+            .from("documents")
+            .select("id, title, original_name, filename, subject, pages_content")
+            .eq("owner_user_id", userId);
+
+          if (data && Array.isArray(data)) {
+            data.forEach((d) => {
+              const pages: string[] = Array.isArray(d.pages_content) ? d.pages_content : [];
+              if (pages.length > 0) {
+                const slides: SlideItem[] = pages.map((pageText, idx) => {
+                  const imgMatch = typeof pageText === "string" ? pageText.match(/!\[(.*?)\]\((.*?)\)/) : null;
+                  const imageUrl = imgMatch ? imgMatch[2] : undefined;
+                  const cleanText = typeof pageText === "string" ? pageText.replace(/!\[.*?\]\(.*?\)/g, "").trim() : "";
+                  const lines = cleanText.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+                  const title = lines[0]?.replace(/^#+\s*/, "") || `Trang ${idx + 1}`;
+                  return {
+                    title,
+                    points: lines.slice(1, 5),
+                    imageUrl,
+                  };
+                });
+                loaded.push({
+                  id: d.id,
+                  title: d.title || d.original_name || d.filename || "Tài liệu",
+                  color: "#0b7a75",
+                  slides,
+                });
+              }
+            });
+          }
+        }
+
+        // 2. Tải thêm từ bộ nhớ cục bộ (Khách hoặc Offline cache)
+        const docKey = `peermind_docs_${userId || "guest"}`;
+        const stored = localStorage.getItem(docKey);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+              parsed.forEach((d: any) => {
+                if (!loaded.some((x) => x.id === d.id)) {
+                  const pages: string[] = Array.isArray(d.pagesContent)
+                    ? d.pagesContent
+                    : Array.isArray(d.pages_content)
+                    ? d.pages_content
+                    : [];
+                  if (pages.length > 0) {
+                    const slides: SlideItem[] = pages.map((pageText, idx) => {
+                      const imgMatch = typeof pageText === "string" ? pageText.match(/!\[(.*?)\]\((.*?)\)/) : null;
+                      const imageUrl = imgMatch ? imgMatch[2] : undefined;
+                      const cleanText = typeof pageText === "string" ? pageText.replace(/!\[.*?\]\(.*?\)/g, "").trim() : "";
+                      const lines = cleanText.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+                      const title = lines[0]?.replace(/^#+\s*/, "") || `Trang ${idx + 1}`;
+                      return {
+                        title,
+                        points: lines.slice(1, 5),
+                        imageUrl,
+                      };
+                    });
+                    loaded.push({
+                      id: d.id,
+                      title: d.title || d.original_name || d.filename || "Tài liệu",
+                      color: d.color || "#0ea5e9",
+                      slides,
+                    });
+                  }
+                }
+              });
+            }
+          } catch {}
+        }
+
+        if (loaded.length > 0) {
+          setLibraryDocs([...loaded, ...DOCS]);
+        }
+      } catch (err) {
+        console.warn("Không thể nạp tài liệu thư viện cho phòng học:", err);
+      }
+    }
+    loadLibraryDocs();
+  }, [userId]);
   const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
@@ -140,6 +231,7 @@ export default function ClassroomsPage({
       <RoomView
         room={activeRoom}
         isHost={activeRoom.isHost ?? true}
+        docs={libraryDocs}
         onLeave={() => setActiveRoom(null)}
       />
     );
