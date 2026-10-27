@@ -1,5 +1,5 @@
 -- ==============================================================================
--- PEERMIND SUPABASE MIGRATION: CẤP QUYỀN LƯU ẢNH TRANG VÀO STORAGE BUCKET 'SLIDES'
+-- PERMIND SUPABASE MIGRATION: CẤP QUYỀN LƯU ẢNH TRANG VÀO STORAGE BUCKET 'SLIDES'
 -- Mục tiêu: Cho phép lưu ảnh chụp từng trang PDF và tài liệu lên Supabase Storage
 -- Hướng dẫn: Mở Supabase Dashboard -> SQL Editor -> Dán toàn bộ nội dung này và bấm RUN
 -- ==============================================================================

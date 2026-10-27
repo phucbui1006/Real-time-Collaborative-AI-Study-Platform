@@ -87,7 +87,7 @@ export function clearAllUserState() {
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith("peermind_")) {
+        if (key && key.startsWith("permind_")) {
           keysToRemove.push(key);
         }
       }
@@ -96,7 +96,7 @@ export function clearAllUserState() {
       const sessionKeysToRemove: string[] = [];
       for (let i = 0; i < sessionStorage.length; i++) {
         const key = sessionStorage.key(i);
-        if (key && key.startsWith("peermind_")) {
+        if (key && key.startsWith("permind_")) {
           sessionKeysToRemove.push(key);
         }
       }
@@ -114,7 +114,7 @@ interface LibraryPageProps {
 
 export default function LibraryPage({ userId, userName }: LibraryPageProps) {
   const isRealUser = isValidUUID(userId);
-  const localKey = `peermind_docs_${userId || "guest"}`;
+  const localKey = `permind_docs_${userId || "guest"}`;
   const currentCache = userId ? userDocsCache.get(userId) || null : null;
 
   // Lấy dữ liệu nhanh từ bộ nhớ RAM hoặc localStorage để hiển thị tức thì (0ms)
@@ -454,7 +454,7 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
               throw new Error(`Lỗi lưu vào CSDL: ${insertError.message}`);
             }
           } else {
-            const localKey = `peermind_docs_${userId || "guest"}`;
+            const localKey = `permind_docs_${userId || "guest"}`;
             const currentLocal = JSON.parse(localStorage.getItem(localKey) || "[]");
             currentLocal.unshift({
               id: Date.now() + Math.floor(Math.random() * 1000),

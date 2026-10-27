@@ -8,7 +8,7 @@ function errorHandler(err, _req, res, _next) {
   const statusCode = err.statusCode || 500
   const message = err.message || 'Lỗi máy chủ nội bộ.'
 
-  console.error(`[PeerMind Error] ${statusCode}: ${message}`)
+  console.error(`[Permind Error] ${statusCode}: ${message}`)
 
   res.status(statusCode).json({
     success: false,

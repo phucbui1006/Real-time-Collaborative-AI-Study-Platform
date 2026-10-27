@@ -354,7 +354,7 @@ export async function extractTextFromDocx(file: File): Promise<ExtractedDoc> {
     }
 
     // 2. Kiểm tra ngắt trang vật lý (<w:br w:type="page"/> và <w:lastRenderedPageBreak/>) trong word/document.xml
-    const PAGE_BREAK_DELIMITER = "\n\n[[--PEERMIND_PAGE_BREAK--]]\n\n";
+    const PAGE_BREAK_DELIMITER = "\n\n[[--PERMIND_PAGE_BREAK--]]\n\n";
     let bufferToParse: ArrayBuffer = arrayBuffer;
     let hasExplicitBreaks = false;
 
@@ -409,9 +409,9 @@ export async function extractTextFromDocx(file: File): Promise<ExtractedDoc> {
     let pages: string[] = [];
 
     // Trường hợp 4.1: File Word có đánh dấu ngắt trang vật lý rõ ràng
-    if (hasExplicitBreaks && text.includes("[[--PEERMIND_PAGE_BREAK--]]")) {
+    if (hasExplicitBreaks && text.includes("[[--PERMIND_PAGE_BREAK--]]")) {
       const rawSplit = text
-        .split(/\[\[--PEERMIND_PAGE_BREAK--\]\]/)
+        .split(/\[\[--PERMIND_PAGE_BREAK--\]\]/)
         .map((p) => p.trim())
         .filter((p) => p.length > 0);
 

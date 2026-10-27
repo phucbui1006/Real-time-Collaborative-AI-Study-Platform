@@ -24,7 +24,7 @@ export function Header({ activeTab, onSelectTab, onLogout, userName, userEmail }
   return (
     <header className="sticky top-0 z-40 h-16 w-full bg-white dark:bg-[#1b1b26] border-b border-[#e1edff] dark:border-[#2a2a3a] transition-colors duration-150">
       <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-4 sm:px-6">
-        {/* Cột 1 (Trái): Logo ngang PeerMind */}
+        {/* Cột 1 (Trái): Logo ngang Permind */}
         <div className="flex flex-1 items-center justify-start shrink-0">
           <Logo
             size="md"

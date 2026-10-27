@@ -1,5 +1,5 @@
 /**
- * utils/index.ts — Các hàm tiện ích dùng chung trong PeerMind
+ * utils/index.ts — Các hàm tiện ích dùng chung trong Permind
  */
 
 /** Format giây thành MM:SS (VD: 75 → "01:15") */

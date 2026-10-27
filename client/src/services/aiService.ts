@@ -236,7 +236,7 @@ export interface ChatSession {
  * Tải danh sách các phiên trò chuyện (Sessions) của tài liệu
  */
 export async function fetchDocSessions(docId: number, userId?: string): Promise<ChatSession[]> {
-  const localKey = `peermind_sessions_${docId}`;
+  const localKey = `permind_sessions_${docId}`;
   let localSessions: ChatSession[] = [];
   try {
     const raw = localStorage.getItem(localKey);
@@ -330,10 +330,10 @@ export async function fetchDocConversations(
     }
 
     // Dự phòng local storage theo session
-    const localKey = `peermind_chat_${docId}_${sessionId}`;
+    const localKey = `permind_chat_${docId}_${sessionId}`;
     const stored =
       localStorage.getItem(localKey) ||
-      (sessionId === "default" ? localStorage.getItem(`peermind_chat_${docId}`) : null);
+      (sessionId === "default" ? localStorage.getItem(`permind_chat_${docId}`) : null);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -388,14 +388,14 @@ export async function saveDocConversation(
 
   // 2. Lưu local cache theo session
   try {
-    const localKey = `peermind_chat_${docId}_${sessionId}`;
+    const localKey = `permind_chat_${docId}_${sessionId}`;
     const current = JSON.parse(localStorage.getItem(localKey) || "[]");
     current.push({ role: "user", text: question });
     current.push({ role: "ai", text: answer, isGemini: true });
     localStorage.setItem(localKey, JSON.stringify(current.slice(-50)));
 
     // Đồng bộ session list trong local storage
-    const sessionsKey = `peermind_sessions_${docId}`;
+    const sessionsKey = `permind_sessions_${docId}`;
     const sessionsList: ChatSession[] = JSON.parse(localStorage.getItem(sessionsKey) || "[]");
     const existing = sessionsList.find((s) => s.id === sessionId);
     if (existing) {
@@ -441,11 +441,11 @@ export async function deleteDocSession(
   }
 
   try {
-    localStorage.removeItem(`peermind_chat_${docId}_${sessionId}`);
+    localStorage.removeItem(`permind_chat_${docId}_${sessionId}`);
     if (sessionId === "default") {
-      localStorage.removeItem(`peermind_chat_${docId}`);
+      localStorage.removeItem(`permind_chat_${docId}`);
     }
-    const sessionsKey = `peermind_sessions_${docId}`;
+    const sessionsKey = `permind_sessions_${docId}`;
     const sessionsList: ChatSession[] = JSON.parse(localStorage.getItem(sessionsKey) || "[]");
     const filtered = sessionsList.filter((s) => s.id !== sessionId);
     localStorage.setItem(sessionsKey, JSON.stringify(filtered.slice(0, 5)));
@@ -481,7 +481,7 @@ export async function renameDocSession(
   }
 
   try {
-    const sessionsKey = `peermind_sessions_${docId}`;
+    const sessionsKey = `permind_sessions_${docId}`;
     const sessionsList: ChatSession[] = JSON.parse(localStorage.getItem(sessionsKey) || "[]");
     const target = sessionsList.find((s) => s.id === sessionId);
     if (target) {

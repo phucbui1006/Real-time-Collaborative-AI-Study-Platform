@@ -1,5 +1,5 @@
 -- ==============================================================================
--- PEERMIND DATABASE INITIALIZATION SCRIPT (SUPABASE / POSTGRESQL)
+-- PERMIND DATABASE INITIALIZATION SCRIPT (SUPABASE / POSTGRESQL)
 -- Chạy toàn bộ script này trong Supabase Dashboard -> SQL Editor -> Run
 -- ==============================================================================
 

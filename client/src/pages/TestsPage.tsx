@@ -59,8 +59,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   }, [view.name]);
 
   const isRealUser = isValidUUID(userId);
-  const setsKey = `peermind_exam_sets_${userId || "guest"}`;
-  const historyKey = `peermind_exam_history_${userId || "guest"}`;
+  const setsKey = `permind_exam_sets_${userId || "guest"}`;
+  const historyKey = `permind_exam_history_${userId || "guest"}`;
 
   const [tab, setTab] = useState<"sets" | "history">("sets");
 
@@ -93,7 +93,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   // Khôi phục phòng thi đang mở (nếu còn thời gian chạy)
   const [live, setLive] = useState<LiveExam | null>(() => {
     try {
-      const stored = localStorage.getItem("peermind_current_live_exam");
+      const stored = localStorage.getItem("permind_current_live_exam");
       if (stored) {
         const parsed: LiveExam = JSON.parse(stored);
         if (parsed.status === "running" && parsed.endAt > Date.now()) {
@@ -119,8 +119,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       const endedLive: LiveExam = { ...live, status: "ended" };
       setLive(endedLive);
       try {
-        localStorage.setItem(`peermind_active_exam_${live.code}`, JSON.stringify(endedLive));
-        localStorage.setItem("peermind_current_live_exam", JSON.stringify(endedLive));
+        localStorage.setItem(`permind_active_exam_${live.code}`, JSON.stringify(endedLive));
+        localStorage.setItem("permind_current_live_exam", JSON.stringify(endedLive));
       } catch {}
     }
   }, [remaining, live]);
@@ -201,8 +201,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     };
     setLive(newLive);
     try {
-      localStorage.setItem(`peermind_active_exam_${code}`, JSON.stringify(newLive));
-      localStorage.setItem("peermind_current_live_exam", JSON.stringify(newLive));
+      localStorage.setItem(`permind_active_exam_${code}`, JSON.stringify(newLive));
+      localStorage.setItem("permind_current_live_exam", JSON.stringify(newLive));
     } catch {}
     setMine(null);
     setOpenFor(null);
@@ -214,7 +214,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     let target = live && live.code === trimmed ? live : null;
     if (!target) {
       try {
-        const stored = localStorage.getItem(`peermind_active_exam_${trimmed}`);
+        const stored = localStorage.getItem(`permind_active_exam_${trimmed}`);
         if (stored) {
           target = JSON.parse(stored);
         }
@@ -281,8 +281,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
             if (!l) return null;
             const endedLive: LiveExam = { ...l, status: "ended", endAt: Date.now() };
             try {
-              localStorage.setItem(`peermind_active_exam_${l.code}`, JSON.stringify(endedLive));
-              localStorage.setItem("peermind_current_live_exam", JSON.stringify(endedLive));
+              localStorage.setItem(`permind_active_exam_${l.code}`, JSON.stringify(endedLive));
+              localStorage.setItem("permind_current_live_exam", JSON.stringify(endedLive));
             } catch {}
             return endedLive;
           });
@@ -290,8 +290,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
         onClose={() => {
           if (live) {
             try {
-              localStorage.removeItem(`peermind_active_exam_${live.code}`);
-              localStorage.removeItem("peermind_current_live_exam");
+              localStorage.removeItem(`permind_active_exam_${live.code}`);
+              localStorage.removeItem("permind_current_live_exam");
             } catch {}
           }
           setLive(null);

@@ -138,7 +138,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 
         // 2. Thử tải từ localStorage nếu là Guest hoặc chưa có trong DB
         try {
-          const localKey = `peermind_docs_${userId || "guest"}`;
+          const localKey = `permind_docs_${userId || "guest"}`;
           const stored = localStorage.getItem(localKey);
           if (stored) {
             const parsed = JSON.parse(stored);
@@ -412,7 +412,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
       // 2. Thử lấy từ localStorage nếu là Guest/Demo
       if (fullPages.length <= 1) {
         try {
-          const localKey = `peermind_docs_${userId || "guest"}`;
+          const localKey = `permind_docs_${userId || "guest"}`;
           const stored = localStorage.getItem(localKey);
           if (stored) {
             const parsed = JSON.parse(stored);
@@ -687,7 +687,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 
               {/* Chân trang */}
               <div className="mt-12 pt-4 border-t border-[#e1edff] dark:border-[#2a2a3a] flex items-center justify-between text-xs text-[#111118]/50 dark:text-[#f0f6ff]/50 font-mono">
-                <span>PeerMind Document Reader · RAG Ready</span>
+                <span>Permind Document Reader · RAG Ready</span>
                 <span>{currentPage} / {totalPages}</span>
               </div>
             </div>
@@ -728,7 +728,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
               <div className="w-6 h-6 rounded-full bg-[#0b7a75] text-white flex items-center justify-center font-mono">
                 <Bot className="w-3.5 h-3.5" />
               </div>
-              <span className="font-semibold text-[#111118] dark:text-[#f0f6ff]">Trợ lý AI PeerMind</span>
+              <span className="font-semibold text-[#111118] dark:text-[#f0f6ff]">Trợ lý AI Permind</span>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -881,7 +881,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                     {msg.role === "ai" ? renderAIMessageText(msg.text) : msg.text}
                   </div>
                   <span className="text-[10px] text-[#111118]/40 dark:text-[#f0f6ff]/40 mt-1 font-mono px-1">
-                    {msg.role === "user" ? "Bạn" : "PeerMind AI"}
+                    {msg.role === "user" ? "Bạn" : "Permind AI"}
                   </span>
                 </div>
               ))

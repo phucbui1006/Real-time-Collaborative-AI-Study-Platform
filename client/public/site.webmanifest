@@ -1,6 +1,6 @@
 {
-  "name": "PeerMind — Học tập cùng bạn bè & AI",
-  "short_name": "PeerMind",
+  "name": "Permind — Học tập cùng bạn bè & AI",
+  "short_name": "Permind",
   "description": "Nền tảng học nhóm trực tuyến tích hợp AI, đồng bộ slide thời gian thực và thi đấu trắc nghiệm xếp hạng.",
   "start_url": "/",
   "display": "standalone",

@@ -223,7 +223,7 @@ export const ClassroomHeroAnimation: React.FC = () => {
             <span className="h-3.5 w-3.5 rounded-full bg-teal-400" />
             <div className={`ml-2 hidden sm:flex items-center gap-1.5 rounded-full bg-white dark:bg-slate-900 px-3 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 ${UNIFIED_BORDER}`}>
               <span className="h-2 w-2 rounded-full bg-teal-600" />
-              <span>peermind.edu.vn/ai-studio</span>
+              <span>permind.io.vn/ai-studio</span>
             </div>
           </div>
 

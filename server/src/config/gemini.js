@@ -13,9 +13,9 @@ if (GEMINI_API_KEY && GEMINI_API_KEY !== 'your_gemini_api_key_here' && GEMINI_AP
         responseMimeType: 'application/json',
       },
     })
-    console.log('[PeerMind] ✅ Google Gemini AI đã được kích hoạt thành công.')
+    console.log('[Permind] ✅ Google Gemini AI đã được kích hoạt thành công.')
   } catch (err) {
-    console.warn('[PeerMind] ⚠️ Không thể kết nối Gemini AI:', err.message)
+    console.warn('[Permind] ⚠️ Không thể kết nối Gemini AI:', err.message)
   }
 }
 

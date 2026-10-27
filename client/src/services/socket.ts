@@ -11,7 +11,7 @@ export const socket: Socket = io(SOCKET_URL, {
   transports: ['websocket', 'polling'],
 })
 
-// ─── Các sự kiện Socket chuẩn của PeerMind ───────────────────────────────────
+// ─── Các sự kiện Socket chuẩn của Permind ───────────────────────────────────
 
 /** Tham gia phòng học */
 export function joinRoom(roomCode: string, userName: string) {

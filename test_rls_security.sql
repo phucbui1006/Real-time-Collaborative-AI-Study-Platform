@@ -1,5 +1,5 @@
 -- ==============================================================================
--- PEERMIND SUPABASE TEST SCRIPT: KIỂM THỬ BẢO MẬT RLS CHO DOCUMENTS & AI_CHAT
+-- PERMIND SUPABASE TEST SCRIPT: KIỂM THỬ BẢO MẬT RLS CHO DOCUMENTS & AI_CHAT
 -- Chức năng: Giả lập 2 người dùng (User A và User B) để kiểm chứng:
 --   1. User B KHÔNG THỂ đọc tài liệu hoặc đoạn chat của User A.
 --   2. User B KHÔNG THỂ sửa (UPDATE) hoặc xóa (DELETE) tài liệu của User A.
@@ -26,8 +26,8 @@ BEGIN
 
   INSERT INTO auth.users (id, email, aud, role)
   VALUES 
-    (v_user_a_id, 'user_a@peermind.test', 'authenticated', 'authenticated'),
-    (v_user_b_id, 'user_b@peermind.test', 'authenticated', 'authenticated')
+    (v_user_a_id, 'user_a@permind.test', 'authenticated', 'authenticated'),
+    (v_user_b_id, 'user_b@permind.test', 'authenticated', 'authenticated')
   ON CONFLICT (id) DO NOTHING;
 
   -- 1. USER A TẠO TÀI LIỆU VÀ ĐOẠN CHAT

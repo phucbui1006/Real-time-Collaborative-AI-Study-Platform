@@ -1006,7 +1006,7 @@ export default function RoomView({
 
                 <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1" />
 
-                {/* Các nút tương tác thêm của PeerMind */}
+                {/* Các nút tương tác thêm của Permind */}
                 <button
                   onClick={() => setTool("pen")}
                   title="Bút dạ quang (Highlighter)"

@@ -156,7 +156,7 @@ export const MotionShowcaseModal: React.FC<MotionShowcaseModalProps> = ({
             </div>
             <div className="mt-4 p-4 rounded-sm bg-[#f0f6ff]/70 dark:bg-[#242436]/60 border border-[#e1edff] dark:border-[#2a2a3a]">
               <RevealText
-                text="PeerMind là nền tảng học tập cộng tác thời gian thực với trợ lý AI thông minh, hỗ trợ tự động bóc tách tài liệu và ôn luyện bài thi hiệu quả."
+                text="Permind là nền tảng học tập cộng tác thời gian thực với trợ lý AI thông minh, hỗ trợ tự động bóc tách tài liệu và ôn luyện bài thi hiệu quả."
                 className="text-base sm:text-lg font-normal text-[#111118] dark:text-[#f0f6ff] leading-relaxed"
                 showDebugBox={showDebugBox}
                 staggerDelay={simulatedReduced ? 0 : 60}

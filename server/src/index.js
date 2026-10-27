@@ -54,5 +54,5 @@ const io = new Server(server, {
 initSockets(io)
 
 server.listen(PORT, () => {
-  console.log(`🚀 PeerMind Server đang chạy tại http://localhost:${PORT}`)
+  console.log(`🚀 Permind Server đang chạy tại http://localhost:${PORT}`)
 })

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PeerMind — Phòng học nhóm của bạn</title>
+  <title>Permind — Phòng học nhóm của bạn</title>
   
   <!-- Font Be Vietnam Pro & Space Mono (đảm bảo hiển thị hoàn hảo dấu tiếng Việt: Ắng ễ ượ Ẩ Ỡ Ộ) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,7 +16,7 @@
 
   <style>
     /* ==========================================================================
-       1. DESIGN TOKENS (CSS VARIABLES) — SUPERHI STYLE ADAPTED FOR PEERMIND
+       1. DESIGN TOKENS (CSS VARIABLES) — SUPERHI STYLE ADAPTED FOR PERMIND
        ========================================================================== */
     :root {
       /* Palette bề mặt & chữ */
@@ -238,7 +238,7 @@
     }
 
     /* ==========================================================================
-       5. TOP NAVIGATION BAR (CÙNG PHONG CÁCH SUPERHI CHO PEERMIND)
+       5. TOP NAVIGATION BAR (CÙNG PHONG CÁCH SUPERHI CHO PERMIND)
        ========================================================================== */
     .site-nav {
       background-color: var(--color-card);
@@ -288,7 +288,7 @@
       box-shadow: 0 2px 0 0 #111118;
     }
 
-    /* 3 Phân khu chính của PeerMind */
+    /* 3 Phân khu chính của Permind */
     .nav-tabs {
       display: flex;
       align-items: center;
@@ -1434,12 +1434,12 @@
       <div class="container nav-inner">
         
         <div class="nav-left">
-          <!-- Logo PeerMind -->
-          <a href="#" class="brand-logo" title="PeerMind — Học tập nhóm cùng AI">
+          <!-- Logo Permind -->
+          <a href="#" class="brand-logo" title="Permind — Học tập nhóm cùng AI">
             <div class="brand-mark">
               <svg class="ph-icon" style="color: #ffffff;"><use href="#ph-sparkle"/></svg>
             </div>
-            <span>PeerMind</span>
+            <span>Permind</span>
           </a>
 
           <!-- 3 Phân khu chính của nền tảng (Desktop) -->
@@ -1714,7 +1714,7 @@
                     Chưa có ai online
                   </span>
                 </div>
-                <h2 class="room-title">Nhóm đồ án KTPM – Sprint Review & Kiến trúc PeerMind</h2>
+                <h2 class="room-title">Nhóm đồ án KTPM – Sprint Review & Kiến trúc Permind</h2>
               </div>
             </div>
 
@@ -1838,7 +1838,7 @@
     <footer class="site-footer">
       <div class="container footer-inner">
         <div class="footer-text">
-          <span>PeerMind © 2026 — Nền tảng học tập cộng tác thời gian thực cho sinh viên</span>
+          <span>Permind © 2026 — Nền tảng học tập cộng tác thời gian thực cho sinh viên</span>
         </div>
         <!-- Thẻ kiểm tra dấu tiếng Việt theo yêu cầu đề bài -->
         <div class="font-verification-tag" title="Kiểm tra tương thích hiển thị toàn bộ dấu phụ tiếng Việt">
@@ -1994,12 +1994,12 @@
           themeToggleBtn.setAttribute('title', 'Chuyển sang chế độ Tối');
         }
         try {
-          localStorage.setItem('peermind_theme', theme);
+          localStorage.setItem('permind_theme', theme);
         } catch (e) {}
       }
 
       // Đọc tuỳ chọn đã lưu hoặc mặc định sáng
-      const savedTheme = localStorage.getItem('peermind_theme') || 'light';
+      const savedTheme = localStorage.getItem('permind_theme') || 'light';
       updateTheme(savedTheme);
 
       themeToggleBtn.addEventListener('click', () => {

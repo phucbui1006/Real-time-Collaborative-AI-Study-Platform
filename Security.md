@@ -1,4 +1,4 @@
-# PeerMind: Tài liệu bảo mật
+# Permind: Tài liệu bảo mật
 
 *Phiên bản 1.0 · 22/10/2026 · Dùng làm checklist và đặc tả để giao cho AI hoặc đồng đội thực hiện*
 
@@ -528,8 +528,8 @@ Tạo **hai tài khoản thử A và B** (và một tài khoản Khách), rồi 
 ### 13.1 Kiểm tra (chưa sửa code)
 
 ```
-Rà soát BẢO MẬT cho project PeerMind (Supabase + Vercel + AI). CHƯA SỬA CODE, chỉ báo cáo.
-Làm theo tài liệu PeerMind-Bao-mat.md ở gốc project. Báo cáo theo mức P0/P1/P2:
+Rà soát BẢO MẬT cho project Permind (Supabase + Vercel + AI). CHƯA SỬA CODE, chỉ báo cáo.
+Làm theo tài liệu Permind-Bao-mat.md ở gốc project. Báo cáo theo mức P0/P1/P2:
 1. Bảng nào chưa bật RLS; chính sách nào quá rộng (ví dụ cho mọi người dùng đọc/ghi).
 2. Bucket Storage nào đang public hoặc thiếu chính sách.
 3. Khóa nào (AI, service_role, khác) đang nằm trong code client hoặc bản build.
@@ -543,7 +543,7 @@ Với mỗi phát hiện: file/dòng, mức nghiêm trọng, cách sửa đề x
 ### 13.2 Thực hiện (từng việc một)
 
 ```
-Thực hiện MỤC [số mục] của PeerMind-Bao-mat.md. Chỉ làm đúng mục này, không đụng giao diện hay logic khác.
+Thực hiện MỤC [số mục] của Permind-Bao-mat.md. Chỉ làm đúng mục này, không đụng giao diện hay logic khác.
 Tạo migration SQL (nếu cần) tách riêng để tôi xem trước khi chạy. Không chạy migration trên CSDL thật.
 Xong thì liệt kê file đã sửa, cách kiểm thử (dùng hai tài khoản A và B) và rủi ro còn lại.
 ```

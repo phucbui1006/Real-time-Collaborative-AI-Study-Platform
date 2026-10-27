@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 /**
- * api — Axios instance đã được cấu hình sẵn cho PeerMind Backend.
+ * api — Axios instance đã được cấu hình sẵn cho Permind Backend.
  *
  * Tất cả request đến /api/* sẽ được Vite proxy chuyển đến server:3001
  * (cấu hình trong vite.config.ts).

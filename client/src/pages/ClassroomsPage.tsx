@@ -27,7 +27,7 @@ export default function ClassroomsPage({
   onEnterRoom = (room) => console.log("Vào phòng", room),
 }: ClassroomsPageProps) {
   const isRealUser = isValidUUID(userId);
-  const localKey = `peermind_rooms_${userId || "guest"}`;
+  const localKey = `permind_rooms_${userId || "guest"}`;
 
   // Với tài khoản thật: khởi tạo danh sách rỗng (hoặc từ local cache của chính user)
   // Với tài khoản demo/khách: nạp INITIAL_HISTORY
@@ -83,7 +83,7 @@ export default function ClassroomsPage({
         }
 
         // 2. Tải thêm từ bộ nhớ cục bộ (Khách hoặc Offline cache)
-        const docKey = `peermind_docs_${userId || "guest"}`;
+        const docKey = `permind_docs_${userId || "guest"}`;
         const stored = localStorage.getItem(docKey);
         if (stored) {
           try {

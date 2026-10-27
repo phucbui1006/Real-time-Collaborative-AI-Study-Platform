@@ -9,16 +9,16 @@ type LogoProps = {
 };
 
 /**
- * Component Logo chuẩn của PeerMind theo phong cách SuperHi:
+ * Component Logo chuẩn của Permind theo phong cách SuperHi:
  * 
  * 1. Ý nghĩa biểu tượng:
- * - Chữ "P" hình học tối giản: Khởi nguồn của "Peer" (Bạn đồng hành) & "Platform" (Nền tảng học tập).
+ * - Chữ "P" hình học tối giản: Khởi nguồn của "Per" (Bạn đồng hành) & "Platform" (Nền tảng học tập).
  * - Chấm tròn vàng (#ffda00): Tượng trưng cho "Người bạn cùng học" (Peer) luôn song hành cùng tâm trí học tập (Mind).
  * - Khối chứa xanh ngọc (#0b7a75 / dark: #2dd4bf): Màu hành động duy nhất, thể hiện năng lượng tri thức và tập trung.
  * 
- * 2. Wordmark "PeerMind":
- * - "Peer": Màu đen mực #111118 (dark: #f0f6ff), thể hiện sự vững chãi, tin cậy.
- * - "Mind": Màu xanh ngọc thương hiệu #0b7a75 (dark: #2dd4bf), thể hiện trí tuệ và công nghệ AI.
+ * 2. Wordmark "Permind":
+ * - "Per": Màu đen mực #111118 (dark: #f0f6ff), thể hiện sự vững chãi, tin cậy.
+ * - "mind": Màu xanh ngọc thương hiệu #0b7a75 (dark: #2dd4bf), thể hiện trí tuệ và công nghệ AI.
  * - Chấm vàng cuối từ: Dấu chấm nhận diện thương hiệu đồng điệu với biểu tượng.
  * 
  * 3. Quy tắc sử dụng:
@@ -73,8 +73,8 @@ export const Logo: React.FC<LogoProps> = ({
       type="button"
       onClick={onClick}
       className={`group inline-flex shrink-0 items-center gap-2.5 transition-transform duration-120 active:translate-y-[1px] cursor-pointer focus:outline-hidden ${className}`}
-      aria-label="PeerMind — Học tập cùng bạn bè & AI"
-      title="PeerMind — Học tập cùng bạn bè & AI"
+      aria-label="Permind — Học tập cùng bạn bè & AI"
+      title="Permind — Học tập cùng bạn bè & AI"
     >
       {/* Biểu tượng P + Chấm vàng bạn đồng hành */}
       <div
@@ -123,8 +123,8 @@ export const Logo: React.FC<LogoProps> = ({
         <span
           className={`${textSizeClass} font-normal tracking-[-0.025em] leading-none select-none inline-flex items-baseline`}
         >
-          <span className="text-[#111118] dark:text-[#f0f6ff] transition-colors">Peer</span>
-          <span className="text-[#0b7a75] dark:text-[#2dd4bf] transition-colors">Mind</span>
+          <span className="text-[#111118] dark:text-[#f0f6ff] transition-colors">Per</span>
+          <span className="text-[#0b7a75] dark:text-[#2dd4bf] transition-colors">mind</span>
           <span
             className={`inline-block rounded-full bg-[#ffda00] border border-[#111118] dark:border-[#f0f6ff] shadow-[0_1px_0_0_#111118] dark:shadow-[0_1px_0_0_#000000] transition-transform group-hover:scale-125 ${dotSizeClass}`}
             title="Peer — Người bạn cùng học đồng hành"

@@ -87,7 +87,7 @@ const studentTestimonials = [
     role: "Sinh viên năm 3 • ĐH Kinh tế Quốc dân", // TODO: trường / năm học thật
     avatarSrc: "/landing/avatar1.jpg", // TODO: ảnh thật
     quote:
-      "Giáo trình Kinh tế vĩ mô dày quá, mình thả vào PeerMind là có ngay sơ đồ tư duy kèm số trang để dò lại, đỡ phải lật tìm từng chương.",
+      "Giáo trình Kinh tế vĩ mô dày quá, mình thả vào Permind là có ngay sơ đồ tư duy kèm số trang để dò lại, đỡ phải lật tìm từng chương.",
   },
   {
     name: "Trần Hải Đăng", // TODO: tên thật
@@ -309,7 +309,7 @@ export default function App() {
 
   const handleGuestLogin = () => {
     hasBeenLoggedIn.current = true;
-    setCurrentUser({ id: "guest-user-001", email: "guest@peermind.demo", user_metadata: { full_name: "Khách trải nghiệm" } });
+    setCurrentUser({ id: "guest-user-001", email: "guest@permind.demo", user_metadata: { full_name: "Khách trải nghiệm" } });
     setIsLoginOpen(false);
     setIsLoggedIn(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -717,7 +717,7 @@ export default function App() {
                 Tạm biệt cảnh bơi trong giáo trình dày cộp
               </h2>
               <p className={`mt-4 ${SECTION_LEAD}`}>
-                So sánh cách ôn thi truyền thống với trải nghiệm học tập trên PeerMind.
+                So sánh cách ôn thi truyền thống với trải nghiệm học tập trên Permind.
               </p>
             </div>
 
@@ -725,7 +725,7 @@ export default function App() {
               {/* TRƯỚC: Giáo trình 120 trang */}
               <div className={`lg:col-span-5 min-w-0 ${CARD} bg-slate-100/80 dark:bg-slate-900/80 p-6 sm:p-8`}>
                 <span className={`${BADGE} bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200`}>
-                  😩 Trước khi dùng PeerMind
+                  😩 Trước khi dùng Permind
                 </span>
                 <h3 className={`mt-4 text-2xl sm:text-3xl ${H3}`}>
                   Giáo trình 120 trang chữ dày đặc
@@ -768,7 +768,7 @@ export default function App() {
               <div className={`lg:col-span-5 min-w-0 ${CARD} bg-teal-50 dark:bg-teal-950/30 p-6 sm:p-8 shadow-lg shadow-teal-700/5`}>
                 <span className={`${BADGE} bg-teal-700 text-white`}>
                   <Sparkles className="h-4 w-4" />
-                  Sau khi dùng PeerMind
+                  Sau khi dùng Permind
                 </span>
                 <h3 className={`mt-4 text-2xl sm:text-3xl ${H3}`}>
                   1 sơ đồ + 10 câu hỏi ôn tập
@@ -1070,7 +1070,7 @@ export default function App() {
           <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
             <div className="text-center max-w-2xl mx-auto mb-14">
               <h2 className={H2}>
-                Sinh viên nói gì về PeerMind?
+                Sinh viên nói gì về Permind?
               </h2>
               <p className={`mt-3 ${SECTION_LEAD}`}>
                 Dành cho sinh viên — những chia sẻ sau các mùa chạy deadline và ôn thi cuối kỳ.
@@ -1120,7 +1120,7 @@ export default function App() {
                     Sẵn sàng ôn thi nhẹ nhàng hơn cùng hội bạn?
                   </h2>
                   <p className="mt-3 text-base sm:text-lg leading-[1.6] text-white/95">
-                    Thử kéo thả cuốn giáo trình đầu tiên của bạn lên PeerMind hoàn toàn miễn phí.
+                    Thử kéo thả cuốn giáo trình đầu tiên của bạn lên Permind hoàn toàn miễn phí.
                   </p>
                 </div>
 
@@ -1171,7 +1171,7 @@ export default function App() {
           </nav>
 
           <p className="shrink-0 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
-            © 2026 PeerMind. Học thông minh hơn mỗi ngày.
+            © 2026 Permind. Học thông minh hơn mỗi ngày.
           </p>
         </div>
       </footer>

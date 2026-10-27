@@ -2,7 +2,7 @@
 // Hỗ trợ lưu trữ API Key trong localStorage (BYOK) hoặc qua biến môi trường VITE_GEMINI_API_KEY
 import { findRelevantPages, buildRAGContext } from "./ragService";
 
-const STORAGE_KEY = "peermind_gemini_api_key";
+const STORAGE_KEY = "permind_gemini_api_key";
 
 // Tự động dọn dẹp các key lỗi hoặc bị khóa nếu còn sót trong localStorage của trình duyệt
 if (typeof window !== "undefined") {
@@ -275,7 +275,7 @@ export async function askGeminiRAG({
     documentContent = "Không có tài liệu nào đang mở";
   }
 
-  const systemInstruction = `Bạn là Trợ lý AI thông minh và thân thiện trên nền tảng học tập PeerMind.
+  const systemInstruction = `Bạn là Trợ lý AI thông minh và thân thiện trên nền tảng học tập Permind.
 Người dùng hiện đang mở tài liệu: "${documentTitle}"
 Nội dung/Tóm tắt các trang liên quan nhất của tài liệu:
 """
@@ -303,7 +303,7 @@ HƯỚNG DẪN ĐỊNH DẠNG CÔNG THỨC TOÁN HỌC & TRÌNH BÀY:
     for (const msg of history) {
       if (!msg.text || !msg.text.trim()) continue;
       // Bỏ qua tin nhắn chào mừng mặc định ban đầu
-      if (msg.role === "ai" && msg.text.startsWith("Chào bạn nha! Mình là Trợ lý AI PeerMind")) continue;
+      if (msg.role === "ai" && msg.text.startsWith("Chào bạn nha! Mình là Trợ lý AI Permind")) continue;
       contents.push({
         role: msg.role === "user" ? "user" : "model",
         parts: [{ text: msg.text.trim() }],
@@ -388,7 +388,7 @@ export async function summarizeDocumentWithGemini({
   const contentText = formatFullDocumentForAI(pagesContent, docTitle);
 
   const prompt = `
-Bạn là bạn học cùng bàn kiêm trợ lý học tập thân thiện của PeerMind.
+Bạn là bạn học cùng bàn kiêm trợ lý học tập thân thiện của Permind.
 Hãy tóm tắt tài liệu "${docTitle}" (${docSubject || "Tổng hợp"}) một cách sinh động, dễ hiểu, ngắn gọn và cuốn hút nhất.
 
 === NỘI DUNG TÀI LIỆU ===
@@ -419,7 +419,7 @@ export async function generateMindmapTextWithGemini({
   const contentText = formatFullDocumentForAI(pagesContent, docTitle);
 
   const prompt = `
-Bạn là chuyên gia trực quan hóa kiến thức và sơ đồ tư duy của PeerMind.
+Bạn là chuyên gia trực quan hóa kiến thức và sơ đồ tư duy của Permind.
 Dựa vào nội dung tài liệu "${docTitle}" (${docSubject || "Chung"}), hãy dựng một sơ đồ tư duy (Mindmap) phân cấp bằng Markdown tuyệt đẹp, trực quan, sinh động.
 
 === NỘI DUNG TÀI LIỆU ===

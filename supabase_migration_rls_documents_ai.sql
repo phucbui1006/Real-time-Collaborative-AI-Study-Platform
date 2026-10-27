@@ -1,5 +1,5 @@
 -- ==============================================================================
--- PEERMIND SUPABASE MIGRATION: RLS HARDENING FOR DOCUMENTS & AI_CONVERSATIONS
+-- PERMIND SUPABASE MIGRATION: RLS HARDENING FOR DOCUMENTS & AI_CONVERSATIONS
 -- Mục tiêu: Chỉ chủ sở hữu mới đọc/ghi được tài liệu và lịch sử chat của mình
 -- Hỗ trợ: Quản lý nhiều phiên trò chuyện (Sessions) cho từng tài liệu
 -- Hướng dẫn: Mở Supabase Dashboard -> SQL Editor -> Dán toàn bộ nội dung này và bấm RUN

@@ -1,5 +1,5 @@
 -- ==============================================================================
--- PEERMIND SUPABASE SECURITY HARDENING MIGRATION
+-- PERMIND SUPABASE SECURITY HARDENING MIGRATION
 -- Tuân theo đặc tả bảo mật trong Security.md (Mục 2, 3, 4)
 -- Hướng dẫn: Xem lại trước khi áp dụng. Chạy trong Supabase Dashboard -> SQL Editor
 -- ==============================================================================

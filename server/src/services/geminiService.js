@@ -13,14 +13,14 @@ async function generateQuizFromText(text) {
     return [
       {
         id: 1,
-        question: "Dự án PeerMind sử dụng công nghệ nào để đồng bộ thời gian thực?",
+        question: "Dự án Permind sử dụng công nghệ nào để đồng bộ thời gian thực?",
         options: { A: "Socket.io", B: "FTP", C: "Email", D: "SMS" },
         correctAnswer: "A",
-        explanation: "PeerMind sử dụng Socket.io và WebSockets để đồng bộ lật slide và làm bài thi thời gian thực."
+        explanation: "Permind sử dụng Socket.io và WebSockets để đồng bộ lật slide và làm bài thi thời gian thực."
       },
       {
         id: 2,
-        question: "Cơ sở dữ liệu đám mây nào đang được PeerMind tích hợp?",
+        question: "Cơ sở dữ liệu đám mây nào đang được Permind tích hợp?",
         options: { A: "Supabase (PostgreSQL)", B: "Access", C: "SQLite cục bộ", D: "Excel" },
         correctAnswer: "A",
         explanation: "Dự án lưu trữ tài khoản, phòng học và tài liệu qua hệ thống Supabase Cloud."

@@ -1,7 +1,7 @@
 {
-  "name": "peermind-server",
+  "name": "permind-server",
   "version": "0.1.0",
-  "description": "PeerMind Backend — Node.js + Express + Socket.io",
+  "description": "Permind Backend — Node.js + Express + Socket.io",
   "main": "src/index.js",
   "scripts": {
     "dev": "nodemon src/index.js",

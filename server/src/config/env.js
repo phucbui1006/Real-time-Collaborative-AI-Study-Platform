@@ -8,13 +8,13 @@ const REQUIRED_VARS = [
 
 REQUIRED_VARS.forEach((varName) => {
   if (!process.env[varName]) {
-    console.error(`[PeerMind] ❌ Thiếu biến môi trường bắt buộc: ${varName}`)
+    console.error(`[Permind] ❌ Thiếu biến môi trường bắt buộc: ${varName}`)
     process.exit(1)
   }
 })
 
 if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_api_key_here') {
-  console.log('[PeerMind] ℹ️ GEMINI_API_KEY chưa được cấu hình. Các tính năng AI sẽ chạy ở chế độ dự phòng (fallback).')
+  console.log('[Permind] ℹ️ GEMINI_API_KEY chưa được cấu hình. Các tính năng AI sẽ chạy ở chế độ dự phòng (fallback).')
 }
 
 module.exports = {

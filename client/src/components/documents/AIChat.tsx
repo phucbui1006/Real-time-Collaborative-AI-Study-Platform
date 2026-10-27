@@ -133,7 +133,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "ai",
-      text: "Chào bạn nha! Mình là Trợ lý AI PeerMind 😊. Bạn có thể hỏi mình bất kỳ điều gì: từ công thức toán học, hình học, viết code lập trình, tiếng Anh, mẹo học tập... cho đến tóm tắt bài giảng hay vẽ sơ đồ tư duy nhé! Cần mình trợ giúp gì cứ nhắn ngay nha! ✨",
+      text: "Chào bạn nha! Mình là Trợ lý AI Permind 😊. Bạn có thể hỏi mình bất kỳ điều gì: từ công thức toán học, hình học, viết code lập trình, tiếng Anh, mẹo học tập... cho đến tóm tắt bài giảng hay vẽ sơ đồ tư duy nhé! Cần mình trợ giúp gì cứ nhắn ngay nha! ✨",
       isGemini: hasGeminiApiKey(),
     },
   ]);
@@ -682,7 +682,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                   <div className="max-w-[88%] rounded-sm px-4 py-3 bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] border-2 border-[#111118] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] space-y-2">
                     <div className="flex items-center gap-1.5 text-[11px] font-normal text-[#0b7a75] dark:text-[#2dd4bf]">
                       <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: "3s" }} />
-                      <span>Trợ lý AI PeerMind</span>
+                      <span>Trợ lý AI Permind</span>
                     </div>
 
                     {/* 3 dấu chấm nảy liên tục animate-bounce */}
