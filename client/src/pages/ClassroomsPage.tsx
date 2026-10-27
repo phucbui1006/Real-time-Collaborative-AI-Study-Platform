@@ -141,6 +141,8 @@ export default function ClassroomsPage({
         room={activeRoom}
         isHost={activeRoom.isHost ?? true}
         onLeave={() => setActiveRoom(null)}
+        userId={userId}
+        userName={userName}
       />
     );
   }

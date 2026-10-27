@@ -1,5 +1,5 @@
 // components/documents/DocumentStudioView.tsx — Màn hình Studio chuyên dụng (Split-screen Reader + AI Chatbot Multi-Sessions)
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -15,6 +15,7 @@ import {
   Check,
   ChevronDown,
   MessageSquare,
+  RotateCcw,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -31,6 +32,8 @@ import {
   saveDocConversation,
   deleteDocSession,
   renameDocSession,
+  normalizeDocumentPages,
+  buildChunksFromPages,
 } from "../../services/aiService";
 import { getSubjectStyle } from "./DocumentStore";
 import { sanitizeExtractedText } from "../../services/pdfService";
@@ -38,8 +41,6 @@ import {
   fetchDocumentPage,
   prefetchDocumentPages,
   getCachedPage,
-  isPageCached,
-  cleanTextForAI,
   cacheAllDocumentPages,
 } from "../../services/documentPagingService";
 import { supabase } from "../../services/supabaseClient";
@@ -49,6 +50,7 @@ interface DocumentStudioViewProps {
   onBack: () => void;
   userId?: string;
   userName?: string;
+  onReimport?: (docId: number, file: File) => Promise<void> | void;
   onUpdateDoc?: (updatedDoc: DocumentItem) => void;
 }
 
@@ -57,10 +59,12 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
   onBack,
   userId,
   userName = "Bạn",
+  onReimport,
   onUpdateDoc: _onUpdateDoc,
 }) => {
   const [activeDoc, setActiveDoc] = useState<DocumentItem>(doc);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageInput, setPageInput] = useState<string>("1");
   const [input, setInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
@@ -68,7 +72,6 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
   const [selectedText, setSelectedText] = useState<string>("");
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
 
-  // Mặc định khởi tạo một phiên trò chuyện mới tinh để tránh load lại chat cũ khi vừa mở tài liệu
   const [currentSessionId, setCurrentSessionId] = useState<string>(() => `sess_${Date.now()}`);
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
@@ -78,7 +81,6 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     },
   ]);
 
-  // Quản lý nhiều phiên trò chuyện (lưu tối đa 5 phiên gần nhất)
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [isSessionDropdownOpen, setIsSessionDropdownOpen] = useState<boolean>(false);
   const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
@@ -86,49 +88,52 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const readerContentRef = useRef<HTMLDivElement>(null);
+  const studioReimportRef = useRef<HTMLInputElement>(null);
 
-  // Xác định tổng số trang từ metadata (đã có sẵn trong database) hoặc mảng pagesContent
-  const totalPages = Math.max(1, activeDoc.pagesCount || activeDoc.pagesContent?.length || 1);
+  // Số trang THẬT của tài liệu
+  const totalPages = Math.max(
+    1,
+    activeDoc.pagesCount ||
+    (Array.isArray(activeDoc.pagesContent) ? activeDoc.pagesContent.length : 1)
+  );
 
-  // Quản lý nội dung trang hiện tại theo cơ chế On-Demand Streaming
-  const [pageText, setPageText] = useState<string>(() => {
-    if (doc.pagesContent && doc.pagesContent[0]) {
-      return doc.pagesContent[0];
-    }
-    const cached = getCachedPage(doc.id, 0);
-    if (cached) return cached;
-    return "";
-  });
-  const [isPageLoading, setIsPageLoading] = useState<boolean>(() => {
-    if (doc.pagesContent && doc.pagesContent[0]) return false;
-    return !isPageCached(doc.id, 0);
-  });
+  const [pageText, setPageText] = useState<string>("");
+  const [isPageLoading, setIsPageLoading] = useState<boolean>(false);
 
   useEffect(() => {
     setActiveDoc(doc);
   }, [doc]);
 
-  // Tải ngầm toàn bộ tài liệu (đã siêu nhẹ < 50KB nhờ tách ảnh ra Storage) để AI hiểu trọn vẹn và lật trang 0ms
+  useEffect(() => {
+    setPageInput(String(currentPage));
+  }, [currentPage]);
+
+  // Nạp toàn bộ metadata & chunks ngầm
   useEffect(() => {
     let isMounted = true;
     if (!activeDoc.pagesContent || activeDoc.pagesContent.length <= 1) {
       (async () => {
-        // 1. Thử tải từ Supabase
         if (activeDoc.id > 0) {
           try {
             const { data, error } = await supabase
               .from("documents")
-              .select("pages_content, total_pages")
+              .select("pages_content, chunks, total_pages")
               .eq("id", activeDoc.id)
               .single();
 
             if (!error && data?.pages_content && Array.isArray(data.pages_content) && isMounted) {
+              const normalized = normalizeDocumentPages(data.pages_content);
+              const chunks = Array.isArray(data.chunks) && data.chunks.length > 0
+                ? data.chunks
+                : buildChunksFromPages(normalized);
+
               setActiveDoc((prev) => ({
                 ...prev,
-                pagesContent: data.pages_content,
-                pagesCount: data.total_pages || data.pages_content.length,
+                pagesContent: normalized,
+                chunks,
+                pagesCount: data.total_pages || normalized.length,
               }));
-              cacheAllDocumentPages(activeDoc.id, data.pages_content);
+              cacheAllDocumentPages(activeDoc.id, normalized);
               return;
             }
           } catch {
@@ -136,7 +141,6 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
           }
         }
 
-        // 2. Thử tải từ localStorage nếu là Guest hoặc chưa có trong DB
         try {
           const localKey = `peermind_docs_${userId || "guest"}`;
           const stored = localStorage.getItem(localKey);
@@ -144,12 +148,15 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
             const parsed = JSON.parse(stored);
             const found = parsed.find((d: any) => d.id === activeDoc.id);
             if (found?.pagesContent && Array.isArray(found.pagesContent) && found.pagesContent.length > 0 && isMounted) {
+              const normalized = normalizeDocumentPages(found.pagesContent);
+              const chunks = found.chunks || buildChunksFromPages(normalized);
               setActiveDoc((prev) => ({
                 ...prev,
-                pagesContent: found.pagesContent,
-                pagesCount: found.pagesCount || found.pagesContent.length,
+                pagesContent: normalized,
+                chunks,
+                pagesCount: found.pagesCount || normalized.length,
               }));
-              cacheAllDocumentPages(activeDoc.id, found.pagesContent);
+              cacheAllDocumentPages(activeDoc.id, normalized);
             }
           }
         } catch {
@@ -162,21 +169,36 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     };
   }, [activeDoc.id, activeDoc.pagesContent, userId]);
 
+  // Lấy nội dung văn bản trang hiện tại
+  const getCurrentPageRawText = useCallback((): string => {
+    if (activeDoc.pagesContent && activeDoc.pagesContent.length > 0) {
+      const pageObj = activeDoc.pagesContent.find(
+        (p) => typeof p === "object" && p !== null && (p as any).page === currentPage
+      );
+      if (pageObj && typeof (pageObj as any).text === "string") {
+        return (pageObj as any).text;
+      }
+      const item = activeDoc.pagesContent[currentPage - 1];
+      if (typeof item === "string") return item;
+      if (item && typeof (item as any).text === "string") return (item as any).text;
+    }
+    return pageText || "";
+  }, [activeDoc.pagesContent, currentPage, pageText]);
 
-
-  // Nạp trang hiện tại theo nhu cầu (Page-based On-Demand Loading)
+  // Nạp trang on-demand khi đổi trang
   useEffect(() => {
     let isMounted = true;
     const pageIndex = currentPage - 1;
 
-    // 1. Nếu doc đã có sẵn pagesContent mảng đầy đủ (như doc seed mẫu)
-    if (activeDoc.pagesContent && activeDoc.pagesContent[pageIndex]) {
-      setPageText(activeDoc.pagesContent[pageIndex]);
+    // 1. Đã có sẵn trong activeDoc.pagesContent
+    const existing = getCurrentPageRawText();
+    if (existing) {
+      setPageText(existing);
       setIsPageLoading(false);
       return;
     }
 
-    // 2. Kiểm tra cache tức thì trong RAM (0ms)
+    // 2. Kiểm tra RAM cache
     const cached = getCachedPage(activeDoc.id, pageIndex);
     if (cached) {
       setPageText(cached);
@@ -185,7 +207,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
       return;
     }
 
-    // 3. Nếu chưa có, nạp đúng 1 trang này từ Supabase (thời gian cực ngắn ~300ms)
+    // 3. Tải từ Supabase
     setIsPageLoading(true);
     fetchDocumentPage(activeDoc.id, pageIndex, `${activeDoc.title} — Trang ${currentPage}`)
       .then((content) => {
@@ -204,11 +226,11 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [activeDoc.id, currentPage, totalPages, activeDoc.pagesContent, activeDoc.title]);
+  }, [activeDoc.id, currentPage, totalPages, getCurrentPageRawText, activeDoc.title]);
 
   const subjectStyle = getSubjectStyle(activeDoc.subject);
 
-  // 1. Tải danh sách 5 phiên trò chuyện gần nhất của tài liệu (không tự ý đổi phiên chat hiện tại)
+  // Tải danh sách 5 phiên trò chuyện gần nhất
   useEffect(() => {
     async function loadSessions() {
       try {
@@ -221,24 +243,20 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     loadSessions();
   }, [activeDoc.id, userId]);
 
-  // Cuộn khung đọc sách về đầu trang mỗi khi chuyển trang
   useEffect(() => {
     readerContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [currentPage]);
 
-  // Cuộn tin nhắn xuống đáy
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // Tìm thông tin session hiện tại
   const currentSession = sessions.find((s) => s.id === currentSessionId) || {
     id: currentSessionId,
     title: "Cuộc trò chuyện mới",
     createdAt: new Date().toISOString(),
   };
 
-  // Tạo phiên trò chuyện mới (+ Chat mới)
   const handleCreateNewSession = () => {
     const newId = `sess_${Date.now()}`;
     setCurrentSessionId(newId);
@@ -253,7 +271,6 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     setIsEditingTitle(false);
   };
 
-  // Đổi sang xem lịch sử của phiên trò chuyện cũ từ Dropdown (Lazy Load On-demand)
   const handleSwitchSession = async (sessionId: string) => {
     if (sessionId === currentSessionId) {
       setIsSessionDropdownOpen(false);
@@ -291,7 +308,6 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     }
   };
 
-  // Xóa phiên trò chuyện
   const handleDeleteSession = async (sessionId: string) => {
     const target = sessions.find((s) => s.id === sessionId);
     const confirmName = target?.title || (sessionId === currentSessionId ? "cuộc trò chuyện hiện tại" : "phiên trò chuyện này");
@@ -303,14 +319,12 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     const remaining = sessions.filter((s) => s.id !== sessionId);
     setSessions(remaining);
 
-    // Nếu xóa chính phiên đang mở, tự động đưa về một phiên chat mới tinh
     if (currentSessionId === sessionId) {
       handleCreateNewSession();
     }
     setIsSessionDropdownOpen(false);
   };
 
-  // Lưu tên mới cho phiên
   const handleSaveRename = async () => {
     const trimmed = editTitleInput.trim();
     if (!trimmed) {
@@ -324,7 +338,6 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     setIsEditingTitle(false);
   };
 
-  // 3. Bắt sự kiện bôi đen văn bản để hiển thị Quick Action Tooltip
   const handleTextSelection = () => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || !selection.toString().trim()) {
@@ -345,7 +358,17 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     }
   };
 
-  // 4. Gửi câu hỏi cho AI (kèm lưu CSDL theo phiên và user_id)
+  const handlePageInputSubmit = () => {
+    let val = parseInt(pageInput, 10);
+    if (isNaN(val) || val < 1) val = 1;
+    if (val > totalPages) val = totalPages;
+    setPageInput(String(val));
+    if (val !== currentPage) {
+      setCurrentPage(val);
+    }
+  };
+
+  // Gửi câu hỏi cho AI kèm chunks chuẩn trang thật
   const handleSendQuestion = async (customPrompt?: string) => {
     const q = (customPrompt || input).trim();
     if (!q || loading) return;
@@ -357,7 +380,6 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     setLoading(true);
     setTooltipPos(null);
 
-    // Tự động đặt tên cho phiên nếu còn là tên mặc định hoặc phiên mới
     let activeTitle = currentSession?.title || "Cuộc trò chuyện mới";
     if (
       activeTitle === "Cuộc trò chuyện mới" ||
@@ -369,7 +391,6 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
       renameDocSession(activeDoc.id, currentSessionId, autoTitle, userId);
     }
 
-    // Đưa phiên này vào danh sách 5 phiên gần nhất
     setSessions((prev) => {
       const exists = prev.some((s) => s.id === currentSessionId);
       if (exists) {
@@ -384,81 +405,9 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     });
 
     try {
-      // Đảm bảo có đầy đủ mảng pagesContent trước khi gửi cho AI
-      let fullPages = activeDoc.pagesContent && activeDoc.pagesContent.length > 1 ? activeDoc.pagesContent : [];
-
-      // 1. Thử lấy từ Supabase nếu chưa có
-      if (fullPages.length <= 1 && activeDoc.id > 0) {
-        try {
-          const { data: dbData } = await supabase
-            .from("documents")
-            .select("pages_content, total_pages")
-            .eq("id", activeDoc.id)
-            .single();
-          if (dbData?.pages_content && Array.isArray(dbData.pages_content) && dbData.pages_content.length > 0) {
-            fullPages = dbData.pages_content;
-            setActiveDoc((prev) => ({
-              ...prev,
-              pagesContent: fullPages,
-              pagesCount: dbData.total_pages || fullPages.length,
-            }));
-            cacheAllDocumentPages(activeDoc.id, fullPages);
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      // 2. Thử lấy từ localStorage nếu là Guest/Demo
-      if (fullPages.length <= 1) {
-        try {
-          const localKey = `peermind_docs_${userId || "guest"}`;
-          const stored = localStorage.getItem(localKey);
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            const found = parsed.find((d: any) => d.id === activeDoc.id);
-            if (found?.pagesContent && Array.isArray(found.pagesContent) && found.pagesContent.length > 0) {
-              fullPages = found.pagesContent;
-              setActiveDoc((prev) => ({ ...prev, pagesContent: fullPages }));
-              cacheAllDocumentPages(activeDoc.id, fullPages);
-            }
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      // 3. Nếu người dùng hỏi một trang cụ thể (như Trang 3) hoặc trang hiện tại mà vẫn chưa có fullPages, nạp on-demand trang đó
-      const pageMatch = q.match(/(?:trang|page|slide|mục)\s*(?:số\s*)?(\d+)/i);
-      const targetPageNum = pageMatch ? parseInt(pageMatch[1], 10) : currentPage;
-      if (fullPages.length <= 1 && targetPageNum >= 1) {
-        try {
-          const pageData = await fetchDocumentPage(activeDoc.id, targetPageNum - 1, `Trang ${targetPageNum}`);
-          if (pageData && pageData !== `Trang ${targetPageNum}`) {
-            const temp = new Array(Math.max(targetPageNum, totalPages)).fill("");
-            temp[targetPageNum - 1] = pageData;
-            if (currentPage >= 1 && currentPage !== targetPageNum && pageText) {
-              temp[currentPage - 1] = pageText;
-            }
-            fullPages = temp;
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      const docForAI: DocumentItem = {
-        ...activeDoc,
-        pagesContent:
-          fullPages && fullPages.length > 0
-            ? fullPages
-            : [cleanTextForAI(pageText || rawPageText)],
-      };
-      const res = await askAI(q, docForAI, newHistory, currentPage);
+      const res = await askAI(q, activeDoc, newHistory, currentPage);
       const aiMsg: ChatMessage = { role: "ai", text: res.text, isGemini: res.isGemini };
       setMessages((prev) => [...prev, aiMsg]);
-
-      // Lưu cuộc trò chuyện vào Supabase DB kèm session_id và user_id
       await saveDocConversation(activeDoc.id, q, res.text, userId, currentSessionId, activeTitle);
     } catch {
       setMessages((prev) => [
@@ -470,7 +419,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     }
   };
 
-  // 5. Nhảy đến trang khi bấm vào trích dẫn [Trang X]
+  // Nhảy đến trang khi bấm vào trích dẫn [Trang X]
   const handleJumpToPage = (pageNum: number) => {
     if (pageNum >= 1 && pageNum <= totalPages) {
       setCurrentPage(pageNum);
@@ -478,9 +427,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     }
   };
 
-  // Render câu trả lời AI với các trích dẫn [Trang X] có thể click
   const renderAIMessageText = (text: string) => {
-    // Tìm các cụm [Trang X] hoặc [Trang X, Y]
     const parts = text.split(/(\[Trang\s*\d+\])/gi);
 
     return (
@@ -518,8 +465,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
     );
   };
 
-  const rawPageText = pageText || (activeDoc.pagesContent && activeDoc.pagesContent[currentPage - 1]) || "Không có nội dung cho trang này.";
-  // Làm sạch các thẻ HTML bookmark của Word (<a id="_Toc..."></a>) để văn bản luôn sạch đẹp
+  const rawPageText = getCurrentPageRawText() || "Không có nội dung cho trang này.";
   const currentPageText = useMemo(() => {
     return sanitizeExtractedText(rawPageText);
   }, [rawPageText]);
@@ -537,7 +483,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
             <span>Thư viện</span>
           </button>
 
-          <div className="h-5 w-[1px] bg-[#e1edff] dark:bg-[#2a2a3a] shrink-0" />
+          <div className="h-5 w-[1px] bg-[#e1edff] dark:border-[#2a2a3a] shrink-0" />
 
           <div className="flex items-center gap-2 min-w-0">
             <span className={`px-2.5 py-0.5 rounded-sharp text-[10px] font-mono shrink-0 border border-[#111118] ${subjectStyle.box}`}>
@@ -551,6 +497,31 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 
         {/* Các nút tác vụ nhanh */}
         <div className="flex items-center gap-2 shrink-0">
+          {onReimport && (
+            <button
+              onClick={() => studioReimportRef.current?.click()}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-sm bg-white dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] border border-[#111118] text-xs font-normal shadow-[0_2px_0_0_#111118] hover:bg-[#e1edff] active:translate-y-[1px] transition-all cursor-pointer"
+              title="Import lại file để bóc tách lại chuẩn trang"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-[#0b7a75] dark:text-[#2dd4bf]" />
+              <span className="hidden sm:inline">Import lại</span>
+            </button>
+          )}
+
+          <input
+            ref={studioReimportRef}
+            type="file"
+            accept=".pdf,.docx,.pptx"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (file && onReimport) {
+                await onReimport(activeDoc.id, file);
+              }
+              e.target.value = "";
+            }}
+          />
+
           <button
             onClick={() => handleSendQuestion(`Hãy tóm tắt ngắn gọn các ý cốt lõi nhất của tài liệu "${activeDoc.title}"`)}
             className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3.5 rounded-sm bg-[#ffda00] text-[#111118] border border-[#111118] text-xs font-normal shadow-[0_2px_0_0_#111118] hover:bg-[#ebd000] active:translate-y-[1px] transition-all cursor-pointer"
@@ -583,7 +554,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
         <section className="flex-1 flex flex-col h-full bg-[#f0f6ff] dark:bg-[#111118] border-r border-[#e1edff] dark:border-[#2a2a3a] overflow-hidden">
           {/* Thanh điều khiển trang & Zoom */}
           <div className="h-12 shrink-0 bg-white/80 dark:bg-[#1b1b26]/80 backdrop-blur-xs border-b border-[#e1edff] dark:border-[#2a2a3a] px-4 flex items-center justify-between text-xs">
-            {/* Phân trang */}
+            {/* Phân trang: Nút Trước - Ô nhập số trang (1..N) - Nút Sau */}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -594,9 +565,23 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                 <ChevronLeft className="w-4 h-4" />
               </button>
 
-              <span className="font-mono px-3 py-1 bg-[#e1edff] dark:bg-[#242436] rounded-sharp border border-[#111118] text-[#111118] dark:text-[#f0f6ff] font-normal">
-                Trang {currentPage} / {totalPages}
-              </span>
+              <div className="flex items-center gap-1.5 font-mono px-2.5 py-1 bg-[#e1edff] dark:bg-[#242436] rounded-sharp border border-[#111118] text-[#111118] dark:text-[#f0f6ff]">
+                <span>Trang</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={pageInput}
+                  onChange={(e) => setPageInput(e.target.value)}
+                  onBlur={handlePageInputSubmit}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handlePageInputSubmit();
+                  }}
+                  className="w-12 h-6 text-center font-mono font-medium rounded-xs border border-[#111118] bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] focus:outline-none focus:ring-1 focus:ring-[#0b7a75]"
+                  title="Nhập số trang và nhấn Enter"
+                />
+                <span>/ {totalPages}</span>
+              </div>
 
               <button
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
@@ -639,15 +624,13 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
               className="w-full max-w-3xl min-h-[550px] h-auto bg-white dark:bg-[#1b1b26] rounded-md border-2 border-[#111118] dark:border-[#2a2a3a] p-6 sm:p-10 shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] leading-relaxed text-[#111118] dark:text-[#f0f6ff] transition-all select-text flex flex-col justify-between break-words mb-10 shrink-0"
             >
               <div>
-                {/* Tiêu đề đầu trang */}
                 <div className="flex items-center justify-between pb-4 mb-6 border-b border-[#e1edff] dark:border-[#2a2a3a] text-xs font-mono text-[#111118]/60 dark:text-[#f0f6ff]/60">
                   <span className="truncate max-w-[200px] sm:max-w-md">{activeDoc.title}</span>
-                  <span className="bg-[#e1edff] dark:bg-[#242436] px-2.5 py-0.5 rounded-sharp border border-[#111118] shrink-0">
-                    TRANG {currentPage}
+                  <span className="bg-[#e1edff] dark:bg-[#242436] px-2.5 py-0.5 rounded-sharp border border-[#111118] shrink-0 font-medium">
+                    TRANG {currentPage} / {totalPages}
                   </span>
                 </div>
 
-                {/* Nội dung trang định dạng Markdown hoặc Khung chờ Skeleton khi đang nạp */}
                 {isPageLoading ? (
                   <div className="py-12 flex flex-col items-center justify-center space-y-4">
                     <div className="w-9 h-9 border-3 border-[#0b7a75] border-t-transparent rounded-full animate-spin" />
@@ -658,8 +641,6 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                       <div className="h-4 bg-[#e1edff] dark:bg-[#242436] rounded w-3/4" />
                       <div className="h-4 bg-[#e1edff] dark:bg-[#242436] rounded w-full" />
                       <div className="h-4 bg-[#e1edff] dark:bg-[#242436] rounded w-5/6" />
-                      <div className="h-4 bg-[#e1edff] dark:bg-[#242436] rounded w-2/3" />
-                      <div className="h-32 bg-[#e1edff] dark:bg-[#242436] rounded w-full mt-3" />
                     </div>
                   </div>
                 ) : (
@@ -673,7 +654,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
 
               {/* Chân trang */}
               <div className="mt-12 pt-4 border-t border-[#e1edff] dark:border-[#2a2a3a] flex items-center justify-between text-xs text-[#111118]/50 dark:text-[#f0f6ff]/50 font-mono">
-                <span>PeerMind Document Reader · RAG Ready</span>
+                <span>PeerMind Document Reader · Trang thật</span>
                 <span>{currentPage} / {totalPages}</span>
               </div>
             </div>
@@ -728,7 +709,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
             </div>
           </div>
 
-          {/* Sub-bar: Thanh quản lý phiên trò chuyện (Sessions Selector) */}
+          {/* Sub-bar: Thanh quản lý phiên trò chuyện */}
           <div className="px-3 py-2 bg-white dark:bg-[#1b1b26] border-b border-[#e1edff] dark:border-[#2a2a3a] flex items-center justify-between gap-2 text-xs relative z-30">
             <div className="relative flex-1 min-w-0">
               {isEditingTitle ? (
@@ -767,7 +748,6 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                 </button>
               )}
 
-              {/* Menu Dropdown danh sách các phiên */}
               {isSessionDropdownOpen && (
                 <div className="absolute left-0 top-full mt-1.5 w-full bg-white dark:bg-[#1b1b26] border-2 border-[#111118] dark:border-[#2a2a3a] rounded-md shadow-[0_6px_16px_rgba(0,0,0,0.2)] z-50 p-1.5 max-h-64 overflow-y-auto animate-in fade-in zoom-in-95">
                   <div className="px-2 py-1 text-[10px] font-mono uppercase text-[#111118]/50 dark:text-[#f0f6ff]/50 border-b border-[#e1edff] dark:border-[#2a2a3a] mb-1 flex items-center justify-between">
@@ -821,7 +801,6 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
               )}
             </div>
 
-            {/* Các nút sửa / xóa phiên hiện tại */}
             {!isEditingTitle && (
               <div className="flex items-center gap-1 shrink-0">
                 <button
@@ -884,17 +863,27 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Thanh gợi ý câu hỏi theo trang hiện tại */}
+          {/* Thanh gợi ý câu hỏi theo trang hiện tại thật */}
           <div className="px-4 py-2 border-t border-[#e1edff] dark:border-[#2a2a3a] bg-[#f0f6ff]/30 dark:bg-[#111118]/30 flex items-center gap-1.5 overflow-x-auto text-[11px]">
             <span className="text-[#111118]/50 dark:text-[#f0f6ff]/50 shrink-0 font-mono">Gợi ý:</span>
             <button
-              onClick={() => handleSendQuestion(`Tóm tắt nội dung chính của Trang ${currentPage}`)}
+              onClick={() => {
+                const targetText = getCurrentPageRawText();
+                handleSendQuestion(
+                  `Tóm tắt nội dung chính của Trang ${currentPage}:\n\n${targetText.slice(0, 1500)}`
+                );
+              }}
               className="shrink-0 px-2.5 py-1 rounded-sm border border-[#111118] bg-white dark:bg-[#242436] hover:bg-[#e1edff] text-[#111118] dark:text-[#f0f6ff] cursor-pointer shadow-[0_1px_0_0_#111118]"
             >
               📄 Tóm tắt trang {currentPage}
             </button>
             <button
-              onClick={() => handleSendQuestion(`Những điểm cần ghi nhớ ở Trang ${currentPage} là gì?`)}
+              onClick={() => {
+                const targetText = getCurrentPageRawText();
+                handleSendQuestion(
+                  `Những điểm cần ghi nhớ ở Trang ${currentPage} là gì?\n\n${targetText.slice(0, 1500)}`
+                );
+              }}
               className="shrink-0 px-2.5 py-1 rounded-sm border border-[#111118] bg-white dark:bg-[#242436] hover:bg-[#e1edff] text-[#111118] dark:text-[#f0f6ff] cursor-pointer shadow-[0_1px_0_0_#111118]"
             >
               💡 Điểm cần nhớ trang {currentPage}

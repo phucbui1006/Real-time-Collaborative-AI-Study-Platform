@@ -1,7 +1,11 @@
-// client/src/services/pdfService.ts — Bóc tách nội dung PDF/DOCX/PPTX thực tế phía trình duyệt (Client-side)
+// client/src/services/pdfService.ts — Bóc tách nội dung PDF/DOCX/PPTX chuẩn xác phía trình duyệt (Client-side)
+// Tách rõ ràng 2 khái niệm:
+//   1. pages: danh sách trang THẬT dùng để hiển thị và trình chiếu (total_pages = số trang thật).
+//   2. chunks: các đoạn text ~1.500 ký tự dùng cho AI RAG, mỗi chunk bắt buộc có page là số trang thật chứa nó.
 import * as pdfjsLib from "pdfjs-dist";
 import mammoth from "mammoth";
 import JSZip from "jszip";
+import { renderAsync } from "docx-preview";
 
 // Cấu hình worker cho pdfjs-dist trong môi trường trình duyệt Vite
 if (typeof window !== "undefined") {
@@ -12,50 +16,87 @@ if (typeof window !== "undefined") {
   }
 }
 
-export interface ExtractedDoc {
-  totalPages: number;
-  pages: string[];
+export interface DocumentPage {
+  page: number; // Số trang thật (1-based: 1, 2, 3...)
+  text: string; // Nội dung trang thật
 }
 
+export interface DocumentChunk {
+  page: number; // Số trang thật chứa chunk này
+  text: string; // Đoạn text ~1.500 ký tự dùng cho AI
+}
+
+export interface ExtractedDoc {
+  totalPages: number;
+  pages: DocumentPage[];
+  chunks: DocumentChunk[];
+}
+
+export type ProgressCallback = (current: number, total: number, message?: string) => void;
+
 /**
- * Trích xuất text từng trang từ file PDF thực tế
+ * Tạo danh sách chunks ~1.500 ký tự từ danh sách các trang thật.
+ * Nguyên tắc bất di bất dịch:
+ * - Mỗi chunk bắt buộc có page là số trang thật chứa nó.
+ * - Tách theo ranh giới trang, TUYỆT ĐỐI không gộp text xuyên trang.
  */
-export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(arrayBuffer),
-      useWorkerFetch: true,
-      isEvalSupported: false,
-      useSystemFonts: true,
-    });
+export function buildChunksFromPages(pages: DocumentPage[], maxChunkLen = 1500): DocumentChunk[] {
+  const chunks: DocumentChunk[] = [];
 
-    const pdf = await loadingTask.promise;
-    const totalPages = pdf.numPages;
-    const pages: string[] = [];
+  for (const p of pages) {
+    const text = (p.text || "").trim();
+    if (!text) continue;
 
-    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-      try {
-        const page = await pdf.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => ("str" in item ? item.str : ""))
-          .join(" ")
-          .replace(/\s+/g, " ")
-          .trim();
+    // Nếu trang ngắn hơn hoặc bằng 1.500 ký tự thì 1 trang = 1 chunk
+    if (text.length <= maxChunkLen) {
+      chunks.push({ page: p.page, text });
+      continue;
+    }
 
-        pages.push(pageText || `Trang ${pageNum} (Tài liệu dạng hình ảnh hoặc không có văn bản chọn lọc)`);
-      } catch (pageErr) {
-        console.warn(`Lỗi bóc tách trang ${pageNum}:`, pageErr);
-        pages.push(`Trang ${pageNum}`);
+    // Nếu trang dài hơn 1.500 ký tự, tách nhỏ theo đoạn văn hoặc câu nhưng vẫn giữ đúng page_number
+    const paragraphs = text.split(/\n\s*\n/);
+    let currentChunk = "";
+
+    for (const para of paragraphs) {
+      const trimmedPara = para.trim();
+      if (!trimmedPara) continue;
+
+      if (trimmedPara.length > maxChunkLen) {
+        if (currentChunk) {
+          chunks.push({ page: p.page, text: currentChunk.trim() });
+          currentChunk = "";
+        }
+        let remaining = trimmedPara;
+        while (remaining.length > maxChunkLen) {
+          let breakIdx = remaining.lastIndexOf(". ", maxChunkLen);
+          if (breakIdx === -1 || breakIdx < 500) {
+            breakIdx = remaining.lastIndexOf(" ", maxChunkLen);
+          }
+          if (breakIdx === -1) {
+            breakIdx = maxChunkLen;
+          } else {
+            breakIdx += 1;
+          }
+          chunks.push({ page: p.page, text: remaining.slice(0, breakIdx).trim() });
+          remaining = remaining.slice(breakIdx).trim();
+        }
+        if (remaining) {
+          currentChunk = remaining;
+        }
+      } else if (currentChunk.length + trimmedPara.length + 2 > maxChunkLen) {
+        chunks.push({ page: p.page, text: currentChunk.trim() });
+        currentChunk = trimmedPara;
+      } else {
+        currentChunk = currentChunk ? `${currentChunk}\n\n${trimmedPara}` : trimmedPara;
       }
     }
 
-    return { totalPages, pages };
-  } catch (err) {
-    console.error("Lỗi khi đọc file PDF bằng pdfjs-dist:", err);
-    throw new Error("Không thể bóc tách nội dung file PDF. File có thể bị khóa hoặc lỗi định dạng.");
+    if (currentChunk.trim()) {
+      chunks.push({ page: p.page, text: currentChunk.trim() });
+    }
   }
+
+  return chunks;
 }
 
 /**
@@ -78,15 +119,14 @@ export function sanitizeExtractedText(text: string): string {
 }
 
 /**
- * Trích xuất và đẩy toàn bộ ảnh Base64 trong Markdown lên Supabase Storage bucket 'slides'
- * Thay thế chuỗi Base64 bằng Public URL nhẹ nhàng, giảm 99% kích thước văn bản và tăng tốc độ xử lý
+ * Trích xuất và đẩy ảnh Base64 lên Supabase Storage bucket 'slides' (nếu có backend),
+ * hoặc thay thế bằng placeholder tối ưu để không làm phình cơ sở dữ liệu.
  */
 export async function uploadExtractedImagesFromMarkdown(markdownText: string): Promise<string> {
   if (!markdownText || !markdownText.includes("data:image/")) {
     return markdownText;
   }
 
-  // Thu thập tất cả các data:image/ URI
   const imageMatches: { fullUri: string; base64: string; mimeType: string }[] = [];
   let searchIdx = 0;
 
@@ -103,7 +143,6 @@ export async function uploadExtractedImagesFromMarkdown(markdownText: string): P
     const mimePart = markdownText.substring(startIdx + 11, commaIdx);
     const mimeType = mimePart.split(";")[0].toLowerCase();
 
-    // Tìm điểm kết thúc của data URI: ')' hoặc '"' hoặc '\'' hoặc khoảng trắng / newline
     let endIdx = -1;
     for (let i = commaIdx + 1; i < markdownText.length; i++) {
       const char = markdownText[i];
@@ -158,8 +197,6 @@ export async function uploadExtractedImagesFromMarkdown(markdownText: string): P
     console.warn("Không thể upload ảnh lên Storage qua API backend, áp dụng fallback tối ưu:", err);
   }
 
-  // Fallback an toàn: nếu không có server backend, thay thế data:image Base64 quá lớn bằng placeholder
-  // để bảo vệ CSDL PostgreSQL không bị quá tải
   let fallbackMarkdown = markdownText;
   imageMatches.forEach((img, idx) => {
     fallbackMarkdown = fallbackMarkdown.split(img.fullUri).join(`[Hình ảnh minh họa ${idx + 1}]`);
@@ -168,256 +205,393 @@ export async function uploadExtractedImagesFromMarkdown(markdownText: string): P
 }
 
 /**
- * Trích xuất nội dung văn bản thực tế từ file Word (.docx) và phân trang thông minh
+ * 1. PDF Parser (dùng pdfjs-dist)
+ * - Lấy pdf.numPages: 1 trang PDF = 1 trang thật
+ * - Lặp từng trang getPage(i).getTextContent()
+ * - Ghép text theo thứ tự đọc (giữ xuống dòng theo toạ độ y)
+ * - Xử lý tuần tự từng trang không treo giao diện, báo tiến trình i/N
+ * - Báo lỗi chi tiết bằng tiếng Việt nếu có mật khẩu, file hỏng hoặc dạng scan không có text
  */
-export async function extractTextFromDocx(file: File): Promise<ExtractedDoc> {
+export async function extractTextFromPDF(
+  file: File,
+  onProgress?: ProgressCallback
+): Promise<ExtractedDoc> {
+  let pdf: any;
   try {
     const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(arrayBuffer),
+      useWorkerFetch: true,
+      isEvalSupported: false,
+      useSystemFonts: true,
+    });
+    pdf = await loadingTask.promise;
+  } catch (err: any) {
+    if (err?.name === "PasswordException") {
+      throw new Error("File PDF này có mật khẩu bảo vệ. Vui lòng mở khóa file trước khi tải lên.");
+    }
+    if (err?.name === "InvalidPDFException") {
+      throw new Error("File PDF bị hỏng hoặc không đúng định dạng chuẩn.");
+    }
+    console.error("Lỗi khi nạp file PDF:", err);
+    throw new Error(err?.message || "Không thể mở file PDF. Vui lòng kiểm tra lại file.");
+  }
 
-    // 1. Đọc metadata số trang thực tế mà Microsoft Word đã tính toán và lưu trong docProps/app.xml
-    let zip: JSZip | null = null;
-    let wordDeclaredPages = 0;
+  const totalPages = pdf.numPages;
+  if (!totalPages || totalPages <= 0) {
+    throw new Error("File PDF không có trang nào.");
+  }
+
+  const pages: DocumentPage[] = [];
+  let totalExtractedChars = 0;
+
+  for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+    onProgress?.(pageNum, totalPages, `Đang đọc trang ${pageNum}/${totalPages}...`);
+
+    // Giải phóng microtask để UI mượt mà, không treo giao diện với file lớn
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
     try {
-      zip = await JSZip.loadAsync(arrayBuffer);
-      const appXmlFile = zip.file("docProps/app.xml");
-      if (appXmlFile) {
-        const appXml = await appXmlFile.async("text");
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+
+      // Ghép text theo thứ tự đọc và giữ xuống dòng theo toạ độ y
+      let pageText = "";
+      let lastY: number | null = null;
+      let lineText = "";
+
+      for (const item of textContent.items as any[]) {
+        if (!("str" in item) || !item.str) continue;
+
+        const str = item.str;
+        // item.transform = [scaleX, skewY, skewX, scaleY, transX, transY]
+        const currentY = Array.isArray(item.transform) ? item.transform[5] : null;
+
+        if (lastY !== null && currentY !== null && Math.abs(currentY - lastY) > 5) {
+          // Sang dòng mới
+          if (lineText.trim()) {
+            pageText += (pageText ? "\n" : "") + lineText.trim();
+          }
+          lineText = str;
+        } else {
+          if (lineText && !lineText.endsWith(" ") && !str.startsWith(" ")) {
+            lineText += " ";
+          }
+          lineText += str;
+        }
+
+        if (currentY !== null) {
+          lastY = currentY;
+        }
+      }
+
+      if (lineText.trim()) {
+        pageText += (pageText ? "\n" : "") + lineText.trim();
+      }
+
+      const cleanText = pageText.trim();
+      if (cleanText) {
+        totalExtractedChars += cleanText.length;
+        pages.push({ page: pageNum, text: cleanText });
+      } else {
+        pages.push({
+          page: pageNum,
+          text: `[Trang ${pageNum}: Tài liệu dạng hình ảnh scan - không trích xuất được văn bản]`,
+        });
+      }
+    } catch (pageErr) {
+      console.warn(`Lỗi bóc tách trang ${pageNum}:`, pageErr);
+      pages.push({
+        page: pageNum,
+        text: `[Trang ${pageNum}: Không thể đọc được nội dung trang này]`,
+      });
+    }
+  }
+
+  // Cảnh báo nếu PDF toàn ảnh scan không có text
+  if (totalExtractedChars === 0) {
+    console.warn("Cảnh báo: File PDF không trích xuất được văn bản (có thể là ảnh scan).");
+  }
+
+  const chunks = buildChunksFromPages(pages);
+  return { totalPages, pages, chunks };
+}
+
+/**
+ * 2. PPTX Parser (dùng JSZip)
+ * - Đọc ppt/slides/slideN.xml
+ * - Sắp xếp theo số N tăng dần (tránh slide10 đứng trước slide2)
+ * - 1 slide = 1 trang thật
+ * - Lấy text trong thẻ <a:t>, mỗi <a:p> là 1 dòng
+ * - Đọc thêm ppt/notesSlides nếu có để lưu làm ghi chú
+ */
+export async function extractTextFromPptx(
+  file: File,
+  onProgress?: ProgressCallback
+): Promise<ExtractedDoc> {
+  let zip: JSZip;
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    zip = await JSZip.loadAsync(arrayBuffer);
+  } catch (err: any) {
+    console.error("Lỗi khi giải nén PPTX bằng JSZip:", err);
+    throw new Error("Không thể mở file PowerPoint (.pptx). File có thể bị hỏng hoặc có mật khẩu.");
+  }
+
+  // 1. Tìm tất cả các slide trong ppt/slides/slide{N}.xml
+  const slideEntries: { num: number; file: JSZip.JSZipObject }[] = [];
+
+  zip.forEach((relativePath, zipEntry) => {
+    const match = relativePath.match(/^ppt\/slides\/slide(\d+)\.xml$/i);
+    if (match) {
+      slideEntries.push({
+        num: parseInt(match[1], 10),
+        file: zipEntry,
+      });
+    }
+  });
+
+  if (slideEntries.length === 0) {
+    throw new Error("Không tìm thấy slide nào trong file PowerPoint (.pptx).");
+  }
+
+  // 2. SẮP XẾP THEO SỐ N TĂNG DẦN (sắp xếp số học, không sắp theo chuỗi alphabet)
+  slideEntries.sort((a, b) => a.num - b.num);
+
+  const totalPages = slideEntries.length;
+  const pages: DocumentPage[] = [];
+
+  for (let idx = 0; idx < slideEntries.length; idx++) {
+    const entry = slideEntries[idx];
+    const pageNum = idx + 1; // 1-based index theo thứ tự slide
+
+    onProgress?.(pageNum, totalPages, `Đang xử lý slide ${pageNum}/${totalPages}...`);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    try {
+      const xml = await entry.file.async("text");
+
+      // Mỗi <a:p> là một dòng
+      const paragraphMatches = Array.from(xml.matchAll(/<a:p(?:\s+[^>]*)?>([\s\S]*?)<\/a:p>/gi));
+      const lines: string[] = [];
+
+      for (const pMatch of paragraphMatches) {
+        const pContent = pMatch[1];
+        // Lấy tất cả văn bản trong thẻ <a:t>...</a:t> bên trong đoạn này
+        const tMatches = Array.from(pContent.matchAll(/<a:t(?:\s+[^>]*)?>([^<]*)<\/a:t>/gi));
+        const lineStr = tMatches.map((m) => m[1]).join("").trim();
+        if (lineStr) {
+          lines.push(lineStr);
+        }
+      }
+
+      let slideText = lines.join("\n").trim();
+
+      // Kiểm tra xem có ghi chú tương ứng trong ppt/notesSlides/ không
+      try {
+        const noteFile =
+          zip.file(`ppt/notesSlides/notesSlide${entry.num}.xml`) ||
+          zip.file(`ppt/notesSlides/notesSlide${pageNum}.xml`);
+        if (noteFile) {
+          const noteXml = await noteFile.async("text");
+          const noteMatches = Array.from(noteXml.matchAll(/<a:t(?:\s+[^>]*)?>([^<]*)<\/a:t>/gi));
+          const noteLines = noteMatches
+            .map((m) => m[1])
+            .filter((t) => t && !t.includes("Slide") && isNaN(Number(t)));
+          if (noteLines.length > 0) {
+            const noteText = noteLines.join(" ").replace(/\s+/g, " ").trim();
+            if (noteText) {
+              slideText += `\n\n*(Ghi chú người thuyết trình: ${noteText})*`;
+            }
+          }
+        }
+      } catch {
+        // Ghi chú là tuỳ chọn, bỏ qua nếu lỗi
+      }
+
+      if (!slideText) {
+        slideText = `### Slide ${pageNum}\n\n*(Slide đồ họa hoặc hình ảnh không có văn bản)*`;
+      } else {
+        slideText = `### Slide ${pageNum}\n\n${slideText}`;
+      }
+
+      pages.push({ page: pageNum, text: slideText });
+    } catch (slideErr) {
+      console.warn(`Lỗi bóc tách slide ${pageNum}:`, slideErr);
+      pages.push({
+        page: pageNum,
+        text: `### Slide ${pageNum}\n\n*(Không thể đọc được nội dung slide)*`,
+      });
+    }
+  }
+
+  const chunks = buildChunksFromPages(pages);
+  return { totalPages, pages, chunks };
+}
+
+/**
+ * 3. DOCX Parser (dùng docx-preview render ngoài màn hình, đếm section.docx = 1 trang)
+ * - Fallback: đọc docProps/app.xml lấy thẻ <Pages> làm total_pages và chia đều text
+ * - Ghi log cảnh báo khi dùng fallback
+ */
+export async function extractTextFromDocx(
+  file: File,
+  onProgress?: ProgressCallback
+): Promise<ExtractedDoc> {
+  const arrayBuffer = await file.arrayBuffer();
+  let pages: DocumentPage[] = [];
+  let useFallback = false;
+
+  // Tạo container ẩn ngoài màn hình để docx-preview render phân trang chuẩn xác
+  const container = document.createElement("div");
+  container.id = "pm-docx-hidden-container-" + Date.now();
+  container.style.position = "fixed";
+  container.style.left = "-99999px";
+  container.style.top = "-99999px";
+  container.style.width = "816px"; // Khổ giấy Letter 8.5in x 96dpi tiêu chuẩn của Word
+  container.style.visibility = "hidden";
+  container.style.pointerEvents = "none";
+  container.style.zIndex = "-9999";
+  document.body.appendChild(container);
+
+  try {
+    onProgress?.(1, 1, "Đang dựng trang Word với docx-preview...");
+    await renderAsync(arrayBuffer, container, undefined, {
+      inWrapper: true,
+      ignoreWidth: false,
+      ignoreHeight: false,
+      breakPages: true,
+      renderHeaders: true,
+      renderFooters: true,
+    });
+
+    // Đếm các phần tử section.docx (mỗi phần tử = 1 trang chuẩn)
+    const sections = container.querySelectorAll("section.docx");
+    if (sections.length > 0) {
+      pages = Array.from(sections).map((sec, idx) => {
+        const raw = (sec as HTMLElement).innerText || sec.textContent || "";
+        const clean = sanitizeExtractedText(raw.trim());
+        return {
+          page: idx + 1,
+          text: clean || `Trang ${idx + 1}`,
+        };
+      });
+    } else {
+      useFallback = true;
+    }
+  } catch (renderErr) {
+    console.warn("docx-preview render thất bại, đang chuyển sang fallback docProps/app.xml:", renderErr);
+    useFallback = true;
+  } finally {
+    container.remove();
+  }
+
+  // Fallback: nếu render lỗi hoặc không lấy được section.docx
+  if (useFallback || pages.length === 0) {
+    console.warn("CẢNH BÁO: Đang sử dụng fallback phân trang DOCX qua docProps/app.xml");
+
+    let declaredPages = 1;
+    try {
+      const zip = await JSZip.loadAsync(arrayBuffer);
+      const appXml = await zip.file("docProps/app.xml")?.async("text");
+      if (appXml) {
         const match = appXml.match(/<Pages>(\d+)<\/Pages>/i);
         if (match) {
-          wordDeclaredPages = parseInt(match[1], 10);
+          declaredPages = Math.max(1, parseInt(match[1], 10));
         }
       }
     } catch (zipErr) {
-      console.warn("Không thể đọc zip docProps/app.xml từ DOCX:", zipErr);
+      console.warn("Lỗi đọc docProps/app.xml từ DOCX:", zipErr);
     }
 
-    // 2. Kiểm tra ngắt trang vật lý (<w:br w:type="page"/> và <w:lastRenderedPageBreak/>) trong word/document.xml
-    const PAGE_BREAK_DELIMITER = "\n\n[[--PEERMIND_PAGE_BREAK--]]\n\n";
-    let bufferToParse: ArrayBuffer = arrayBuffer;
-    let hasExplicitBreaks = false;
-
-    if (zip) {
-      const docXmlFile = zip.file("word/document.xml");
-      if (docXmlFile) {
-        try {
-          let docXml = await docXmlFile.async("text");
-          if (docXml.includes('w:type="page"') || docXml.includes("lastRenderedPageBreak")) {
-            docXml = docXml
-              .replace(/<w:lastRenderedPageBreak\s*\/?>/gi, `<w:r><w:t>${PAGE_BREAK_DELIMITER}<\/w:t><\/w:r>`)
-              .replace(/<w:br[^>]*w:type=["']page["'][^>]*\/?>/gi, `<w:r><w:t>${PAGE_BREAK_DELIMITER}<\/w:t><\/w:r>`);
-            zip.file("word/document.xml", docXml);
-            bufferToParse = await zip.generateAsync({ type: "arraybuffer" });
-            hasExplicitBreaks = true;
-          }
-        } catch (breakErr) {
-          console.warn("Không thể chèn delimiter ngắt trang vào docXml:", breakErr);
-        }
-      }
-    }
-
-    // 3. Chuyển đổi DOCX sang Markdown nhằm giữ nguyên tiêu đề (#, ##), danh sách, bảng biểu
-    let text = "";
+    // Lấy toàn bộ văn bản qua mammoth
+    let fullText = "";
     try {
-      const mdResult = await (mammoth as any).convertToMarkdown({ arrayBuffer: bufferToParse });
-      text = (mdResult?.value || "").trim();
+      const result = await (mammoth as any).extractRawText({ arrayBuffer });
+      fullText = sanitizeExtractedText((result?.value || "").trim());
     } catch {
-      // Fallback
+      // Fallback nếu mammoth lỗi
     }
 
-    // Nếu Markdown rỗng, thử trích xuất Raw Text
-    if (!text) {
-      const rawResult = await (mammoth as any).extractRawText({ arrayBuffer: bufferToParse });
-      text = (rawResult?.value || "").trim();
-    }
-
-    if (!text) {
-      return {
-        totalPages: 1,
-        pages: ["Tài liệu Word (.docx) này không chứa văn bản hoặc chứa toàn bộ là hình ảnh."],
-      };
-    }
-
-    // Tách và upload toàn bộ hình ảnh nhúng lên Supabase Storage bucket 'slides'
-    text = await uploadExtractedImagesFromMarkdown(text);
-
-    // Làm sạch các thẻ Word bookmark HTML trước khi phân trang
-    text = sanitizeExtractedText(text);
-
-    // 4. Phân trang thông minh và chuẩn xác:
-    let pages: string[] = [];
-
-    // Trường hợp 4.1: File Word có đánh dấu ngắt trang vật lý rõ ràng
-    if (hasExplicitBreaks && text.includes("[[--PEERMIND_PAGE_BREAK--]]")) {
-      const rawSplit = text
-        .split(/\[\[--PEERMIND_PAGE_BREAK--\]\]/)
-        .map((p) => p.trim())
-        .filter((p) => p.length > 0);
-
-      if (rawSplit.length > 0) {
-        pages = rawSplit;
-      }
-    }
-
-    // Trường hợp 4.2: File Word có khai báo số trang chuẩn trong metadata Word (docProps/app.xml)
-    if (pages.length === 0 && wordDeclaredPages > 1) {
-      const rawParagraphs = text.split(/\n\s*\n/);
-      // Ước lượng độ dài ký tự cho mỗi trang dựa trên số trang thực tế của Word
-      const targetLen = Math.max(1800, Math.round(text.length / wordDeclaredPages));
-      let currentPage = "";
-
-      for (const para of rawParagraphs) {
-        const trimmed = para.trim();
-        if (!trimmed) continue;
-
-        // Chỉ ngắt khi gặp tiêu đề lớn cấp 1 (# hoặc Chương/Phần)
-        const isMajorHeading = /^#\s+/m.test(trimmed) || /^(chương\s+\d+|phần\s+\d+)/i.test(trimmed);
-
-        if (
-          (currentPage.length + trimmed.length > targetLen && currentPage.length >= 1200) ||
-          (isMajorHeading && currentPage.length >= Math.round(targetLen * 0.75))
-        ) {
-          pages.push(currentPage.trim());
-          currentPage = trimmed;
-        } else {
-          currentPage = currentPage ? `${currentPage}\n\n${trimmed}` : trimmed;
-        }
-      }
-
-      if (currentPage.trim()) {
-        pages.push(currentPage.trim());
-      }
-    }
-
-    // Trường hợp 4.3: Fallback phân trang theo tiêu chuẩn A4 Word chuẩn (khoảng 3.200 - 3.800 ký tự / trang)
-    if (pages.length === 0) {
-      const rawParagraphs = text.split(/\n\s*\n/);
-      const TARGET_PAGE_LENGTH = 3200;
-      let currentPage = "";
-
-      for (const para of rawParagraphs) {
-        const trimmed = para.trim();
-        if (!trimmed) continue;
-
-        // Không ngắt trang ở danh sách đánh số \d+\., chỉ ngắt khi gặp tiêu đề lớn H1
-        const isMajorHeading = /^#\s+/m.test(trimmed) || /^(chương\s+\d+|phần\s+\d+)/i.test(trimmed);
-
-        if (
-          (currentPage.length + trimmed.length > TARGET_PAGE_LENGTH && currentPage.length >= 2000) ||
-          (isMajorHeading && currentPage.length >= 2400)
-        ) {
-          pages.push(currentPage.trim());
-          currentPage = trimmed;
-        } else {
-          currentPage = currentPage ? `${currentPage}\n\n${trimmed}` : trimmed;
-        }
-      }
-
-      if (currentPage.trim()) {
-        pages.push(currentPage.trim());
-      }
-    }
-
-    return {
-      totalPages: Math.max(1, pages.length),
-      pages: pages.length > 0 ? pages : [text],
-    };
-  } catch (err) {
-    console.error("Lỗi khi đọc file DOCX bằng mammoth:", err);
-    throw new Error("Không thể bóc tách nội dung file Word (.docx). Vui lòng thử lưu lại file.");
-  }
-}
-
-/**
- * Trích xuất slide theo từng trang từ file trình chiếu PowerPoint (.pptx)
- */
-export async function extractTextFromPptx(file: File): Promise<ExtractedDoc> {
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const zip = await JSZip.loadAsync(arrayBuffer);
-
-    // Tìm tất cả các slide trong ppt/slides/slide{N}.xml
-    const slideEntries: { num: number; file: JSZip.JSZipObject }[] = [];
-
-    zip.forEach((relativePath, zipEntry) => {
-      const match = relativePath.match(/^ppt\/slides\/slide(\d+)\.xml$/i);
-      if (match) {
-        slideEntries.push({
-          num: parseInt(match[1], 10),
-          file: zipEntry,
+    if (!fullText) {
+      pages = [{ page: 1, text: "Tài liệu Word (.docx) không chứa văn bản hoặc chỉ có hình ảnh." }];
+    } else if (declaredPages > 1) {
+      // Chia đều text theo số trang declaredPages
+      pages = [];
+      const chunkSize = Math.ceil(fullText.length / declaredPages);
+      for (let i = 0; i < declaredPages; i++) {
+        const slice = fullText.slice(i * chunkSize, (i + 1) * chunkSize).trim();
+        pages.push({
+          page: i + 1,
+          text: slice || `Trang ${i + 1}`,
         });
       }
-    });
-
-    slideEntries.sort((a, b) => a.num - b.num);
-
-    const pages: string[] = [];
-
-    for (const entry of slideEntries) {
-      const xml = await entry.file.async("text");
-      // Lấy tất cả văn bản trong thẻ <a:t>...</a:t>
-      const textMatches = Array.from(xml.matchAll(/<a:t(?:\s+[^>]*)?>([^<]*)<\/a:t>/gi));
-      const slideTexts = textMatches.map((m) => m[1]).filter(Boolean);
-      const slideContent = slideTexts.join(" ").replace(/\s+/g, " ").trim();
-
-      pages.push(
-        slideContent ? `### Slide ${entry.num}\n\n${slideContent}` : `### Slide ${entry.num}\n\n*(Slide đồ họa/hình ảnh)*`
-      );
+    } else {
+      pages = [{ page: 1, text: fullText }];
     }
-
-    return {
-      totalPages: Math.max(1, pages.length),
-      pages: pages.length > 0 ? pages : ["Không tìm thấy nội dung slide trong file PowerPoint."],
-    };
-  } catch (err) {
-    console.error("Lỗi khi đọc file PPTX bằng JSZip:", err);
-    throw new Error("Không thể bóc tách nội dung file PowerPoint (.pptx).");
   }
+
+  const totalPages = Math.max(1, pages.length);
+  const chunks = buildChunksFromPages(pages);
+  return { totalPages, pages, chunks };
 }
 
 /**
- * Đọc file văn bản thuần túy (.txt, .md, .json)
+ * 4. Đọc file văn bản thuần túy (.txt, .md)
  */
 export async function extractTextFromTextFile(file: File): Promise<ExtractedDoc> {
   const content = await file.text();
   const lines = content.split("\n");
-  const chunkSize = 60; // 60 dòng 1 trang ước lượng
-  const pages: string[] = [];
+  const chunkSize = 50; // Ước tính 50 dòng/trang
+  const pages: DocumentPage[] = [];
 
+  let pageNum = 1;
   for (let i = 0; i < lines.length; i += chunkSize) {
-    const pageChunk = lines.slice(i, i + chunkSize).join("\n").trim();
-    if (pageChunk) pages.push(pageChunk);
+    const pageText = lines.slice(i, i + chunkSize).join("\n").trim();
+    if (pageText) {
+      pages.push({ page: pageNum++, text: pageText });
+    }
   }
 
-  return {
-    totalPages: Math.max(1, pages.length),
-    pages: pages.length > 0 ? pages : [content.trim()],
-  };
+  if (pages.length === 0) {
+    pages.push({ page: 1, text: content.trim() || "Tài liệu trống" });
+  }
+
+  const totalPages = pages.length;
+  const chunks = buildChunksFromPages(pages);
+  return { totalPages, pages, chunks };
 }
 
 /**
- * Trích xuất văn bản từ bất kỳ file nào được hỗ trợ (.pdf, .docx, .pptx, .txt, .md)
+ * Router trích xuất chính cho tất cả các định dạng
+ * Kiểm tra định dạng và báo lỗi rõ ràng nếu gặp .doc (định dạng Word cũ)
  */
-export async function extractDocumentContent(file: File): Promise<ExtractedDoc> {
+export async function extractDocumentContent(
+  file: File,
+  onProgress?: ProgressCallback
+): Promise<ExtractedDoc> {
   const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
 
+  // DOC cũ: Trình duyệt không đọc được -> Báo lỗi rõ ràng tiếng Việt theo yêu cầu
+  if (ext === ".doc") {
+    throw new Error("Vui lòng lưu file thành .docx hoặc .pdf rồi tải lên lại");
+  }
+
   if (ext === ".pdf") {
-    return extractTextFromPDF(file);
+    return extractTextFromPDF(file, onProgress);
   }
 
   if (ext === ".docx") {
-    return extractTextFromDocx(file);
+    return extractTextFromDocx(file, onProgress);
   }
 
   if (ext === ".pptx") {
-    return extractTextFromPptx(file);
+    return extractTextFromPptx(file, onProgress);
   }
 
   if (ext === ".txt" || ext === ".md") {
     return extractTextFromTextFile(file);
   }
 
-  return {
-    totalPages: 1,
-    pages: [`Tài liệu ${file.name}: Định dạng ${ext} chưa hỗ trợ bóc tách trực tiếp.`],
-  };
+  throw new Error(`Định dạng "${ext}" chưa được hỗ trợ. Vui lòng tải file PDF, DOCX hoặc PPTX.`);
 }

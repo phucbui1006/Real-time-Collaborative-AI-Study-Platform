@@ -8,6 +8,16 @@ import {
 import { supabase } from "./supabaseClient";
 import { isValidUUID } from "../utils";
 
+export interface DocumentPage {
+  page: number; // Số trang thật (1, 2, 3...)
+  text: string; // Nội dung trang thật
+}
+
+export interface DocumentChunk {
+  page: number; // Số trang thật chứa chunk này
+  text: string; // Đoạn nội dung ~1.500 ký tự dùng cho AI
+}
+
 export type DocumentItem = {
   id: number;
   subject: string;
@@ -19,10 +29,12 @@ export type DocumentItem = {
   fileSize?: string;
   fileType?: "PDF" | "DOCX" | "PPTX" | "IMG";
   updatedAt?: string;
-  pagesContent?: string[];
+  pagesContent?: (string | DocumentPage)[];
+  chunks?: DocumentChunk[];
   isPublic?: boolean;
   ownerUserId?: string | null;
   isUploading?: boolean;
+  uploadProgress?: string;
   uploadError?: string;
 };
 
@@ -39,6 +51,93 @@ export type ChatMessage = {
   isGemini?: boolean;
 };
 
+/**
+ * Lấy nội dung chuỗi văn bản từ một phần tử trang (dù là string hay object DocumentPage)
+ */
+export function getPageText(pageItem: string | DocumentPage | undefined): string {
+  if (!pageItem) return "";
+  if (typeof pageItem === "string") return pageItem;
+  return pageItem.text || "";
+}
+
+/**
+ * Chuẩn hóa mảng trang thành danh sách DocumentPage chuẩn
+ */
+export function normalizeDocumentPages(raw: any[]): DocumentPage[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item, index) => {
+    if (typeof item === "string") {
+      return { page: index + 1, text: item };
+    }
+    if (item && typeof item === "object") {
+      return {
+        page: typeof item.page === "number" ? item.page : index + 1,
+        text: item.text || "",
+      };
+    }
+    return { page: index + 1, text: "" };
+  });
+}
+
+/**
+ * Xây dựng danh sách chunks ~1.500 ký tự từ danh sách DocumentPage
+ * Đảm bảo mỗi chunk luôn có page là số trang thật chứa nó, không gộp xuyên trang.
+ */
+export function buildChunksFromPages(pages: DocumentPage[], maxChunkLen = 1500): DocumentChunk[] {
+  const chunks: DocumentChunk[] = [];
+  for (const p of pages) {
+    const text = (p.text || "").trim();
+    if (!text) continue;
+
+    if (text.length <= maxChunkLen) {
+      chunks.push({ page: p.page, text });
+      continue;
+    }
+
+    const paragraphs = text.split(/\n\s*\n/);
+    let currentChunk = "";
+
+    for (const para of paragraphs) {
+      const trimmedPara = para.trim();
+      if (!trimmedPara) continue;
+
+      if (trimmedPara.length > maxChunkLen) {
+        if (currentChunk) {
+          chunks.push({ page: p.page, text: currentChunk.trim() });
+          currentChunk = "";
+        }
+        let remaining = trimmedPara;
+        while (remaining.length > maxChunkLen) {
+          let breakIdx = remaining.lastIndexOf(". ", maxChunkLen);
+          if (breakIdx === -1 || breakIdx < 500) {
+            breakIdx = remaining.lastIndexOf(" ", maxChunkLen);
+          }
+          if (breakIdx === -1) {
+            breakIdx = maxChunkLen;
+          } else {
+            breakIdx += 1;
+          }
+          chunks.push({ page: p.page, text: remaining.slice(0, breakIdx).trim() });
+          remaining = remaining.slice(breakIdx).trim();
+        }
+        if (remaining) {
+          currentChunk = remaining;
+        }
+      } else if (currentChunk.length + trimmedPara.length + 2 > maxChunkLen) {
+        chunks.push({ page: p.page, text: currentChunk.trim() });
+        currentChunk = trimmedPara;
+      } else {
+        currentChunk = currentChunk ? `${currentChunk}\n\n${trimmedPara}` : trimmedPara;
+      }
+    }
+
+    if (currentChunk.trim()) {
+      chunks.push({ page: p.page, text: currentChunk.trim() });
+    }
+  }
+  return chunks;
+}
+
 export const INITIAL_DOCS: DocumentItem[] = [
   {
     id: 1,
@@ -47,14 +146,19 @@ export const INITIAL_DOCS: DocumentItem[] = [
     progress: 72,
     color: "#0ea5e9",
     icon: "Σ",
-    pagesCount: 38,
+    pagesCount: 3,
     fileSize: "4.2 MB",
     fileType: "PDF",
     updatedAt: "2 giờ trước",
     pagesContent: [
-      "Tích phân kép trên miền chữ nhật: Định lý Fubini và cách tính tích phân lặp.",
-      "Đổi biến số trong tích phân kép: Tọa độ cực $x = r \\cdot \\cos(\\varphi), y = r \\cdot \\sin(\\varphi)$ với Jacobian $J = r$.",
-      "Ứng dụng hình học: Tính diện tích hình phẳng và thể tích vật thể không gian.",
+      { page: 1, text: "Tích phân kép trên miền chữ nhật: Định lý Fubini và cách tính tích phân lặp." },
+      { page: 2, text: "Đổi biến số trong tích phân kép: Tọa độ cực x = r · cos(φ), y = r · sin(φ) với Jacobian J = r." },
+      { page: 3, text: "Ứng dụng hình học: Tính diện tích hình phẳng và thể tích vật thể không gian." },
+    ],
+    chunks: [
+      { page: 1, text: "Tích phân kép trên miền chữ nhật: Định lý Fubini và cách tính tích phân lặp." },
+      { page: 2, text: "Đổi biến số trong tích phân kép: Tọa độ cực x = r · cos(φ), y = r · sin(φ) với Jacobian J = r." },
+      { page: 3, text: "Ứng dụng hình học: Tính diện tích hình phẳng và thể tích vật thể không gian." },
     ],
   },
   {
@@ -64,13 +168,17 @@ export const INITIAL_DOCS: DocumentItem[] = [
     progress: 48,
     color: "#8b5cf6",
     icon: "Aa",
-    pagesCount: 24,
+    pagesCount: 2,
     fileSize: "1.8 MB",
     fileType: "DOCX",
     updatedAt: "Hôm qua",
     pagesContent: [
-      "Present Perfect Tense: Have/Has + V3/ed. Dùng cho hành động xảy ra trong quá khứ kéo dài đến hiện tại.",
-      "Conditional Sentences: Type 1 (Điều kiện có thật) và Type 2 (Điều kiện không có thật ở hiện tại).",
+      { page: 1, text: "Present Perfect Tense: Have/Has + V3/ed. Dùng cho hành động xảy ra trong quá khứ kéo dài đến hiện tại." },
+      { page: 2, text: "Conditional Sentences: Type 1 (Điều kiện có thật) và Type 2 (Điều kiện không có thật ở hiện tại)." },
+    ],
+    chunks: [
+      { page: 1, text: "Present Perfect Tense: Have/Has + V3/ed. Dùng cho hành động xảy ra trong quá khứ kéo dài đến hiện tại." },
+      { page: 2, text: "Conditional Sentences: Type 1 (Điều kiện có thật) và Type 2 (Điều kiện không có thật ở hiện tại)." },
     ],
   },
   {
@@ -80,14 +188,19 @@ export const INITIAL_DOCS: DocumentItem[] = [
     progress: 86,
     color: "#f59e0b",
     icon: "⚡",
-    pagesCount: 52,
+    pagesCount: 3,
     fileSize: "6.5 MB",
     fileType: "PPTX",
     updatedAt: "3 ngày trước",
     pagesContent: [
-      "Điện trường: Khái niệm cường độ điện trường E = F/q và đường sức điện trường.",
-      "Định luật Coulomb và nguyên lý chồng chất điện trường.",
-      "Điện thế, hiệu điện thế U = E * d và năng lượng điện trường trong tụ điện.",
+      { page: 1, text: "Điện trường: Khái niệm cường độ điện trường E = F/q và đường sức điện trường." },
+      { page: 2, text: "Định luật Coulomb và nguyên lý chồng chất điện trường." },
+      { page: 3, text: "Điện thế, hiệu điện thế U = E * d và năng lượng điện trường trong tụ điện." },
+    ],
+    chunks: [
+      { page: 1, text: "Điện trường: Khái niệm cường độ điện trường E = F/q và đường sức điện trường." },
+      { page: 2, text: "Định luật Coulomb và nguyên lý chồng chất điện trường." },
+      { page: 3, text: "Điện thế, hiệu điện thế U = E * d và năng lượng điện trường trong tụ điện." },
     ],
   },
   {
@@ -97,14 +210,17 @@ export const INITIAL_DOCS: DocumentItem[] = [
     progress: 95,
     color: "#10b981",
     icon: "💻",
-    pagesCount: 64,
-    fileSize: "8.1 MB",
-    fileType: "PDF",
-    updatedAt: "Vừa xong",
+    pagesCount: 2,
+    fileSize: "3.1 MB",
+    fileType: "DOCX",
+    updatedAt: "5 ngày trước",
     pagesContent: [
-      "React Hooks nâng cao: useEffect, useMemo, useCallback và tối ưu re-render.",
-      "Quản lý trạng thái toàn cục với Context API kết hợp Socket.io.",
-      "Tối ưu tốc độ tải trang với Vite build và phân đoạn bundle (Code Splitting).",
+      { page: 1, text: "Cấu trúc thư mục dự án React và cơ chế Hot Module Replacement (HMR) của Vite." },
+      { page: 2, text: "React Hooks cơ bản: useState quản lý trạng thái và useEffect xử lý side-effects." },
+    ],
+    chunks: [
+      { page: 1, text: "Cấu trúc thư mục dự án React và cơ chế Hot Module Replacement (HMR) của Vite." },
+      { page: 2, text: "React Hooks cơ bản: useState quản lý trạng thái và useEffect xử lý side-effects." },
     ],
   },
   {
@@ -114,14 +230,19 @@ export const INITIAL_DOCS: DocumentItem[] = [
     progress: 30,
     color: "#ec4899",
     icon: "🤖",
-    pagesCount: 18,
+    pagesCount: 3,
     fileSize: "2.4 MB",
     fileType: "PDF",
     updatedAt: "1 tuần trước",
     pagesContent: [
-      "Kiến trúc RAG (Retrieval-Augmented Generation): Kết hợp Vector Search và LLM.",
-      "Kỹ thuật Prompting hiệu quả: Chain of Thought và Few-shot prompting.",
-      "Đánh giá và kiểm soát độ ảo giác (Hallucination) trong các mô hình tạo sinh.",
+      { page: 1, text: "Kiến trúc RAG (Retrieval-Augmented Generation): Kết hợp Vector Search và LLM." },
+      { page: 2, text: "Kỹ thuật Prompting hiệu quả: Chain of Thought và Few-shot prompting." },
+      { page: 3, text: "Đánh giá và kiểm soát độ ảo giác (Hallucination) trong các mô hình tạo sinh." },
+    ],
+    chunks: [
+      { page: 1, text: "Kiến trúc RAG (Retrieval-Augmented Generation): Kết hợp Vector Search và LLM." },
+      { page: 2, text: "Kỹ thuật Prompting hiệu quả: Chain of Thought và Few-shot prompting." },
+      { page: 3, text: "Đánh giá và kiểm soát độ ảo giác (Hallucination) trong các mô hình tạo sinh." },
     ],
   },
 ];
@@ -136,7 +257,8 @@ export const SUGGESTIONS = [
  * Hàm tương tác AI thông minh:
  * - 100% tin nhắn được gửi trực tiếp tới Google Gemini API
  * - Duy trì đầy đủ ngữ cảnh lịch sử trò chuyện (Chat History)
- * - Chế độ Hybrid linh hoạt: bám sát tài liệu khi liên quan hoặc giải đáp mở rộng tự nhiên
+ * - Tự động bổ sung chunks từ pagesContent nếu tài liệu chưa có chunks
+ * - Bắt buộc trích dẫn số trang thật [Trang N]
  */
 export async function askAI(
   prompt: string,
@@ -147,11 +269,19 @@ export async function askAI(
   const lower = prompt.toLowerCase().trim();
   const pages = doc?.pagesContent || [];
 
+  // Chuẩn bị chunks: nếu doc đã có chunks thì dùng, nếu chưa có thì build từ pagesContent
+  let chunks = doc?.chunks;
+  if (!chunks || chunks.length === 0) {
+    const normalized = normalizeDocumentPages(pages);
+    chunks = buildChunksFromPages(normalized);
+  }
+
   try {
-    // 1. Phím tắt: Tóm tắt tài liệu (khi người dùng bấm nút hoặc yêu cầu tóm tắt tài liệu đang mở)
+    // 1. Phím tắt: Tóm tắt toàn bộ tài liệu
     if (
       (lower.includes("tóm tắt") || lower.includes("khái quát") || lower.includes("nội dung chính")) &&
       (lower.includes("tài liệu") || lower.includes("bài này") || lower.includes("bài học")) &&
+      !lower.includes("trang") &&
       doc
     ) {
       const summary = await summarizeDocumentWithGemini({
@@ -162,7 +292,7 @@ export async function askAI(
       return { text: summary, isGemini: true };
     }
 
-    // 2. Phím tắt: Vẽ sơ đồ tư duy (Mindmap) cho tài liệu đang mở
+    // 2. Phím tắt: Vẽ sơ đồ tư duy (Mindmap)
     if (
       (lower.includes("tư duy") || lower.includes("sơ đồ") || lower.includes("mindmap")) &&
       (lower.includes("tài liệu") || lower.includes("bài này")) &&
@@ -176,7 +306,7 @@ export async function askAI(
       return { text: mindmap, isGemini: true };
     }
 
-    // 3. Phím tắt: Soạn bộ câu hỏi trắc nghiệm ôn tập từ tài liệu đang mở
+    // 3. Phím tắt: Soạn bộ câu hỏi trắc nghiệm ôn tập
     if (
       (lower.includes("trắc nghiệm") || (lower.includes("câu hỏi") && lower.includes("ôn tập"))) &&
       doc
@@ -204,12 +334,13 @@ export async function askAI(
       };
     }
 
-    // 4. MỌI TIN NHẮN & CÂU HỎI KHÁC: Gửi trực tiếp lên Google Gemini API kèm toàn bộ lịch sử hội thoại và Hybrid Mode
+    // 4. Mọi câu hỏi & hội thoại: Chuyển qua askGeminiRAG với chunks chuẩn trang thật
     const response = await askGeminiRAG({
       question: prompt,
       docTitle: doc?.title,
       docSubject: doc?.subject,
       pagesContent: pages,
+      chunks,
       history,
       currentPage,
     });
@@ -274,7 +405,6 @@ export async function fetchDocSessions(docId: number, userId?: string): Promise<
           merged.push(ls);
         }
       });
-      // Giới hạn tối đa 5 cuộc trò chuyện gần nhất theo thời gian
       const top5 = merged.slice(0, 5);
       try {
         localStorage.setItem(localKey, JSON.stringify(top5));
@@ -329,7 +459,6 @@ export async function fetchDocConversations(
       return messages;
     }
 
-    // Dự phòng local storage theo session
     const localKey = `peermind_chat_${docId}_${sessionId}`;
     const stored =
       localStorage.getItem(localKey) ||
@@ -375,7 +504,6 @@ export async function saveDocConversation(
   try {
     const { error } = await supabase.from("ai_conversations").insert(payload);
     if (error) {
-      // Fallback nếu CSDL Supabase chưa chạy migration thêm cột session_id/user_id
       await supabase.from("ai_conversations").insert({
         document_id: docId,
         question,
@@ -386,7 +514,6 @@ export async function saveDocConversation(
     console.warn("Lỗi lưu lịch sử chat vào Supabase:", err);
   }
 
-  // 2. Lưu local cache theo session
   try {
     const localKey = `peermind_chat_${docId}_${sessionId}`;
     const current = JSON.parse(localStorage.getItem(localKey) || "[]");
@@ -394,7 +521,6 @@ export async function saveDocConversation(
     current.push({ role: "ai", text: answer, isGemini: true });
     localStorage.setItem(localKey, JSON.stringify(current.slice(-50)));
 
-    // Đồng bộ session list trong local storage
     const sessionsKey = `peermind_sessions_${docId}`;
     const sessionsList: ChatSession[] = JSON.parse(localStorage.getItem(sessionsKey) || "[]");
     const existing = sessionsList.find((s) => s.id === sessionId);
@@ -410,7 +536,6 @@ export async function saveDocConversation(
         createdAt: new Date().toISOString(),
       });
     }
-    // Giữ tối đa 5 phiên gần nhất trong localStorage
     localStorage.setItem(sessionsKey, JSON.stringify(sessionsList.slice(0, 5)));
   } catch (e) {
     console.warn("Lỗi lưu local session:", e);

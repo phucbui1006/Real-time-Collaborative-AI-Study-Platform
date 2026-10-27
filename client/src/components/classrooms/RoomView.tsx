@@ -1,3 +1,6 @@
+import { supabase } from "../../services/supabaseClient";
+import { isValidUUID } from "../../utils";
+import { normalizeDocumentPages } from "../../services/aiService";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { MembersModal, RoomMember } from "./MembersModal";
 import {
@@ -33,6 +36,8 @@ export type DocItem = {
   title: string;
   color: string;
   slides: SlideItem[];
+  totalPages?: number;
+  pagesContent?: any[];
 };
 
 export const DOCS: DocItem[] = [
@@ -156,7 +161,23 @@ function SlideStage({ doc, index, objs, onChange, canEdit, tool, color }: SlideS
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [textAt, setTextAt] = useState<[number, number] | null>(null);
   const [txt, setTxt] = useState("");
-  const [title, points] = doc.slides[index];
+  let title = "";
+  let points: string[] = [];
+  let pageBodyText = "";
+
+  if (doc.pagesContent && doc.pagesContent.length > 0) {
+    const pageObj = doc.pagesContent[index];
+    const fullText = typeof pageObj === "string" ? pageObj : pageObj?.text || "";
+    const lines = fullText.split("\n").map((l: string) => l.trim()).filter(Boolean);
+    title = lines[0] || `${doc.title} — Trang ${index + 1}`;
+    points = lines.slice(1, 7);
+    pageBodyText = lines.slice(1).join("\n");
+  } else if (doc.slides && doc.slides[index]) {
+    [title, points] = doc.slides[index];
+  } else {
+    title = `${doc.title} — Trang ${index + 1}`;
+    points = [];
+  }
 
   useEffect(() => {
     if (!box.current) return;
@@ -241,23 +262,36 @@ function SlideStage({ doc, index, objs, onChange, canEdit, tool, color }: SlideS
     >
       <div className="absolute inset-0" style={{ padding: "6cqw" }}>
         <div style={{ height: "1.2cqw", width: "10cqw", background: doc.color, borderRadius: 99 }} />
-        <h2 className="text-slate-900 dark:text-slate-50" style={{ fontSize: "4.4cqw", fontWeight: 700, marginTop: "2cqw" }}>{title}</h2>
-        <ul
-          className="text-slate-700 dark:text-slate-300"
-          style={{
-            marginTop: "3cqw",
-            fontSize: "2.6cqw",
-            lineHeight: 1.9,
-            listStyle: "disc",
-            paddingLeft: "3cqw",
-          }}
-        >
-          {points.map((p) => (
-            <li key={p}>{p}</li>
-          ))}
-        </ul>
-        <div className="text-slate-300 dark:text-slate-600" style={{ position: "absolute", right: "3cqw", bottom: "2cqw", fontSize: "1.5cqw" }}>
-          {doc.title}
+        <h2 className="text-slate-900 dark:text-slate-50 line-clamp-2" style={{ fontSize: "4.2cqw", fontWeight: 700, marginTop: "2cqw" }}>{title}</h2>
+        {points.length > 0 ? (
+          <ul
+            className="text-slate-700 dark:text-slate-300"
+            style={{
+              marginTop: "3cqw",
+              fontSize: "2.5cqw",
+              lineHeight: 1.8,
+              listStyle: "disc",
+              paddingLeft: "3cqw",
+            }}
+          >
+            {points.map((p, idx) => (
+              <li key={idx} className="line-clamp-2">{p}</li>
+            ))}
+          </ul>
+        ) : (
+          <p
+            className="text-slate-700 dark:text-slate-300 line-clamp-6"
+            style={{
+              marginTop: "3cqw",
+              fontSize: "2.3cqw",
+              lineHeight: 1.8,
+            }}
+          >
+            {pageBodyText || "(Trang không có nội dung văn bản)"}
+          </p>
+        )}
+        <div className="text-slate-400 dark:text-slate-500 font-mono" style={{ position: "absolute", right: "3cqw", bottom: "2cqw", fontSize: "1.5cqw" }}>
+          {doc.title} · Trang {index + 1} / {doc.totalPages || doc.slides?.length || 1}
         </div>
       </div>
 
@@ -358,7 +392,7 @@ function DocPicker({ docs, current, onPick, onClose }: DocPickerProps) {
                 <span className="flex-1 min-w-0">
                   <span className="block font-medium text-xs text-slate-900 dark:text-slate-100 truncate">{d.title}</span>
                   <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono tabular-nums">
-                    {d.slides.length} slide
+                    {d.totalPages || d.slides.length} trang
                   </span>
                 </span>
                 {current?.id === d.id && (
@@ -519,6 +553,8 @@ function ChatPanel({ open, msgs, members, onSend, onOpenMembers }: ChatPanelProp
 interface RoomViewProps {
   room?: { name: string; code: string };
   isHost?: boolean;
+  userId?: string;
+  userName?: string;
   docs?: DocItem[];
   members?: RoomMember[];
   onLeave?: () => void;
@@ -530,6 +566,9 @@ interface RoomViewProps {
 export default function RoomView({
   room = { name: "Nhóm ôn thi Toán 12", code: "482913" },
   isHost = true,
+  userId,
+  userName: _userName,
+
   docs = DOCS,
   members = INITIAL_MEMBERS,
   onLeave = () => {},
@@ -537,7 +576,113 @@ export default function RoomView({
   onSlide = () => {},
   onChangeAnnotations = () => {},
 }: RoomViewProps) {
+  const [availableDocs, setAvailableDocs] = useState<DocItem[]>(docs || DOCS);
   const [doc, setDoc] = useState<DocItem | null>(docs && docs.length > 0 ? docs[0] : null);
+
+  // Tải danh sách tài liệu từ Thư viện (Supabase hoặc local) để người dùng có thể trình chiếu tài liệu thật
+  useEffect(() => {
+    async function loadLibraryDocs() {
+      try {
+        let libraryDocs: DocItem[] = [];
+        if (isValidUUID(userId)) {
+          const { data } = await supabase
+            .from("documents")
+            .select("id, filename, original_name, total_pages, pages_content")
+            .order("created_at", { ascending: false });
+
+          if (data && Array.isArray(data)) {
+            libraryDocs = data.map((d: any, idx: number) => {
+              const rawPages = Array.isArray(d.pages_content) ? d.pages_content : [];
+              const normPages = normalizeDocumentPages(rawPages);
+              const total = d.total_pages || normPages.length || 1;
+              const slides: SlideItem[] = normPages.slice(0, 15).map((p, pIdx) => {
+                const lines = p.text.split("\n").filter(Boolean);
+                return [lines[0] || `Trang ${pIdx + 1}`, lines.slice(1, 6)];
+              });
+
+              return {
+                id: d.id,
+                title: d.original_name || d.filename || `Tài liệu ${d.id}`,
+                color: idx % 2 === 0 ? "#0ea5e9" : "#8b5cf6",
+                slides: slides.length > 0 ? slides : [["Trang 1", ["Nội dung"]]],
+                totalPages: total,
+                pagesContent: normPages,
+              };
+            });
+          }
+        } else {
+          const localKey = `peermind_docs_${userId || "guest"}`;
+          const stored = localStorage.getItem(localKey);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+              libraryDocs = parsed.map((d: any, idx: number) => {
+                const rawPages = Array.isArray(d.pagesContent) ? d.pagesContent : [];
+                const normPages = normalizeDocumentPages(rawPages);
+                const total = d.pagesCount || normPages.length || 1;
+                const slides: SlideItem[] = normPages.slice(0, 15).map((p, pIdx) => {
+                  const lines = p.text.split("\n").filter(Boolean);
+                  return [lines[0] || `Trang ${pIdx + 1}`, lines.slice(1, 6)];
+                });
+
+                return {
+                  id: d.id,
+                  title: d.title || `Tài liệu ${d.id}`,
+                  color: d.color || (idx % 2 === 0 ? "#0ea5e9" : "#8b5cf6"),
+                  slides: slides.length > 0 ? slides : [["Trang 1", ["Nội dung"]]],
+                  totalPages: total,
+                  pagesContent: normPages,
+                };
+              });
+            }
+          }
+        }
+
+        if (libraryDocs.length > 0) {
+          setAvailableDocs([...libraryDocs, ...(docs || DOCS)]);
+          if (!doc) {
+            setDoc(libraryDocs[0]);
+          }
+        }
+      } catch (err) {
+        console.warn("Lỗi nạp tài liệu thư viện vào phòng học:", err);
+      }
+    }
+    loadLibraryDocs();
+  }, [userId]);
+
+  // Lắng nghe đồng bộ thời gian thực qua Supabase Realtime Channel
+  useEffect(() => {
+    if (!room?.code) return;
+
+    const channel = supabase.channel(`peermind_room_${room.code}`, {
+      config: { broadcast: { self: false } },
+    });
+
+    channel
+      .on("broadcast", { event: "PAGE_CHANGE" }, ({ payload }) => {
+        if (payload && typeof payload.page === "number") {
+          const targetIndex = payload.page - 1;
+          setIndex((prev) => (prev !== targetIndex ? targetIndex : prev));
+        }
+      })
+      .on("broadcast", { event: "DOC_CHANGE" }, ({ payload }) => {
+        if (payload?.doc) {
+          setDoc(payload.doc);
+          setIndex(typeof payload.page === "number" ? payload.page - 1 : 0);
+        }
+      })
+      .on("broadcast", { event: "ANNOTATION_CHANGE" }, ({ payload }) => {
+        if (payload?.key && payload?.objs) {
+          setNotes((prev) => ({ ...prev, [payload.key]: payload.objs }));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [room?.code]);
   const [index, setIndex] = useState(0);
   const [notes, setNotes] = useState<Record<string, AnnotationObj[]>>({});
   const [tool, setTool] = useState("pen");
@@ -565,16 +710,40 @@ export default function RoomView({
   const setObjs = (next: AnnotationObj[]) => {
     setNotes((n) => ({ ...n, [key]: next }));
     onChangeAnnotations(key, next);
+
+    if (room?.code) {
+      const channel = supabase.channel(`peermind_room_${room.code}`);
+      channel.send({
+        type: "broadcast",
+        event: "ANNOTATION_CHANGE",
+        payload: { key, objs: next },
+      });
+    }
   };
 
   const go = useCallback(
     (i: number) => {
       if (!doc) return;
-      const n = Math.max(0, Math.min(doc.slides.length - 1, i));
+      const totalPages = doc.totalPages || doc.slides?.length || 1;
+      const n = Math.max(0, Math.min(totalPages - 1, i));
       setIndex(n);
       onSlide(n);
+
+      // Đồng bộ tới toàn bộ mọi người trong phòng qua Supabase Realtime
+      if (isHost && room?.code) {
+        const channel = supabase.channel(`peermind_room_${room.code}`);
+        channel.send({
+          type: "broadcast",
+          event: "PAGE_CHANGE",
+          payload: {
+            page: n + 1,
+            docId: doc.id,
+            totalPages,
+          },
+        });
+      }
     },
-    [doc, onSlide]
+    [doc, onSlide, isHost, room?.code]
   );
 
   useEffect(() => {
@@ -597,6 +766,18 @@ export default function RoomView({
     setIndex(0);
     setPicker(false);
     onPresent(d);
+
+    if (isHost && room?.code) {
+      const channel = supabase.channel(`peermind_room_${room.code}`);
+      channel.send({
+        type: "broadcast",
+        event: "DOC_CHANGE",
+        payload: {
+          doc: d,
+          page: 1,
+        },
+      });
+    }
   };
 
   const send = (text: string) => {
@@ -967,18 +1148,18 @@ export default function RoomView({
                     onClick={() => go(index - 1)}
                     disabled={!isHost || index === 0}
                     className="flex h-8 w-8 items-center justify-center rounded-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
-                    title="Slide trước"
+                    title="Trang trước"
                   >
                     <ChevronLeft className="w-4 h-4" strokeWidth={1.75} />
                   </button>
                   <span className="px-2 text-xs font-medium font-mono tabular-nums text-slate-700 dark:text-slate-300">
-                    {index + 1} / {doc.slides.length}
+                    {index + 1} / {doc.totalPages || doc.slides?.length || 1}
                   </span>
                   <button
                     onClick={() => go(index + 1)}
-                    disabled={!isHost || index === doc.slides.length - 1}
+                    disabled={!isHost || index >= (doc.totalPages || doc.slides?.length || 1) - 1}
                     className="flex h-8 w-8 items-center justify-center rounded-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
-                    title="Slide sau"
+                    title="Trang sau"
                   >
                     <ChevronRight className="w-4 h-4" strokeWidth={1.75} />
                   </button>
@@ -1042,7 +1223,7 @@ export default function RoomView({
         />
       </div>
 
-      {picker && <DocPicker docs={docs} current={doc} onPick={pick} onClose={() => setPicker(false)} />}
+      {picker && <DocPicker docs={availableDocs} current={doc} onPick={pick} onClose={() => setPicker(false)} />}
 
       <MembersModal
         open={membersOpen}

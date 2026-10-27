@@ -47,7 +47,19 @@ export async function fetchDocumentPage(
         return fallbackTitle || `Trang ${pageIndex + 1}`;
       }
 
-      const content = (data as unknown as { pages_content?: string })?.pages_content || "";
+      let content = (data as unknown as { pages_content?: string })?.pages_content || "";
+      // Nếu dữ liệu trả về là chuỗi JSON object (dạng mới: {"page": N, "text": "..."})
+      if (content && typeof content === "string") {
+        try {
+          const parsed = JSON.parse(content);
+          if (parsed && typeof parsed === "object" && typeof parsed.text === "string") {
+            content = parsed.text;
+          }
+        } catch {
+          // Là plain string bình thường
+        }
+      }
+
       const finalContent = content.trim() || fallbackTitle || `Trang ${pageIndex + 1}`;
 
       // Lưu vào RAM Cache
@@ -85,11 +97,15 @@ export function prefetchDocumentPages(docId: number, startPageIndex: number, tot
 /**
  * Lưu đồng loạt toàn bộ các trang của tài liệu vào cache RAM (khi đã tải được danh sách đầy đủ)
  */
-export function cacheAllDocumentPages(docId: number, pages: string[]): void {
+export function cacheAllDocumentPages(
+  docId: number,
+  pages: (string | { page?: number; text?: string })[]
+): void {
   if (!pages || !Array.isArray(pages)) return;
   pages.forEach((page, idx) => {
     if (page) {
-      pageContentCache.set(`${docId}_${idx}`, page);
+      const text = typeof page === "string" ? page : page.text || "";
+      pageContentCache.set(`${docId}_${idx}`, text);
     }
   });
 }
