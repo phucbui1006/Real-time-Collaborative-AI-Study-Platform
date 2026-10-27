@@ -1,8 +1,5 @@
 import { useState, useMemo } from "react";
 import {
-  Users,
-  CalendarCheck,
-  ChatsCircle,
   MagnifyingGlass,
   Copy,
   Check,
@@ -150,40 +147,7 @@ export function RoomHistory({
           </div>
         </section>
 
-        {/* ==========================================================================
-            3 CHỈ SỐ NHANH / YẾU TỐ CON NGƯỜI
-           ========================================================================== */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4" aria-label="Thống kê học tập">
-          <div className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-md p-5 flex items-center gap-4 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
-            <div className="w-12 h-12 rounded-sm bg-[#ffda00] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0">
-              <Users size={24} weight="regular" />
-            </div>
-            <div>
-              <div className="text-sm text-[#111118]/75 dark:text-[#f0f6ff]/75">Bạn học đang online</div>
-              <div className="text-lg font-normal text-[#111118] dark:text-[#f0f6ff] mt-0.5">3 bạn đang học nhóm</div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-md p-5 flex items-center gap-4 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
-            <div className="w-12 h-12 rounded-sm bg-[#91d8ec] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0">
-              <CalendarCheck size={24} weight="regular" />
-            </div>
-            <div>
-              <div className="text-sm text-[#111118]/75 dark:text-[#f0f6ff]/75">Lịch học sắp tới</div>
-              <div className="text-lg font-normal text-[#111118] dark:text-[#f0f6ff] mt-0.5">19:30 tối nay · Giải tích 1</div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a] rounded-md p-5 flex items-center gap-4 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
-            <div className="w-12 h-12 rounded-sm bg-[#ffbac4] text-[#111118] border border-[#111118] flex items-center justify-center shrink-0">
-              <ChatsCircle size={24} weight="regular" />
-            </div>
-            <div>
-              <div className="text-sm text-[#111118]/75 dark:text-[#f0f6ff]/75">Nhóm đồ án & môn học</div>
-              <div className="text-lg font-normal text-[#111118] dark:text-[#f0f6ff] mt-0.5">{rooms.length} phòng đang tham gia</div>
-            </div>
-          </div>
-        </section>
+        
 
         {/* ==========================================================================
             SEARCH & FILTER CONTROLS BAR
