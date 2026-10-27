@@ -142,7 +142,7 @@ export function RoomHistory({
               className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-pill bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white text-lg font-normal border border-[#111118] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] active:translate-y-[2px] transition-transform cursor-pointer"
             >
               <Plus size={22} weight="regular" />
-              <span>Tạo phòng học mới →</span>
+              <span>Tạo phòng học mới</span>
             </button>
           </div>
         </section>
@@ -207,7 +207,7 @@ export function RoomHistory({
                 onClick={onOpenCreate}
                 className="h-10 px-5 rounded-pill bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] text-base font-normal shadow-[0_3px_0_0_#111118] active:translate-y-[1px] cursor-pointer"
               >
-                Tạo phòng học mới →
+                Tạo phòng học mới
               </button>
             </div>
           </div>
