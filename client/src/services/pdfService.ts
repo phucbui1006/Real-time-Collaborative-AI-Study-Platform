@@ -22,7 +22,108 @@ export interface ExtractedDoc {
 }
 
 /**
- * Trích xuất text từng trang từ file PDF thực tế
+ * Render một trang PDF sang hình ảnh Base64 (WebP để siêu nhẹ hoặc JPEG)
+ * Cho phép bảo toàn 100% hình ảnh, sơ đồ, bảng biểu gốc của trang PDF
+ */
+export async function renderPdfPageToImage(
+  page: any,
+  scale = 1.25
+): Promise<{ base64: string; mimeType: string } | null> {
+  if (typeof window === "undefined" || typeof document === "undefined") return null;
+  try {
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    const ctx = canvas.getContext("2d", { alpha: false });
+    if (!ctx) return null;
+
+    // Nền trắng tiêu chuẩn
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    await page.render({
+      canvasContext: ctx,
+      viewport: viewport,
+    }).promise;
+
+    let dataUrl = "";
+    let mimeType = "image/webp";
+    try {
+      dataUrl = canvas.toDataURL("image/webp", 0.78);
+    } catch {
+      // Fallback nếu browser không hỗ trợ webp trên canvas
+    }
+
+    if (!dataUrl || !dataUrl.startsWith("data:image/webp")) {
+      dataUrl = canvas.toDataURL("image/jpeg", 0.78);
+      mimeType = "image/jpeg";
+    }
+
+    // Giải phóng bộ nhớ canvas ngay lập tức để chống tràn RAM
+    canvas.width = 0;
+    canvas.height = 0;
+
+    const commaIdx = dataUrl.indexOf(",");
+    if (commaIdx === -1) return null;
+
+    return {
+      base64: dataUrl.substring(commaIdx + 1),
+      mimeType,
+    };
+  } catch (err) {
+    console.warn("Không thể chụp ảnh trang PDF bằng canvas:", err);
+    return null;
+  }
+}
+
+/**
+ * Upload mảng ảnh trang lên Supabase Storage bucket 'slides' theo từng đợt nhỏ
+ */
+export async function uploadPageImagesInBatches(
+  imagesWithPage: { pageNum: number; base64: string; mimeType: string }[]
+): Promise<Map<number, string>> {
+  const urlMap = new Map<number, string>();
+  if (!imagesWithPage || imagesWithPage.length === 0) return urlMap;
+
+  const BATCH_SIZE = 3; // 3 trang / đợt để không vượt quá giới hạn 4.5MB
+  const apiBase = (import.meta.env?.VITE_API_URL as string) || "";
+  const uploadUrl = apiBase ? `${apiBase.replace(/\/$/, "")}/api/documents/upload-images` : "/api/documents/upload-images";
+
+  for (let i = 0; i < imagesWithPage.length; i += BATCH_SIZE) {
+    const batch = imagesWithPage.slice(i, i + BATCH_SIZE);
+    try {
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          images: batch.map((item) => ({
+            base64: item.base64,
+            mimeType: item.mimeType,
+          })),
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && Array.isArray(data.results)) {
+          data.results.forEach((res: { index: number; success: boolean; url: string }) => {
+            if (res.success && res.url && batch[res.index]) {
+              urlMap.set(batch[res.index].pageNum, res.url);
+            }
+          });
+        }
+      }
+    } catch (batchErr) {
+      console.warn(`Lỗi upload lô ảnh trang từ ${i + 1}:`, batchErr);
+    }
+  }
+
+  return urlMap;
+}
+
+/**
+ * Trích xuất text và chụp ảnh toàn bộ các trang từ file PDF thực tế
  */
 export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
   try {
@@ -36,11 +137,14 @@ export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
 
     const pdf = await loadingTask.promise;
     const totalPages = pdf.numPages;
-    const pages: string[] = [];
+    const rawPagesText: { pageNum: number; text: string }[] = [];
+    const imagesToUpload: { pageNum: number; base64: string; mimeType: string }[] = [];
 
     for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
       try {
         const page = await pdf.getPage(pageNum);
+
+        // 1. Trích xuất text cho AI và tìm kiếm
         const textContent = await page.getTextContent();
         const pageText = textContent.items
           .map((item: any) => ("str" in item ? item.str : ""))
@@ -48,15 +152,53 @@ export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
           .replace(/\s+/g, " ")
           .trim();
 
-        pages.push(pageText || `Trang ${pageNum} (Tài liệu dạng hình ảnh hoặc không có văn bản chọn lọc)`);
+        rawPagesText.push({ pageNum, text: pageText });
+
+        // 2. Chụp ảnh trang PDF (Snapshot) để bảo toàn 100% hình ảnh, sơ đồ gốc
+        const imgObj = await renderPdfPageToImage(page, 1.25);
+        if (imgObj) {
+          imagesToUpload.push({ pageNum, base64: imgObj.base64, mimeType: imgObj.mimeType });
+        }
+
+        // Nhả microtask tuần tự để giao diện trình duyệt luôn mượt mà
+        if (pageNum % 3 === 0) {
+          await new Promise((r) => setTimeout(r, 0));
+        }
       } catch (pageErr) {
         console.warn(`Lỗi bóc tách trang ${pageNum}:`, pageErr);
-        pages.push(`Trang ${pageNum}`);
+        rawPagesText.push({ pageNum, text: "" });
+      }
+    }
+
+    // 3. Upload toàn bộ ảnh các trang lên Supabase Storage bucket 'slides'
+    let urlMap = new Map<number, string>();
+    if (imagesToUpload.length > 0) {
+      try {
+        urlMap = await uploadPageImagesInBatches(imagesToUpload);
+      } catch (upErr) {
+        console.warn("Không thể upload ảnh trang PDF lên Storage:", upErr);
+      }
+    }
+
+    // 4. Ghép nội dung hoàn chỉnh cho từng trang: Ảnh trang + Văn bản đi kèm
+    const pages: string[] = [];
+    for (const item of rawPagesText) {
+      const imgUrl = urlMap.get(item.pageNum);
+      const text = item.text;
+
+      if (imgUrl) {
+        if (text) {
+          pages.push(`![Trang ${item.pageNum}](${imgUrl})\n\n${text}`);
+        } else {
+          pages.push(`![Trang ${item.pageNum}](${imgUrl})\n\n*(Trang tài liệu dạng hình ảnh)*`);
+        }
+      } else {
+        pages.push(text || `Trang ${item.pageNum} (Tài liệu dạng hình ảnh hoặc không có văn bản chọn lọc)`);
       }
     }
 
     return { totalPages, pages };
-  } catch (err) {
+  } catch (err: any) {
     console.error("Lỗi khi đọc file PDF bằng pdfjs-dist:", err);
     if ((err as any)?.name === "PasswordException") {
       throw new Error("File PDF này có mật khẩu bảo vệ. Vui lòng gỡ mật khẩu trước khi tải lên.");
