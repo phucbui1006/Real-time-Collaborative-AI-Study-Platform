@@ -1,3 +1,8 @@
+import { supabase } from "./supabaseClient";
+import { isValidUUID } from "../utils";
+import { INITIAL_DOCS } from "./aiService";
+import { hasGeminiApiKey, generateExamQuestionsWithGemini } from "./geminiClient";
+
 // services/examService.ts — Dịch vụ và kiểu dữ liệu cho bài kiểm tra trực tuyến
 
 export const uid = () => Math.random().toString(36).slice(2, 9);
@@ -120,6 +125,117 @@ export const SEED_HISTORY: ExamHistory[] = [
 
 export const BOT_NAMES = ["Hà My", "Quốc Bảo", "Thu Trang", "Đức Anh"];
 
+
+export type QuizDocItem = {
+  id: number | string;
+  title: string;
+  subject?: string;
+  fileType?: string;
+  pagesContent?: string[];
+};
+
+export async function loadUserQuizDocs(userId?: string): Promise<QuizDocItem[]> {
+  const loaded: QuizDocItem[] = [];
+  const seenIds = new Set<string | number>();
+
+  // 1. Tải trước từ LocalStorage (phản hồi tức thì 0ms)
+  const localKey = `permind_docs_${userId || "guest"}`;
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(localKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          for (const d of parsed) {
+            const title = (d.title || d.original_name || d.filename || `Tài liệu ${d.id}`).trim();
+            const pages = Array.isArray(d.pagesContent)
+              ? d.pagesContent
+              : Array.isArray(d.pages_content)
+              ? d.pages_content
+              : [];
+            loaded.push({
+              id: d.id,
+              title,
+              subject: d.subject || "",
+              fileType: d.fileType || "PDF",
+              pagesContent: pages,
+            });
+            seenIds.add(d.id);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Lỗi đọc cache tài liệu:", e);
+    }
+  }
+
+  // 2. Nếu là người dùng có UUID thực tế, đồng bộ từ Supabase
+  if (isValidUUID(userId)) {
+    try {
+      const { data, error } = await supabase
+        .from("documents")
+        .select("id, title, original_name, filename, subject, pages_content")
+        .eq("owner_user_id", userId)
+        .order("created_at", { ascending: false });
+
+      if (!error && Array.isArray(data)) {
+        for (const d of data) {
+          const title = (d.title || d.original_name || d.filename || `Tài liệu ${d.id}`).trim();
+          const pages = Array.isArray(d.pages_content) ? d.pages_content : [];
+          if (!seenIds.has(d.id)) {
+            loaded.push({
+              id: d.id,
+              title,
+              subject: d.subject || "",
+              pagesContent: pages,
+            });
+            seenIds.add(d.id);
+          } else {
+            const existing = loaded.find((x) => x.id === d.id);
+            if (existing && (!existing.pagesContent || existing.pagesContent.length === 0) && pages.length > 0) {
+              existing.pagesContent = pages;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Lỗi lấy tài liệu từ Supabase cho quiz:", e);
+    }
+  }
+
+  // 3. Fallback: Nếu hoàn toàn chưa có tài liệu nào, dùng INITIAL_DOCS làm tài liệu mẫu
+  if (loaded.length === 0) {
+    return INITIAL_DOCS.map((d) => ({
+      id: d.id,
+      title: d.title,
+      subject: d.subject,
+      fileType: d.fileType,
+      pagesContent: d.pagesContent || [],
+    }));
+  }
+
+  return loaded;
+}
+
+export async function fetchDocPagesContent(docId: number | string): Promise<string[]> {
+  try {
+    const numId = Number(docId);
+    if (!isNaN(numId)) {
+      const { data } = await supabase
+        .from("documents")
+        .select("pages_content")
+        .eq("id", numId)
+        .single();
+      if (data && Array.isArray(data.pages_content)) {
+        return data.pages_content;
+      }
+    }
+  } catch (e) {
+    console.warn("Lỗi tải pages_content:", e);
+  }
+  return [];
+}
+
 export const AI_DOCS = [
   { id: 1, title: "Toán cao cấp – Chương 4" },
   { id: 2, title: "Ngữ pháp tiếng Anh B1" },
@@ -151,22 +267,40 @@ export function board(live: LiveExam, mine: MyExamState | null, userName: string
 export async function generateQuestionsApi({
   topic,
   docTitle,
+  pagesContent = [],
   count,
   level,
 }: {
   topic: string;
-  docTitle: string;
+  docTitle?: string;
+  pagesContent?: string[];
   count: number;
   level: string;
-}): Promise<(Question & { keep: boolean })[]> {
-  await new Promise((r) => setTimeout(r, 1200));
-  const base = topic.trim() || docTitle;
-  return Array.from({ length: count }, (_, i) => ({
+}): Promise<(Question & { keep: boolean; explanation?: string })[]> {
+  const safeCount = Math.min(20, Math.max(1, count || 5));
+  const safeLevel = ["Dễ", "Vừa", "Khó"].includes(level) ? level : "Vừa";
+
+  if (!hasGeminiApiKey()) {
+    throw new Error(
+      "Chưa cấu hình Google Gemini API Key. Bạn vui lòng cài đặt API Key trong phần Trợ lý AI (ở Thư viện) để AI tạo câu hỏi."
+    );
+  }
+
+  const generated = await generateExamQuestionsWithGemini({
+    topic,
+    docTitle,
+    pagesContent,
+    count: safeCount,
+    level: safeLevel,
+  });
+
+  return generated.map((g) => ({
     id: uid(),
     keep: true,
-    correct: i % 4,
-    text: `[Mẫu · ${level}] Nhận định nào sau đây đúng về “${base}”? (câu ${i + 1})`,
-    options: ["Nhận định A", "Nhận định B", "Nhận định C", "Nhận định D"],
+    text: g.question,
+    options: g.options,
+    correct: g.correctAnswer,
+    explanation: g.explanation,
   }));
 }
 

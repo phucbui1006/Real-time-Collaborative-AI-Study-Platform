@@ -506,3 +506,148 @@ Trả về kết quả ở dạng JSON thuần túy theo schema sau (KHÔNG bọ
     throw new Error("Không thể phân tích dữ liệu câu hỏi từ AI. Hãy thử lại.");
   }
 }
+
+/**
+ * 5. Tạo bộ câu hỏi trắc nghiệm chuyên sâu cho tính năng Bài kiểm tra (Tests)
+ * Hỗ trợ tạo theo chủ đề tự do, theo tài liệu tải lên hoặc kết hợp cả hai,
+ * phân hóa theo độ khó (Dễ / Vừa / Khó).
+ */
+export type GeneratedExamQuestion = {
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation?: string;
+};
+
+export async function generateExamQuestionsWithGemini({
+  topic = "",
+  docTitle = "",
+  pagesContent = [],
+  count = 5,
+  level = "Vừa",
+}: {
+  topic?: string;
+  docTitle?: string;
+  pagesContent?: string[];
+  count?: number;
+  level?: string;
+}): Promise<GeneratedExamQuestion[]> {
+  // 1. Trích xuất và dọn dẹp nội dung trang
+  let contentText = "";
+  if (pagesContent && pagesContent.length > 0) {
+    const textPieces = pagesContent
+      .map((p) => {
+        if (typeof p !== "string") return "";
+        return p.replace(/!\[.*?\]\(.*?\)/g, "").trim();
+      })
+      .filter(Boolean);
+    contentText = textPieces.join("\n\n").slice(0, 16000);
+  }
+
+  // 2. Định nghĩa hướng dẫn theo độ khó
+  const levelGuide =
+    level === "Dễ"
+      ? "Mức độ DỄ: Tập trung vào nhận biết kiến thức cơ bản, định nghĩa cốt lõi, thông tin hiển hiện rõ ràng."
+      : level === "Khó"
+      ? "Mức độ KHÓ: Đòi hỏi tư duy suy luận logic, phân tích tổng hợp, vận dụng nâng cao và có các phương án gây nhiễu tinh vi."
+      : "Mức độ VỪA: Tập trung vào thông hiểu, giải thích, so sánh và áp dụng kiến thức vào bài toán/ngữ cảnh thực tế.";
+
+  // 3. Xây dựng ngữ cảnh tài liệu
+  let contextBlock = "";
+  if (contentText) {
+    contextBlock = `=== NỘI DUNG TÀI LIỆU (${docTitle || "Tài liệu học tập"}) ===\n${contentText}\n=== HẾT NỘI DUNG TÀI LIỆU ===`;
+  } else if (docTitle) {
+    contextBlock = `=== TÊN TÀI LIỆU: "${docTitle}" ===`;
+  }
+
+  // 4. Xây dựng yêu cầu chủ đề
+  const topicBlock = topic.trim()
+    ? `Chủ đề hoặc yêu cầu trọng tâm từ người dùng: "${topic.trim()}".`
+    : `Bao quát các trọng tâm kiến thức quan trọng nhất trong tài liệu được cung cấp.`;
+
+  const prompt = `
+Bạn là một chuyên gia khảo thí và sư phạm giáo dục xuất sắc.
+Hãy biên soạn chính xác ${count} câu hỏi trắc nghiệm chất lượng cao (mỗi câu gồm đúng 4 phương án lựa chọn A, B, C, D với DUY NHẤT 1 phương án chính xác).
+
+${contextBlock}
+
+YÊU CẦU BIÊN SOẠN BẮT BUỘC:
+1. ${topicBlock}
+2. ${levelGuide}
+3. Các phương án sai (distractors) phải hợp lý, không được vô lý hay hiển nhiên sai.
+4. Câu hỏi và các phương án phải bằng tiếng Việt chuẩn xác, mạch lạc, đúng ngữ pháp.
+5. Chỉ trả về kết quả dưới định dạng JSON thuần túy (KHÔNG dùng markdown \`\`\`json hay bất kỳ văn bản nào khác):
+{
+  "questions": [
+    {
+      "question": "Nội dung câu hỏi?",
+      "options": [
+        "Nội dung phương án A",
+        "Nội dung phương án B",
+        "Nội dung phương án C",
+        "Nội dung phương án D"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Giải thích ngắn gọn, dễ hiểu vì sao phương án này đúng."
+    }
+  ]
+}
+Lưu ý: "correctAnswer" là số nguyên từ 0 đến 3 tương ứng vị trí đáp án đúng trong mảng "options" (0: A, 1: B, 2: C, 3: D).
+`;
+
+  const rawJson = await callGemini(prompt, true);
+  try {
+    const cleaned = rawJson.replace(/^\`\`\`json\s*/i, "").replace(/\s*\`\`\`$/, "").trim();
+    const parsed = JSON.parse(cleaned);
+    const list = Array.isArray(parsed.questions)
+      ? parsed.questions
+      : Array.isArray(parsed)
+      ? parsed
+      : [];
+
+    if (list.length === 0) {
+      throw new Error("AI không trả về danh sách câu hỏi hợp lệ.");
+    }
+
+    return list.map((q: any, i: number) => {
+      let opts = [];
+      if (Array.isArray(q.options)) {
+        opts = q.options.map((o: any) => String(o || "").trim());
+      } else if (typeof q.options === "object" && q.options !== null) {
+        opts = ["A", "B", "C", "D"].map((k) => String(q.options[k] || "").trim());
+      }
+      while (opts.length < 4) {
+        opts.push(`Phương án ${String.fromCharCode(65 + opts.length)}`);
+      }
+      opts = opts.slice(0, 4);
+
+      let correctIdx = 0;
+      if (typeof q.correctAnswer === "number") {
+        correctIdx = Math.max(0, Math.min(3, Math.floor(q.correctAnswer)));
+      } else if (typeof q.correct === "number") {
+        correctIdx = Math.max(0, Math.min(3, Math.floor(q.correct)));
+      } else if (typeof q.correctAnswer === "string") {
+        const char = q.correctAnswer.trim().toUpperCase();
+        const map: Record<string, number> = { A: 0, B: 1, C: 2, D: 3 };
+        if (char in map) correctIdx = map[char];
+        else if (!isNaN(Number(char))) correctIdx = Math.max(0, Math.min(3, Number(char)));
+      } else if (typeof q.correct === "string") {
+        const char = q.correct.trim().toUpperCase();
+        const map: Record<string, number> = { A: 0, B: 1, C: 2, D: 3 };
+        if (char in map) correctIdx = map[char];
+        else if (!isNaN(Number(char))) correctIdx = Math.max(0, Math.min(3, Number(char)));
+      }
+
+      return {
+        question: String(q.question || q.text || `Câu hỏi ${i + 1}`).trim(),
+        options: opts,
+        correctAnswer: correctIdx,
+        explanation: typeof q.explanation === "string" ? q.explanation.trim() : undefined,
+      };
+    });
+  } catch (err: any) {
+    console.error("Lỗi parse JSON câu hỏi Gemini:", err, rawJson);
+    throw new Error(err?.message || "Không thể phân tích dữ liệu câu hỏi từ AI. Hãy thử lại.");
+  }
+}
+

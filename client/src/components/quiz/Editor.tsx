@@ -2,25 +2,25 @@ import { useState } from "react";
 import {
   ExamSet,
   Question,
-  AI_DOCS,
   BTN,
   BTN_OUT,
   INP,
   newQ,
   validateQ,
   isBlankQ,
+  QuizDocItem,
 } from "../../services/examService";
 import { QuestionFields } from "./QuestionFields";
 import { AIPanel } from "./AIPanel";
 
 interface EditorProps {
   initial: ExamSet;
-  docs?: { id: number; title: string }[];
+  docs?: QuizDocItem[];
   onSave: (set: ExamSet) => void;
   onCancel: () => void;
 }
 
-export function Editor({ initial, docs = AI_DOCS, onSave, onCancel }: EditorProps) {
+export function Editor({ initial, docs = [], onSave, onCancel }: EditorProps) {
   const [title, setTitle] = useState(initial.title);
   const [subject, setSubject] = useState(initial.subject);
   const [minutes, setMinutes] = useState<number | string>(initial.minutes);

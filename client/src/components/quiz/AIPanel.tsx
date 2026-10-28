@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Key } from "lucide-react";
 import {
   Question,
   LEVELS,
@@ -7,11 +8,14 @@ import {
   INP,
   generateQuestionsApi,
   validateQ,
+  QuizDocItem,
+  fetchDocPagesContent,
 } from "../../services/examService";
 import { QuestionFields } from "./QuestionFields";
+import { AIKeyModal } from "../documents/AIKeyModal";
 
 interface AIPanelProps {
-  docs: { id: number; title: string }[];
+  docs: QuizDocItem[];
   onAdd: (questions: Question[]) => void;
   onClose: () => void;
 }
@@ -24,22 +28,35 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
   const [loading, setLoading] = useState(false);
   const [drafts, setDrafts] = useState<(Question & { keep: boolean })[]>([]);
   const [err, setErr] = useState("");
+  const [keyModalOpen, setKeyModalOpen] = useState(false);
 
   const gen = async () => {
-    if (!topic.trim() && !docId) return setErr("Hãy nhập chủ đề hoặc chọn một tài liệu.");
+    if (!topic.trim() && !docId) {
+      return setErr("Hãy nhập chủ đề hoặc chọn một tài liệu.");
+    }
     setErr("");
     setLoading(true);
+
     try {
       const doc = docs.find((d) => String(d.id) === docId);
+      let pages = doc?.pagesContent || [];
+
+      // Nếu tài liệu được chọn chưa có sẵn nội dung trong RAM, tải nhanh từ Supabase
+      if (doc && (!pages || pages.length === 0)) {
+        pages = await fetchDocPagesContent(doc.id);
+      }
+
       const res = await generateQuestionsApi({
         topic,
         docTitle: doc?.title || "",
+        pagesContent: pages,
         count: Math.min(20, Math.max(1, +count || 5)),
         level,
       });
+
       setDrafts(res);
-    } catch {
-      setErr("AI chưa tạo được câu hỏi. Hãy thử lại.");
+    } catch (e: any) {
+      setErr(e?.message || "AI chưa tạo được câu hỏi. Hãy thử lại.");
     } finally {
       setLoading(false);
     }
@@ -61,14 +78,27 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
   return (
     <div className="rounded-md bg-white dark:bg-[#1b1b26] p-6 shadow-[0_4px_0_0_#111118] border-2 border-[#111118] dark:border-[#2a2a3a]">
       <div className="flex items-center justify-between">
-        <h3 className="font-normal text-xl text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">✨ Tạo câu hỏi bằng AI</h3>
-        <button
-          onClick={onClose}
-          aria-label="Đóng"
-          className="w-8 h-8 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] cursor-pointer transition-all"
-        >
-          ✕
-        </button>
+        <h3 className="font-normal text-xl text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">
+          ✨ Tạo câu hỏi bằng AI
+        </h3>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setKeyModalOpen(true)}
+            title="Cài đặt Google Gemini API Key"
+            className="h-8 px-2.5 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-xs font-normal text-[#111118] dark:text-[#f0f6ff] flex items-center gap-1.5 shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] dark:hover:bg-[#2e2e44] cursor-pointer transition-all"
+          >
+            <Key className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Cài đặt API Key</span>
+          </button>
+          <button
+            onClick={onClose}
+            aria-label="Đóng"
+            className="w-8 h-8 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] cursor-pointer transition-all"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
       <div className="mt-4 grid grid-cols-6 gap-3">
@@ -79,7 +109,7 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
             rows={2}
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder="VD: Phương trình bậc hai, mức độ lớp 10"
+            placeholder="VD: Phương trình bậc hai, mức độ lớp 10 hoặc phần cần chú trọng trong tài liệu"
           />
         </label>
         <label className="col-span-6 sm:col-span-3 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
@@ -89,12 +119,18 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
             value={docId}
             onChange={(e) => setDocId(e.target.value)}
           >
-            <option value="">Không dùng tài liệu</option>
-            {docs.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.title}
+            <option value="">Không dùng tài liệu (nhập chủ đề)</option>
+            {docs.length === 0 ? (
+              <option disabled value="_none_">
+                Chưa có tài liệu trong Thư viện
               </option>
-            ))}
+            ) : (
+              docs.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.fileType ? `[${d.fileType}] ` : ""}{d.title}
+                </option>
+              ))
+            )}
           </select>
         </label>
         <label className="col-span-3 sm:col-span-1 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
@@ -135,14 +171,35 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
         disabled={loading}
         className={BTN + " mt-5"}
       >
-        <span>{loading ? "AI đang tạo câu hỏi…" : drafts.length ? "Tạo lại" : "Tạo câu hỏi"}</span>
+        <span>
+          {loading
+            ? "AI đang đọc tài liệu & soạn câu hỏi…"
+            : drafts.length
+            ? "Tạo lại"
+            : "Tạo câu hỏi"}
+        </span>
       </button>
 
-      {err && <div className="mt-3 rounded-sharp bg-[#ff4141]/10 border border-[#ff4141] px-4 py-2.5 text-xs font-normal text-[#ff4141]">{err}</div>}
+      {err && (
+        <div className="mt-3 rounded-sharp bg-[#ff4141]/10 border border-[#ff4141] px-4 py-2.5 text-xs font-normal text-[#ff4141] flex items-center justify-between gap-3">
+          <span>{err}</span>
+          {err.toLowerCase().includes("api key") && (
+            <button
+              type="button"
+              onClick={() => setKeyModalOpen(true)}
+              className="underline hover:text-[#0b7a75] font-semibold cursor-pointer shrink-0"
+            >
+              Cài đặt ngay
+            </button>
+          )}
+        </div>
+      )}
 
       {drafts.length > 0 && !loading && (
         <div className="mt-6">
-          <h4 className="text-base font-normal text-[#111118] dark:text-[#f0f6ff]">Câu hỏi AI vừa tạo ({drafts.length})</h4>
+          <h4 className="text-base font-normal text-[#111118] dark:text-[#f0f6ff]">
+            Câu hỏi AI vừa tạo ({drafts.length})
+          </h4>
           <p className="mt-1 text-xs font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">
             Sửa trực tiếp nội dung và đáp án bên dưới, bỏ chọn những câu không muốn dùng.
           </p>
@@ -180,6 +237,11 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
           </div>
         </div>
       )}
+
+      <AIKeyModal
+        isOpen={keyModalOpen}
+        onClose={() => setKeyModalOpen(false)}
+      />
     </div>
   );
 }

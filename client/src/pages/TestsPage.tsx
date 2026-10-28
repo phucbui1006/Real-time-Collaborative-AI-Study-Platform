@@ -7,7 +7,6 @@ import {
   SEED_SETS,
   SEED_HISTORY,
   BOT_NAMES,
-  AI_DOCS,
   BTN_OUT,
   ExamSet,
   ExamHistory,
@@ -15,6 +14,8 @@ import {
   MyExamState,
   ExamResult,
   board,
+  QuizDocItem,
+  loadUserQuizDocs,
 } from "../services/examService";
 import { Editor } from "../components/quiz/Editor";
 import { OpenModal } from "../components/quiz/OpenModal";
@@ -63,6 +64,19 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   const historyKey = `permind_exam_history_${userId || "guest"}`;
 
   const [tab, setTab] = useState<"sets" | "history">("sets");
+  const [libraryDocs, setLibraryDocs] = useState<QuizDocItem[]>([]);
+
+  // Tải danh sách tài liệu từ Thư viện (kết hợp cache và Supabase) để phục vụ AI tạo câu hỏi
+  useEffect(() => {
+    let active = true;
+    loadUserQuizDocs(userId).then((docs) => {
+      if (active) setLibraryDocs(docs);
+    });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
 
   // Tài khoản thật: ban đầu rỗng (0 bộ đề, 0 lịch sử thi), người dùng tự thêm/tự xóa
   // Tài khoản demo/khách: nạp SEED_SETS và SEED_HISTORY mẫu
@@ -266,7 +280,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
 
   /* ---- các màn ---- */
   if (view.name === "edit") {
-    return <Editor initial={view.set} docs={AI_DOCS} onSave={saveSet} onCancel={home} />;
+    return <Editor initial={view.set} docs={libraryDocs} onSave={saveSet} onCancel={home} />;
   }
 
   if (view.name === "host" && live) {
