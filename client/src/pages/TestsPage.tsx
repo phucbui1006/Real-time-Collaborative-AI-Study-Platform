@@ -24,7 +24,7 @@ import { HostView } from "../components/quiz/HostView";
 import { TakeView } from "../components/quiz/TakeView";
 import { ResultView } from "../components/quiz/ResultView";
 import { getSubjectStyle } from "../components/documents/DocumentStore";
-import { Radio, ArrowRight, PlayCircle, Plus } from "lucide-react";
+import { Radio, PlayCircle, Plus } from "lucide-react";
 import { idleService } from "../services/idleService";
 import { isValidUUID } from "../utils";
 import {
@@ -135,7 +135,42 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   const now = useNow();
 
   const remaining = live ? Math.max(0, Math.ceil((live.endAt - now) / 1000)) : 0;
+  // Chỉ coi là đang hoạt động nếu bài đang running, còn thời gian và người dùng chưa nộp bài
+  const isLiveActive = Boolean(live && live.status === "running" && remaining > 0 && (!mine || !mine.done));
   const rows = live ? board(live, mine, userName) : [];
+
+  // Tự động lưu bài thi vào Lịch sử làm bài
+  const saveExamToHistory = (
+    exam: LiveExam,
+    score: number,
+    rank: number,
+    ofCount: number
+  ) => {
+    setHistory((prev) => {
+      const today = new Date().toLocaleDateString("vi-VN");
+      const alreadySaved = prev.some(
+        (h) => (h as any).examCode === exam.code || (h.title === exam.set.title && h.date === today && Math.abs(h.score - score) < 0.01)
+      );
+      if (alreadySaved) return prev;
+
+      const newEntry: ExamHistory & { examCode?: string } = {
+        id: uid(),
+        examCode: exam.code,
+        title: exam.set.title,
+        subject: exam.set.subject || "KIỂM TRA",
+        score: Number(score.toFixed(1)),
+        rank: Math.max(1, rank),
+        of: Math.max(1, ofCount),
+        date: today,
+      };
+
+      const updated = [newEntry, ...prev];
+      try {
+        localStorage.setItem(historyKey, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
 
   // Hết giờ theo mốc thời gian tuyệt đối (endAt) → tự động kết thúc bài
   useEffect(() => {
@@ -274,27 +309,14 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       perQ: qs.map((q) => (ans[q.id] === undefined ? null : ans[q.id] === q.correct)),
     };
     channelRef.current?.sendStudentSubmit(userName, me.correct, me.correct, me.score);
-    setMine({ ...mine, done: true });
-    setHistory((h) => {
-      const updated = [
-        {
-          id: uid(),
-          title: res.title,
-          subject: res.subject,
-          score: res.score,
-          rank: res.rank,
-          of: res.of,
-          date: new Date().toLocaleDateString("vi-VN"),
-        },
-        ...h,
-      ];
-      try {
-        localStorage.setItem(historyKey, JSON.stringify(updated));
-      } catch {}
-      return updated;
-    });
+    setMine((m) => (m ? { ...m, done: true } : null));
+    saveExamToHistory(live, res.score, res.rank, res.of);
     setResult(res);
     setView({ name: "result" });
+    try {
+      localStorage.removeItem("permind_current_mine_exam");
+      localStorage.removeItem("permind_current_live_exam");
+    } catch {}
   };
 
   // Hết giờ khi đang làm bài → tự nộp
@@ -400,7 +422,19 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     setView({ name: "home" });
   };
 
-  const home = () => setView({ name: "home" });
+  const home = () => {
+    // Nếu bài thi đã kết thúc hoặc thí sinh đã làm xong bài, tự động mở tab Lịch sử làm bài
+    if (!isLiveActive && (result || (mine && mine.done) || (live && live.status === "ended"))) {
+      setTab("history");
+      setLive(null);
+      setMine(null);
+      try {
+        localStorage.removeItem("permind_current_live_exam");
+        localStorage.removeItem("permind_current_mine_exam");
+      } catch {}
+    }
+    setView({ name: "home" });
+  };
 
   /* ---- các màn ---- */
   if (view.name === "edit") {
@@ -578,34 +612,89 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
             </div>
           </div>
 
-          {/* Khung bài kiểm tra đang mở */}
+          {/* Khung bài kiểm tra đang tham gia (Chỉ hiện khi đang diễn ra) */}
           <div className="rounded-md bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] flex flex-col justify-between">
             <div>
-              <h2 className="font-normal text-[#111118] dark:text-[#f0f6ff] text-xl tracking-[-0.015em]">Bài kiểm tra bạn đang mở</h2>
-              {live ? (
-                <div className="mt-4 flex items-center justify-between gap-3 p-4 rounded-[4px] bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a]">
+              <div className="flex items-center justify-between">
+                <h2 className="font-normal text-[#111118] dark:text-[#f0f6ff] text-xl tracking-[-0.015em]">
+                  Bài kiểm tra đang tham gia
+                </h2>
+                {isLiveActive && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono bg-[#16ab59]/15 text-[#16ab59] border border-[#16ab59]/30">
+                    <span className="w-2 h-2 rounded-full bg-[#16ab59] animate-pulse" />
+                    Đang diễn ra
+                  </span>
+                )}
+              </div>
+
+              {isLiveActive && live ? (
+                <div className="mt-4 p-4 rounded-[4px] bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a]">
                   <div className="min-w-0">
-                    <div className="truncate text-base font-normal text-[#111118] dark:text-[#f0f6ff]">{live.set.title}</div>
-                    <div className="text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-mono tabular-nums mt-0.5">
-                      Mã <strong className="text-[#0b7a75] dark:text-[#2dd4bf] font-mono">{live.code}</strong> · {running ? `còn ${fmt(remaining)}` : "đã kết thúc"}
+                    <div className="truncate text-base font-medium text-[#111118] dark:text-[#f0f6ff]">
+                      {live.set.title}
+                    </div>
+                    <div className="text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-mono tabular-nums mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                      <span>Mã: <strong className="text-[#0b7a75] dark:text-[#2dd4bf] font-mono text-sm">{live.code}</strong></span>
+                      <span>·</span>
+                      <span>Còn <strong className="text-[#ff4141] font-mono">{fmt(remaining)}</strong></span>
+                      {mine && (
+                        <>
+                          <span>·</span>
+                          <span>Đã làm {Object.keys(mine.answers).length}/{live.set.questions.length} câu</span>
+                        </>
+                      )}
                     </div>
                   </div>
-                  <button
-                    onClick={() => setView({ name: "host" })}
-                    className="inline-flex items-center gap-1.5 h-10 px-4 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-xs font-normal text-[#111118] dark:text-[#f0f6ff] hover:bg-[#f0f6ff] dark:hover:bg-[#2a2a3a] transition-all shadow-[0_2px_0_0_#111118] cursor-pointer"
-                  >
-                    <span>Xem bảng điểm</span>
-                    <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  </button>
+
+                  <div className="mt-4 pt-3 border-t border-[#111118]/10 dark:border-white/10 flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => {
+                        if (mine) {
+                          if (window.confirm("Bạn có muốn nộp bài sớm và rời phòng thi? Điểm số hiện tại sẽ được lưu vào Lịch sử.")) {
+                            finishTake();
+                          }
+                        } else {
+                          if (window.confirm("Bạn có muốn kết thúc và đóng bài kiểm tra này?")) {
+                            channelRef.current?.sendExamEnded();
+                            closeLiveExam(live.code);
+                            const me = rows.find((r) => r.me);
+                            saveExamToHistory(live, me ? me.score : 10, me ? me.rank : 1, rows.length || 1);
+                            setLive(null);
+                            setTab("history");
+                            try {
+                              localStorage.removeItem("permind_current_live_exam");
+                              localStorage.removeItem("permind_current_mine_exam");
+                            } catch {}
+                          }
+                        }
+                      }}
+                      className="text-xs text-[#ff4141] hover:underline cursor-pointer font-normal"
+                    >
+                      {mine ? "Nộp bài sớm & Rời" : "Đóng bài kiểm tra"}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (mine) {
+                          setView({ name: "take" });
+                        } else {
+                          setView({ name: "host" });
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 h-10 px-5 rounded-pill bg-[#0b7a75] hover:bg-[#09635f] text-white text-xs font-normal border-2 border-[#111118] shadow-[0_3px_0_0_#111118] active:translate-y-[1px] transition-all cursor-pointer"
+                    >
+                      <span>{mine ? "Tiếp tục làm bài" : "Vào phòng thi & Bảng điểm"}</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="py-5 flex flex-col items-center justify-center text-center">
                   <div className="flex h-12 w-12 items-center justify-center rounded-sm bg-[#91d8ec] text-[#111118] border border-[#111118] mb-2 shadow-[0_2px_0_0_#111118]">
                     <Radio className="h-5 w-5" strokeWidth={1.75} />
                   </div>
-                  <p className="text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">Chưa có phòng thi nào đang hoạt động</p>
+                  <p className="text-sm font-normal text-[#111118] dark:text-[#f0f6ff]">Chưa có bài kiểm tra nào đang tham gia</p>
                   <p className="text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 mt-0.5 max-w-xs font-normal">
-                    Chọn "Mở bài kiểm tra" ở danh sách bên dưới để lấy mã phòng cho bạn bè.
+                    Nhập mã 6 chữ số bên trái để vào thi, hoặc chọn "Mở bài kiểm tra" từ bộ câu hỏi của bạn bên dưới.
                   </p>
                 </div>
               )}
@@ -614,7 +703,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
             <div className="mt-6 pt-3 border-t border-[#e1edff] dark:border-[#2a2a3a] flex items-center justify-between text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-normal">
               <span>Trạng thái phòng thi</span>
               <span className="font-mono text-[11px] text-[#0b7a75] dark:text-[#2dd4bf] font-normal">
-                {live ? (running ? "Đang diễn ra" : "Đã kết thúc") : "Sẵn sàng mở"}
+                {isLiveActive ? "Đang tham gia" : "Sẵn sàng"}
               </span>
             </div>
           </div>
