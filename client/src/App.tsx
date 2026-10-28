@@ -129,6 +129,8 @@ export default function App() {
   const [idleState, setIdleState] = useState<IdleState>({ isWarning: false, remainingSeconds: 60 });
   const idleTimeoutRef = useRef<() => void>(() => {});
   const hasBeenLoggedIn = useRef(false);
+  // Cờ đánh dấu người dùng chủ động bấm đăng xuất (tránh việc listener tự bật modal thông báo hết hạn phiên)
+  const isExplicitLogout = useRef(false);
 
   useEffect(() => {
     document.body.style.overflow = isLoginOpen ? "hidden" : "";
@@ -170,7 +172,12 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setTimeout(() => {
         if (event === "SIGNED_OUT" || !session) {
-          if (!hasBeenLoggedIn.current) return;
+          // Nếu người dùng chưa từng đăng nhập hoặc chủ động bấm đăng xuất, không mở popup và không báo hết hạn
+          if (!hasBeenLoggedIn.current || isExplicitLogout.current) {
+            setIsLoginOpen(false);
+            setAuthNotice(null);
+            return;
+          }
 
           idleService.stop();
           clearAllUserState();
@@ -332,12 +339,27 @@ export default function App() {
     idleTimeoutRef.current = handleIdleTimeout;
   });
 
+  // Xử lý đăng xuất chủ động: ẩn popup, chuyển về trang giới thiệu và đăng xuất Supabase
   const handleLogout = async () => {
     idleService.stop();
     clearAllUserState();
-    await logoutUser();
+    isExplicitLogout.current = true;
+    hasBeenLoggedIn.current = false;
+    setIsLoginOpen(false);
+    setAuthNotice(null);
     setCurrentUser(null);
     setIsLoggedIn(false);
+    // Cuộn mượt lên đầu trang giới thiệu
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    try {
+      await logoutUser();
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      setTimeout(() => {
+        isExplicitLogout.current = false;
+      }, 1000);
+    }
   };
 
   if (isLoggedIn) {
