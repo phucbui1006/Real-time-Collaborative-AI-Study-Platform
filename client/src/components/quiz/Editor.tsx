@@ -60,7 +60,7 @@ export function Editor({ initial, docs = AI_DOCS, onSave, onCancel }: EditorProp
         onClick={onCancel}
         className="text-sm font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70 hover:text-[#0b7a75] transition-colors cursor-pointer inline-flex items-center gap-1.5"
       >
-        <span>← Quay lại</span>
+        <span>Quay lại</span>
       </button>
       <h1 className="mt-2 text-3xl font-normal text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">
         {initial.isNew ? "Tạo bộ câu hỏi mới" : "Chỉnh sửa bộ câu hỏi"}
@@ -148,7 +148,6 @@ export function Editor({ initial, docs = AI_DOCS, onSave, onCancel }: EditorProp
         </button>
         <button onClick={save} className={BTN}>
           <span>Lưu bộ câu hỏi</span>
-          <span aria-hidden="true">→</span>
         </button>
       </div>
     </div>

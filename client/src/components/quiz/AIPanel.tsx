@@ -136,7 +136,6 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
         className={BTN + " mt-5"}
       >
         <span>{loading ? "AI đang tạo câu hỏi…" : drafts.length ? "Tạo lại" : "Tạo câu hỏi"}</span>
-        <span aria-hidden="true">→</span>
       </button>
 
       {err && <div className="mt-3 rounded-sharp bg-[#ff4141]/10 border border-[#ff4141] px-4 py-2.5 text-xs font-normal text-[#ff4141]">{err}</div>}
@@ -177,7 +176,6 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
               className={BTN}
             >
               <span>Thêm {chosen.length} câu vào bộ câu hỏi</span>
-              <span aria-hidden="true">→</span>
             </button>
           </div>
         </div>

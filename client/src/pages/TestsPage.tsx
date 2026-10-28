@@ -380,7 +380,6 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
           >
             <Plus className="h-5 w-5" strokeWidth={1.75} />
             <span>Tạo bộ câu hỏi</span>
-            <span aria-hidden="true">→</span>
           </button>
         </div>
 
@@ -415,7 +414,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                       : "bg-[#e1edff] dark:bg-[#242436] text-[#111118]/60 dark:text-[#f0f6ff]/60 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] cursor-not-allowed"
                   }`}
                 >
-                  Vào thi →
+                  Vào thi
                 </button>
               </form>
               {joinErr && <p className="mt-2 text-xs text-[#ff4141] font-normal">{joinErr}</p>}
@@ -526,7 +525,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                         className="inline-flex items-center gap-1.5 rounded-pill h-12 px-5 text-sm font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer disabled:opacity-40"
                       >
                         <PlayCircle className="h-4 w-4" strokeWidth={1.75} />
-                        Mở bài kiểm tra →
+                        Mở bài kiểm tra
                       </button>
 
                       <button

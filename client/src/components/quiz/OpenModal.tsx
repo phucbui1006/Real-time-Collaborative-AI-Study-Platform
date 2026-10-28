@@ -65,7 +65,6 @@ export function OpenModal({ set, onStart, onClose }: OpenModalProps) {
           className={BTN + " mt-6 w-full"}
         >
           <span>Bắt đầu bài thi</span>
-          <span aria-hidden="true">→</span>
         </button>
       </div>
     </div>

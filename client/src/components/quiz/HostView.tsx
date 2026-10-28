@@ -28,7 +28,7 @@ export function HostView({ live, rows, remaining, onBack, onEnd, onClose, onTry 
         onClick={onBack}
         className="text-sm font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70 hover:text-[#0b7a75] dark:hover:text-[#2dd4bf] transition-colors cursor-pointer inline-flex items-center gap-1.5"
       >
-        <span>← Về trang bài kiểm tra</span>
+        <span>Về trang bài kiểm tra</span>
       </button>
 
       <div
@@ -95,7 +95,7 @@ export function HostView({ live, rows, remaining, onBack, onEnd, onClose, onTry 
             onClick={onClose}
             className="rounded-pill h-12 px-6 bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] text-base font-normal cursor-pointer active:translate-y-[2px] transition-all"
           >
-            Đóng bài kiểm tra →
+            Đóng bài kiểm tra
           </button>
         )}
       </div>

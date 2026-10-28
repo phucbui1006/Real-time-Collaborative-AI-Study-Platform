@@ -48,7 +48,6 @@ export function ResultView({ res, onHome }: ResultViewProps) {
           className="inline-flex items-center justify-center gap-2 rounded-pill h-12 px-8 text-base font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer"
         >
           <span>Về trang bài kiểm tra</span>
-          <span aria-hidden="true">→</span>
         </button>
       </div>
     </div>

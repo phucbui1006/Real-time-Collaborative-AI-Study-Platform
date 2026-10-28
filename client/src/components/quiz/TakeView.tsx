@@ -207,7 +207,6 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
                     ? `Nộp bài (còn ${qs.length - answered} câu)`
                     : "Xem kết quả"}
                 </span>
-                <span aria-hidden="true">→</span>
               </button>
             )}
           </div>
