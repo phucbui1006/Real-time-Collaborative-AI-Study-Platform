@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   uid,
   code6,
   fmt,
   newQ,
+  score10,
   SEED_SETS,
   SEED_HISTORY,
   BOT_NAMES,
@@ -26,6 +27,13 @@ import { getSubjectStyle } from "../components/documents/DocumentStore";
 import { Radio, ArrowRight, PlayCircle, Plus } from "lucide-react";
 import { idleService } from "../services/idleService";
 import { isValidUUID } from "../utils";
+import {
+  publishLiveExam,
+  fetchLiveExam,
+  closeLiveExam,
+  subscribeExamRealtime,
+} from "../services/liveExamSync";
+
 
 function useNow(ms = 1000) {
   const [n, setN] = useState(Date.now());
@@ -122,6 +130,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   const [openFor, setOpenFor] = useState<ExamSet | null>(null);
   const [joinCode, setJoinCode] = useState("");
   const [joinErr, setJoinErr] = useState("");
+  const [joining, setJoining] = useState(false);
+  const channelRef = useRef<ReturnType<typeof subscribeExamRealtime> | null>(null);
   const now = useNow();
 
   const remaining = live ? Math.max(0, Math.ceil((live.endAt - now) / 1000)) : 0;
@@ -139,13 +149,104 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     }
   }, [remaining, live]);
 
-  // Mô phỏng các thí sinh khác – xoá khi nối realtime thật (WebSocket)
+  // Kết nối Supabase Realtime Channel để nhận dữ liệu từ các thí sinh thực tế
   useEffect(() => {
-    if (live?.status !== "running") return;
+    if (!live || live.status !== "running") {
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
+      return;
+    }
+
+    const sub = subscribeExamRealtime(live.code, {
+      onStudentJoin: (student) => {
+        setLive((curr) => {
+          if (!curr) return curr;
+          const parts = curr.participants || [];
+          if (parts.some((p) => p.name === student.name)) return curr;
+          return {
+            ...curr,
+            participants: [
+              ...parts,
+              {
+                id: student.id,
+                name: student.name,
+                answered: 0,
+                correct: 0,
+                score: 0,
+                done: false,
+                joinedAt: Date.now(),
+              },
+            ],
+          };
+        });
+      },
+      onStudentProgress: (data) => {
+        setLive((curr) => {
+          if (!curr) return curr;
+          const parts = (curr.participants || []).map((p) =>
+            p.name === data.name
+              ? { ...p, answered: data.answered, correct: data.correct, score: data.score, done: data.done }
+              : p
+          );
+          if (!parts.some((p) => p.name === data.name)) {
+            parts.push({
+              name: data.name,
+              answered: data.answered,
+              correct: data.correct,
+              score: data.score,
+              done: data.done,
+            });
+          }
+          return { ...curr, participants: parts };
+        });
+      },
+      onStudentSubmit: (data) => {
+        setLive((curr) => {
+          if (!curr) return curr;
+          const parts = (curr.participants || []).map((p) =>
+            p.name === data.name
+              ? { ...p, answered: data.answered, correct: data.correct, score: data.score, done: true }
+              : p
+          );
+          if (!parts.some((p) => p.name === data.name)) {
+            parts.push({
+              name: data.name,
+              answered: data.answered,
+              correct: data.correct,
+              score: data.score,
+              done: true,
+            });
+          }
+          return { ...curr, participants: parts };
+        });
+      },
+      onExamEnded: () => {
+        setLive((curr) => (curr ? { ...curr, status: "ended" } : null));
+      },
+    });
+
+    channelRef.current = sub;
+
+    // Nếu người dùng đang ở chế độ làm bài (thí sinh), phát thông báo tham gia
+    if (view.name === "take") {
+      sub.sendStudentJoin(userName, userId);
+    }
+
+    return () => {
+      sub.unsubscribe();
+      channelRef.current = null;
+    };
+  }, [live?.code, live?.status, view.name, userName, userId]);
+
+  // Mô phỏng thí sinh mẫu (chỉ chạy khi chủ phòng chủ động bấm thêm bot)
+  useEffect(() => {
+    if (live?.status !== "running" || !live.bots || live.bots.length === 0) return;
     const total = live.set.questions.length;
     const t = setInterval(() => {
       setLive((l) => {
-        if (!l || l.status !== "running") return l;
+        if (!l || l.status !== "running" || !l.bots || l.bots.length === 0) return l;
         const open = l.bots.map((b, i): [typeof b, number] => [b, i]).filter(([b]) => b.answered < total);
         if (!open.length) return l;
         const [b, i] = open[Math.floor(Math.random() * open.length)];
@@ -155,7 +256,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       });
     }, 2200);
     return () => clearInterval(t);
-  }, [live?.status, live?.code]);
+  }, [live?.status, live?.code, live?.bots?.length]);
 
   const finishTake = () => {
     if (!mine || mine.done || !live) return;
@@ -172,6 +273,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       of: rows.length,
       perQ: qs.map((q) => (ans[q.id] === undefined ? null : ans[q.id] === q.correct)),
     };
+    channelRef.current?.sendStudentSubmit(userName, me.correct, me.correct, me.score);
     setMine({ ...mine, done: true });
     setHistory((h) => {
       const updated = [
@@ -200,7 +302,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     if (live?.status === "ended" && view.name === "take") finishTake();
   }, [live?.status]);
 
-  const startExam = (set: ExamSet, minutes: number) => {
+  const startExam = async (set: ExamSet, minutes: number) => {
     const startedAt = Date.now();
     const endAt = startedAt + minutes * 60000;
     const code = code6();
@@ -211,7 +313,10 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       startedAt,
       endAt,
       status: "running",
-      bots: BOT_NAMES.map((name) => ({ name, answered: 0, correct: 0 })),
+      hostUserId: userId || null,
+      hostName: userName || "Chủ phòng",
+      participants: [],
+      bots: [],
     };
     setLive(newLive);
     try {
@@ -221,45 +326,64 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     setMine(null);
     setOpenFor(null);
     setView({ name: "host" });
+
+    // Đồng bộ phòng thi lên Supabase Cloud để mọi máy khác đều có thể nhập mã tham gia
+    await publishLiveExam(newLive, userId, userName);
   };
 
-  const joinExam = (code: string) => {
+  const joinExam = async (code: string) => {
     const trimmed = code.trim();
-    let target = live && live.code === trimmed ? live : null;
-    if (!target) {
-      try {
-        const stored = localStorage.getItem(`permind_active_exam_${trimmed}`);
-        if (stored) {
-          target = JSON.parse(stored);
-        }
-      } catch {}
-    }
-
-    if (!target) {
-      setJoinErr("Không tìm thấy bài kiểm tra đang mở với mã này.");
-      return;
-    }
-
-    const nowTime = Date.now();
-    if (target.status === "ended" || nowTime >= target.endAt) {
-      const formattedEnd = new Date(target.endAt).toLocaleTimeString("vi-VN", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      setJoinErr(`Bài kiểm tra này đã kết thúc thời gian làm bài (đã đóng lúc ${formattedEnd}).`);
-      return;
-    }
-
+    if (trimmed.length !== 6) return;
     setJoinErr("");
-    setJoinCode("");
-    setLive(target);
-    setMine({ answers: {}, done: false });
-    setView({ name: "take" });
+    setJoining(true);
+
+    try {
+      // 1. Kiểm tra bộ nhớ cục bộ nếu cùng máy
+      let target: LiveExam | null = live && live.code === trimmed ? live : null;
+
+      // 2. Tra cứu từ Supabase Cloud
+      if (!target) {
+        target = await fetchLiveExam(trimmed);
+      }
+
+      if (!target) {
+        setJoinErr("Không tìm thấy bài kiểm tra đang mở với mã này. Hãy kiểm tra lại mã 6 số từ người tạo phòng.");
+        return;
+      }
+
+      const nowTime = Date.now();
+      if (target.status === "ended" || nowTime >= target.endAt) {
+        const formattedEnd = new Date(target.endAt).toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        setJoinErr(`Bài kiểm tra này đã kết thúc thời gian làm bài (đã đóng lúc ${formattedEnd}).`);
+        return;
+      }
+
+      setJoinErr("");
+      setJoinCode("");
+      setLive(target);
+      setMine({ answers: {}, done: false, startedAt: Date.now() });
+      setView({ name: "take" });
+    } catch (err: any) {
+      setJoinErr(err?.message || "Lỗi kết nối khi tham gia bài kiểm tra.");
+    } finally {
+      setJoining(false);
+    }
   };
 
   const answer = (qid: string, idx: number) => {
     if (!live || live.status !== "running" || !mine || mine.answers[qid] !== undefined) return;
-    setMine((m) => (m ? { ...m, answers: { ...m.answers, [qid]: idx } } : null));
+    const newAnswers = { ...mine.answers, [qid]: idx };
+    setMine((m) => (m ? { ...m, answers: newAnswers } : null));
+
+    // Phát sóng tiến độ thời gian thực cho chủ phòng
+    const qs = live.set.questions;
+    const answeredCount = Object.keys(newAnswers).length;
+    const correctCount = qs.filter((q) => newAnswers[q.id] === q.correct).length;
+    const currentScore = score10(correctCount, qs.length);
+    channelRef.current?.sendStudentProgress(userName, answeredCount, correctCount, currentScore, false);
   };
 
   const saveSet = (s: ExamSet) => {
@@ -291,18 +415,24 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
         remaining={remaining}
         onBack={home}
         onEnd={() => {
-          setLive((l) => {
-            if (!l) return null;
-            const endedLive: LiveExam = { ...l, status: "ended", endAt: Date.now() };
-            try {
-              localStorage.setItem(`permind_active_exam_${l.code}`, JSON.stringify(endedLive));
-              localStorage.setItem("permind_current_live_exam", JSON.stringify(endedLive));
-            } catch {}
-            return endedLive;
-          });
+          if (live) {
+            channelRef.current?.sendExamEnded();
+            closeLiveExam(live.code);
+            setLive((l) => {
+              if (!l) return null;
+              const endedLive: LiveExam = { ...l, status: "ended", endAt: Date.now() };
+              try {
+                localStorage.setItem(`permind_active_exam_${l.code}`, JSON.stringify(endedLive));
+                localStorage.setItem("permind_current_live_exam", JSON.stringify(endedLive));
+              } catch {}
+              return endedLive;
+            });
+          }
         }}
         onClose={() => {
           if (live) {
+            channelRef.current?.sendExamEnded();
+            closeLiveExam(live.code);
             try {
               localStorage.removeItem(`permind_active_exam_${live.code}`);
               localStorage.removeItem("permind_current_live_exam");
@@ -313,8 +443,13 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
           home();
         }}
         onTry={() => {
-          setMine({ answers: {}, done: false });
+          setMine({ answers: {}, done: false, startedAt: Date.now() });
           setView({ name: "take" });
+        }}
+        onAddBots={() => {
+          if (!live) return;
+          const newBots = BOT_NAMES.map((name) => ({ name, answered: 0, correct: 0 }));
+          setLive((curr) => (curr ? { ...curr, bots: newBots } : null));
         }}
       />
     );
@@ -421,14 +556,14 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                 />
                 <button
                   type="submit"
-                  disabled={joinCode.length !== 6}
+                  disabled={joinCode.length !== 6 || joining}
                   className={`whitespace-nowrap shrink-0 px-6 h-12 font-normal rounded-pill border-2 border-[#111118] text-base transition-all active:translate-y-[2px] ${
-                    joinCode.length === 6
+                    joinCode.length === 6 && !joining
                       ? "bg-[#0b7a75] hover:bg-[#09635f] text-white shadow-[0_4px_0_0_#111118] cursor-pointer"
                       : "bg-[#e1edff] dark:bg-[#242436] text-[#111118]/60 dark:text-[#f0f6ff]/60 shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] cursor-not-allowed"
                   }`}
                 >
-                  Vào thi
+                  {joining ? "Đang vào…" : "Vào thi"}
                 </button>
               </form>
               {joinErr && <p className="mt-2 text-xs text-[#ff4141] font-normal">{joinErr}</p>}

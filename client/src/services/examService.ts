@@ -45,6 +45,18 @@ export type LiveBot = {
   correct: number;
 };
 
+export type LiveParticipant = {
+  id?: string;
+  name: string;
+  answered: number;
+  correct: number;
+  score?: number;
+  done?: boolean;
+  isMe?: boolean;
+  isBot?: boolean;
+  joinedAt?: number;
+};
+
 export type LiveExam = {
   set: ExamSet;
   code: string;
@@ -52,12 +64,16 @@ export type LiveExam = {
   startedAt?: number;
   endAt: number;
   status: "running" | "ended";
-  bots: LiveBot[];
+  hostUserId?: string | null;
+  hostName?: string;
+  participants?: LiveParticipant[];
+  bots?: LiveBot[];
 };
 
 export type MyExamState = {
   answers: Record<string, number>;
   done: boolean;
+  startedAt?: number;
 };
 
 export type ExamResult = {
@@ -246,20 +262,47 @@ export const LEVELS = ["Dễ", "Vừa", "Khó"];
 
 export function board(live: LiveExam, mine: MyExamState | null, userName: string): LeaderboardRow[] {
   const qs = live.set.questions;
-  const rows: { name: string; me?: boolean; answered: number; correct: number }[] = live.bots.map((b) => ({
-    name: b.name,
-    correct: b.correct,
-    answered: b.answered,
-  }));
+  const rowsMap = new Map<string, { name: string; me?: boolean; answered: number; correct: number }>();
+
+  // 1. Thêm các thí sinh thực tế tham gia qua mạng
+  if (Array.isArray(live.participants)) {
+    for (const p of live.participants) {
+      rowsMap.set(p.name, {
+        name: p.name,
+        me: p.name === userName || p.isMe,
+        answered: p.answered,
+        correct: p.correct,
+      });
+    }
+  }
+
+  // 2. Thêm thí sinh bot mẫu nếu có
+  if (Array.isArray(live.bots)) {
+    for (const b of live.bots) {
+      if (!rowsMap.has(b.name)) {
+        rowsMap.set(b.name, {
+          name: b.name,
+          correct: b.correct,
+          answered: b.answered,
+        });
+      }
+    }
+  }
+
+  // 3. Nếu người dùng hiện tại đang làm bài thi (mine), cập nhật/bổ sung điểm số trực tiếp của người đó
   if (mine) {
     const ans = mine.answers;
-    rows.push({
+    const answeredCount = Object.keys(ans).length;
+    const correctCount = qs.filter((q) => ans[q.id] === q.correct).length;
+    rowsMap.set(userName, {
       name: `${userName} (bạn)`,
       me: true,
-      answered: Object.keys(ans).length,
-      correct: qs.filter((q) => ans[q.id] === q.correct).length,
+      answered: answeredCount,
+      correct: correctCount,
     });
   }
+
+  const rows = Array.from(rowsMap.values());
   rows.sort((a, b) => b.correct - a.correct || b.answered - a.answered);
   return rows.map((r, i) => ({ ...r, rank: i + 1, score: score10(r.correct, qs.length) }));
 }

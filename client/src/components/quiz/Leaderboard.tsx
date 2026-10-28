@@ -7,6 +7,13 @@ interface LeaderboardProps {
 }
 
 export function Leaderboard({ rows, total, limit }: LeaderboardProps) {
+  if (!rows || rows.length === 0) {
+    return (
+      <div className="py-8 text-center text-sm font-normal text-[#111118]/60 dark:text-[#f0f6ff]/60">
+        Chưa có thí sinh tham gia. Hãy gửi mã phòng cho bạn bè để cùng vào thi nhé!
+      </div>
+    );
+  }
   const shown = limit ? rows.slice(0, limit).concat(rows.slice(limit).filter((r) => r.me)) : rows;
   return (
     <ul className="space-y-2.5">

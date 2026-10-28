@@ -14,9 +14,10 @@ interface HostViewProps {
   onEnd: () => void;
   onClose: () => void;
   onTry: () => void;
+  onAddBots?: () => void;
 }
 
-export function HostView({ live, rows, remaining, onBack, onEnd, onClose, onTry }: HostViewProps) {
+export function HostView({ live, rows, remaining, onBack, onEnd, onClose, onTry, onAddBots }: HostViewProps) {
   const total = live.set.questions.length;
   const running = live.status === "running";
   const avg = rows.length ? rows.reduce((s, r) => s + r.score, 0) / rows.length : 0;
@@ -77,7 +78,17 @@ export function HostView({ live, rows, remaining, onBack, onEnd, onClose, onTry 
         <Leaderboard rows={rows} total={total} />
       </div>
 
-      <div className="mt-6 flex justify-end gap-3">
+      <div className="mt-6 flex flex-wrap justify-end gap-3">
+        {running && onAddBots && (
+          <button
+            type="button"
+            onClick={onAddBots}
+            className={BTN_OUT}
+            title="Thêm thí sinh mô phỏng nếu bạn đang thử nghiệm một mình"
+          >
+            + Thêm 4 thí sinh mẫu
+          </button>
+        )}
         {running && !rows.some((r) => r.me) && (
           <button onClick={onTry} className={BTN_OUT}>
             Làm bài như thí sinh
