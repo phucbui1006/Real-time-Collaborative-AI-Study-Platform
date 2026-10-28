@@ -22,7 +22,6 @@ interface EditorProps {
 
 export function Editor({ initial, docs = [], onSave, onCancel }: EditorProps) {
   const [title, setTitle] = useState(initial.title);
-  const [subject, setSubject] = useState(initial.subject);
   const [minutes, setMinutes] = useState<number | string>(initial.minutes);
   const [qs, setQs] = useState<Question[]>(initial.questions);
   const [aiOpen, setAiOpen] = useState(false);
@@ -48,7 +47,7 @@ export function Editor({ initial, docs = [], onSave, onCancel }: EditorProps) {
     onSave({
       ...initial,
       title: title.trim(),
-      subject: subject.trim().toUpperCase() || "KHÁC",
+      subject: initial.subject || "",
       minutes: Math.max(1, +minutes || 10),
       questions: qs,
     });
@@ -67,22 +66,13 @@ export function Editor({ initial, docs = [], onSave, onCancel }: EditorProps) {
       </h1>
 
       <div className="mt-6 grid grid-cols-6 gap-4 rounded-md bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
-        <label className="col-span-6 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
+        <label className="col-span-6 sm:col-span-4 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
           Tên bộ câu hỏi
           <input
             className={INP + " mt-1.5"}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="VD: Kiểm tra Đại số giữa kỳ"
-          />
-        </label>
-        <label className="col-span-6 sm:col-span-4 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">
-          Môn học
-          <input
-            className={INP + " mt-1.5"}
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder="VD: Toán học"
           />
         </label>
         <label className="col-span-6 sm:col-span-2 text-xs font-normal uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">

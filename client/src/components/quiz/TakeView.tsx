@@ -38,9 +38,11 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
       {/* Header bar */}
       <div className="flex items-center justify-between rounded-md bg-white dark:bg-[#1b1b26] px-6 py-4 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
         <div>
-          <span className="text-xs font-normal uppercase tracking-wider text-[#111118]/70 dark:text-[#f0f6ff]/70">
-            {live.set.subject}
-          </span>
+          {live.set.subject ? (
+            <span className="text-xs font-normal uppercase tracking-wider text-[#111118]/70 dark:text-[#f0f6ff]/70">
+              {live.set.subject}
+            </span>
+          ) : null}
           <h1 className="text-xl font-normal text-[#111118] dark:text-[#f0f6ff] tracking-[-0.015em]">
             {live.set.title}
           </h1>

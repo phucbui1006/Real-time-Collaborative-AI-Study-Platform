@@ -521,9 +521,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                       {subStyle.icon}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs font-normal tracking-wide uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">{s.subject}</div>
-                      <div className="truncate font-normal text-[#111118] dark:text-[#f0f6ff] text-base mt-0.5">{s.title}</div>
-                      <div className="text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums mt-0.5">
+                      <div className="truncate font-normal text-[#111118] dark:text-[#f0f6ff] text-base">{s.title}</div>
+                      <div className="text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums mt-1">
                         {s.questions.length} câu hỏi · {s.minutes} phút
                       </div>
                     </div>
