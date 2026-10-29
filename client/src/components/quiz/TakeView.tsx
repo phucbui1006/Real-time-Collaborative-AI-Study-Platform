@@ -148,14 +148,6 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
             })}
           </div>
 
-          {chosen !== undefined && (
-            <div className="mt-5 rounded-sharp p-4 text-sm font-normal border-2 border-[#111118] shadow-[0_2px_0_0_#111118] bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-between">
-              <span>Đã ghi nhận câu trả lời cho câu {qi + 1}.</span>
-              <span className="text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60">
-                (Kết quả chi tiết hiển thị sau khi nộp bài)
-              </span>
-            </div>
-          )}
           {locked && (
             <p className="mt-4 text-xs font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">
               Đã hết thời gian làm bài kiểm tra.
