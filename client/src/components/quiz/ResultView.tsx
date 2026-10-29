@@ -16,6 +16,13 @@ export function ResultView({ res, onHome }: ResultViewProps) {
         <div className="mt-3 text-sm font-mono font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">
           {res.correct}/{res.total} câu đúng · Hạng {res.rank}/{res.of}
         </div>
+        {res.attempts && res.attempts > 1 && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#16ab59]/15 text-[#16ab59] px-3.5 py-1 text-xs font-mono border border-[#16ab59]/30">
+            <span>Lần làm thứ {res.attempts}</span>
+            <span>·</span>
+            <span>Điểm cao nhất đã lưu: <strong>{res.bestScore?.toFixed(1)}</strong></span>
+          </div>
+        )}
       </div>
 
       <div className="mt-6 rounded-md bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">

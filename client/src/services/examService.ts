@@ -31,12 +31,14 @@ export type ExamSet = {
 
 export type ExamHistory = {
   id: string;
+  examCode?: string;
   title: string;
   subject: string;
   score: number;
   rank: number;
   of: number;
   date: string;
+  attempts?: number;
 };
 
 export type LiveBot = {
@@ -68,6 +70,7 @@ export type LiveExam = {
   hostName?: string;
   participants?: LiveParticipant[];
   bots?: LiveBot[];
+  allowRetake?: boolean;
 };
 
 export type MyExamState = {
@@ -85,6 +88,8 @@ export type ExamResult = {
   rank: number;
   of: number;
   perQ: (boolean | null)[];
+  bestScore?: number;
+  attempts?: number;
 };
 
 export type LeaderboardRow = {

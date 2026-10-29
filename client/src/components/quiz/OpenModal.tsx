@@ -4,12 +4,13 @@ import { X } from "lucide-react";
 
 interface OpenModalProps {
   set: ExamSet;
-  onStart: (set: ExamSet, minutes: number) => void;
+  onStart: (set: ExamSet, minutes: number, allowRetake?: boolean) => void;
   onClose: () => void;
 }
 
 export function OpenModal({ set, onStart, onClose }: OpenModalProps) {
   const [minutes, setMinutes] = useState<number | string>(set.minutes);
+  const [allowRetake, setAllowRetake] = useState(true);
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -57,11 +58,30 @@ export function OpenModal({ set, onStart, onClose }: OpenModalProps) {
             onChange={(e) => setMinutes(e.target.value)}
           />
         </label>
+        <div className="mt-4 rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff]/50 dark:bg-[#242436]/50 p-3.5">
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={allowRetake}
+              onChange={(e) => setAllowRetake(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded-xs border-2 border-[#111118] text-[#0b7a75] focus:ring-0 cursor-pointer accent-[#0b7a75]"
+            />
+            <div className="text-xs">
+              <span className="font-medium text-[#111118] dark:text-[#f0f6ff] block">
+                Cho phép thí sinh làm lại nhiều lần
+              </span>
+              <span className="text-[#111118]/70 dark:text-[#f0f6ff]/70 text-[11px] leading-tight block mt-0.5">
+                Khi bật, thí sinh có thể vào lại để làm bài và hệ thống sẽ tự động ghi nhận điểm số cao nhất.
+              </span>
+            </div>
+          </label>
+        </div>
+
         <p className="mt-3 text-xs font-normal text-[#111118]/60 dark:text-[#f0f6ff]/60 leading-relaxed">
           Mọi người trả lời trong khoảng thời gian này. Bảng điểm và xếp hạng được cập nhật trực tiếp cho người mở phòng.
         </p>
         <button
-          onClick={() => onStart(set, Math.max(1, +minutes || set.minutes))}
+          onClick={() => onStart(set, Math.max(1, +minutes || set.minutes), allowRetake)}
           className={BTN + " mt-6 w-full"}
         >
           <span>Bắt đầu bài thi</span>

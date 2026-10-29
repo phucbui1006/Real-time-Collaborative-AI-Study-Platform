@@ -139,7 +139,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   const isLiveActive = Boolean(live && live.status === "running" && remaining > 0 && (!mine || !mine.done));
   const rows = live ? board(live, mine, userName) : [];
 
-  // Tự động lưu bài thi vào Lịch sử làm bài
+  // Tự động lưu bài thi vào Lịch sử làm bài (Ghi nhận điểm cao nhất nếu làm lại)
   const saveExamToHistory = (
     exam: LiveExam,
     score: number,
@@ -148,12 +148,32 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   ) => {
     setHistory((prev) => {
       const today = new Date().toLocaleDateString("vi-VN");
-      const alreadySaved = prev.some(
-        (h) => (h as any).examCode === exam.code || (h.title === exam.set.title && h.date === today && Math.abs(h.score - score) < 0.01)
+      const existingIdx = prev.findIndex(
+        (h) => h.examCode === exam.code || (h.title === exam.set.title && h.date === today)
       );
-      if (alreadySaved) return prev;
 
-      const newEntry: ExamHistory & { examCode?: string } = {
+      // Nếu đã từng làm bài thi này: ghi nhận điểm số cao nhất
+      if (existingIdx !== -1) {
+        const old = prev[existingIdx];
+        const newScore = Number(score.toFixed(1));
+        const attempts = (old.attempts || 1) + 1;
+        const bestScore = Math.max(old.score, newScore);
+        const bestRank = score >= old.score ? rank : old.rank;
+        const updated = [...prev];
+        updated[existingIdx] = {
+          ...old,
+          score: bestScore,
+          rank: Math.max(1, bestRank),
+          of: Math.max(old.of, ofCount),
+          attempts,
+        };
+        try {
+          localStorage.setItem(historyKey, JSON.stringify(updated));
+        } catch {}
+        return updated;
+      }
+
+      const newEntry: ExamHistory = {
         id: uid(),
         examCode: exam.code,
         title: exam.set.title,
@@ -162,6 +182,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
         rank: Math.max(1, rank),
         of: Math.max(1, ofCount),
         date: today,
+        attempts: 1,
       };
 
       const updated = [newEntry, ...prev];
@@ -242,7 +263,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
           if (!curr) return curr;
           const parts = (curr.participants || []).map((p) =>
             p.name === data.name
-              ? { ...p, answered: data.answered, correct: data.correct, score: data.score, done: true }
+              ? { ...p, answered: data.answered, correct: Math.max(p.correct || 0, data.correct), score: Math.max(p.score || 0, data.score), done: true }
               : p
           );
           if (!parts.some((p) => p.name === data.name)) {
@@ -298,6 +319,10 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     const qs = live.set.questions;
     const ans = mine.answers;
     const me = rows.find((r) => r.me) || { score: 0, rank: 1, correct: 0 };
+    const existingHistory = history.find((h) => h.examCode === live.code || (h.title === live.set.title && h.date === new Date().toLocaleDateString("vi-VN")));
+    const prevBest = existingHistory ? existingHistory.score : 0;
+    const bestScore = Math.max(prevBest, me.score);
+    const attempts = (existingHistory?.attempts || 0) + 1;
     const res: ExamResult = {
       title: live.set.title,
       subject: live.set.subject,
@@ -307,6 +332,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       rank: me.rank,
       of: rows.length,
       perQ: qs.map((q) => (ans[q.id] === undefined ? null : ans[q.id] === q.correct)),
+      bestScore,
+      attempts,
     };
     channelRef.current?.sendStudentSubmit(userName, me.correct, me.correct, me.score);
     setMine((m) => (m ? { ...m, done: true } : null));
@@ -324,7 +351,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     if (live?.status === "ended" && view.name === "take") finishTake();
   }, [live?.status]);
 
-  const startExam = async (set: ExamSet, minutes: number) => {
+  const startExam = async (set: ExamSet, minutes: number, allowRetake: boolean = true) => {
     const startedAt = Date.now();
     const endAt = startedAt + minutes * 60000;
     const code = code6();
@@ -339,6 +366,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       hostName: userName || "Chủ phòng",
       participants: [],
       bots: [],
+      allowRetake,
     };
     setLive(newLive);
     try {
@@ -384,6 +412,16 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       }
 
       setJoinErr("");
+      // 3. Kiểm tra nếu thí sinh đã nộp bài trong phòng thi này
+      const isSubmitted =
+        history.some((h) => h.examCode === trimmed) ||
+        target.participants?.some((p) => (p.name === userName || (Boolean(userId) && p.id === userId)) && p.done);
+
+      if (isSubmitted && !target.allowRetake) {
+        setJoinErr("Bài kiểm tra này không cho phép làm lại (bạn đã hoàn thành và nộp bài rồi).");
+        return;
+      }
+
       setJoinCode("");
       setLive(target);
       setMine({ answers: {}, done: false, startedAt: Date.now() });
@@ -805,11 +843,11 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                     <div className="text-xs font-normal tracking-wide uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">{h.subject}</div>
                     <div className="truncate font-normal text-[#111118] dark:text-[#f0f6ff] text-base mt-0.5">{h.title}</div>
                     <div className="text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums mt-0.5">
-                      {h.date} · Hạng {h.rank}/{h.of}
+                      {h.date} · Hạng {h.rank}/{h.of}{h.attempts && h.attempts > 1 ? ` · Đã làm ${h.attempts} lần` : ""}
                     </div>
                   </div>
                   <span className="rounded-sharp px-4 py-2 text-xs font-mono font-normal bg-[#16ab59] text-white border-2 border-[#111118] shadow-[0_2px_0_0_#111118] tabular-nums">
-                    Đã đạt {h.score.toFixed(1)}
+                    {h.attempts && h.attempts > 1 ? `Cao nhất ${h.score.toFixed(1)}` : `Đã đạt ${h.score.toFixed(1)}`}
                   </span>
                 </li>
               );

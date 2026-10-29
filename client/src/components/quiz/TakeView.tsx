@@ -24,7 +24,6 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
   const q = qs[qi];
   const chosen = mine.answers[q.id];
   const answered = Object.keys(mine.answers).length;
-  const me = rows.find((r) => r.me) || { score: 0, rank: 1, correct: 0 };
   const locked = live.status !== "running";
   const urgent = remaining <= 30;
 
@@ -78,7 +77,6 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
             {qs.map((x, i) => {
               const a = mine.answers[x.id];
               const isAnswered = a !== undefined;
-              const isCorrect = a === x.correct;
               const isCurrent = i === qi;
 
               return (
@@ -91,9 +89,7 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
                   } ${
                     !isAnswered
                       ? "bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#d0e2ff]"
-                      : isCorrect
-                      ? "bg-[#16ab59] text-white"
-                      : "bg-[#ff4141] text-white"
+                      : "bg-[#0b7a75] text-white"
                   }`}
                 >
                   {i + 1}
@@ -112,13 +108,11 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
             {q.text}
           </h2>
 
-          {/* 4 Đáp án sử dụng Tactile Quiz Answer Button Token */}
+          {/* 4 Đáp án sử dụng Tactile Quiz Answer Button Token (Không hiển thị đúng/sai khi đang thi) */}
           <div className="mt-6 space-y-3">
             {q.options.map((o, j) => {
               if (!o.trim()) return null;
               const picked = chosen === j;
-              const ok = picked && j === q.correct;
-              const bad = picked && j !== q.correct;
 
               return (
                 <button
@@ -126,10 +120,8 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
                   disabled={chosen !== undefined || locked}
                   onClick={() => onAnswer(q.id, j)}
                   className={`flex w-full items-center gap-3.5 rounded-sm p-4 text-left text-sm font-normal transition-all cursor-pointer disabled:cursor-not-allowed ${
-                    ok
-                      ? "bg-[#16ab59] text-white border-2 border-[#111118] shadow-[0_3px_0_0_#111118]"
-                      : bad
-                      ? "bg-[#ff4141] text-white border-2 border-[#111118] shadow-[0_3px_0_0_#111118]"
+                    picked
+                      ? "bg-[#0b7a75] text-white border-2 border-[#111118] shadow-[0_3px_0_0_#111118]"
                       : "bg-[#f0f6ff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] border-2 border-[#111118] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] hover:bg-[#e1edff] dark:hover:bg-[#2a2a3a] active:translate-y-[2px]"
                   }`}
                   style={{
@@ -138,7 +130,7 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
                 >
                   <span
                     className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-normal shrink-0 font-mono border border-[#111118] ${
-                      ok || bad
+                      picked
                         ? "bg-white text-[#111118]"
                         : "bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff]"
                     }`}
@@ -146,14 +138,9 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
                     {LETTERS[j]}
                   </span>
                   <span className="flex-1 leading-normal font-normal">{o}</span>
-                  {ok && (
-                    <span className="inline-flex items-center gap-1 font-normal text-xs text-white">
-                      ✓ Đúng
-                    </span>
-                  )}
-                  {bad && (
-                    <span className="inline-flex items-center gap-1 font-normal text-xs text-white">
-                      ✗ Sai
+                  {picked && (
+                    <span className="inline-flex items-center gap-1 font-normal text-xs text-white bg-black/20 px-2.5 py-0.5 rounded-full">
+                      Đã chọn
                     </span>
                   )}
                 </button>
@@ -162,16 +149,11 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
           </div>
 
           {chosen !== undefined && (
-            <div
-              className={`mt-5 rounded-sharp p-4 text-sm font-normal border-2 border-[#111118] shadow-[0_2px_0_0_#111118] ${
-                chosen === q.correct
-                  ? "bg-[#16ab59] text-white"
-                  : "bg-[#ff4141] text-white"
-              }`}
-            >
-              {chosen === q.correct
-                ? "Chính xác! Câu trả lời đã được ghi nhận."
-                : "Chưa chính xác. Mỗi câu hỏi chỉ được chọn đáp án một lần."}
+            <div className="mt-5 rounded-sharp p-4 text-sm font-normal border-2 border-[#111118] shadow-[0_2px_0_0_#111118] bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-between">
+              <span>Đã ghi nhận câu trả lời cho câu {qi + 1}.</span>
+              <span className="text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60">
+                (Kết quả chi tiết hiển thị sau khi nộp bài)
+              </span>
             </div>
           )}
           {locked && (
@@ -217,21 +199,24 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
         <aside className="col-span-12 lg:col-span-3 min-w-0 space-y-4">
           <div className="rounded-md bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] text-center">
             <div className="text-xs font-normal uppercase tracking-wider text-[#111118]/70 dark:text-[#f0f6ff]/70">
-              Điểm số hiện tại
+              Tiến độ làm bài
             </div>
             <div className="mt-2 text-4xl font-mono font-normal text-[#111118] dark:text-[#f0f6ff] tabular-nums">
-              {me.score.toFixed(1)}
+              {answered}/{qs.length}
             </div>
             <div className="mt-1 text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-mono tabular-nums">
-              Hạng <strong className="text-[#0b7a75] dark:text-[#2dd4bf] font-mono">{me.rank}</strong>/{rows.length} · {me.correct}/{qs.length} câu đúng
+              Đã hoàn thành <strong className="text-[#0b7a75] dark:text-[#2dd4bf] font-mono">{Math.round((answered / qs.length) * 100)}%</strong>
             </div>
+            <p className="mt-3 text-[11px] text-[#111118]/60 dark:text-[#f0f6ff]/60 leading-tight">
+              Điểm số và đáp án đúng sẽ được tổng kết sau khi bạn nộp bài.
+            </p>
           </div>
 
           <div className="rounded-md bg-white dark:bg-[#1b1b26] p-5 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118]">
             <h3 className="mb-3 text-xs font-normal text-[#111118] dark:text-[#f0f6ff] tracking-tight uppercase">
               Bảng xếp hạng trực tiếp
             </h3>
-            <Leaderboard rows={rows} total={qs.length} limit={5} />
+            <Leaderboard rows={rows} total={qs.length} limit={5} hideScores={true} />
           </div>
         </aside>
       </div>

@@ -4,9 +4,10 @@ interface LeaderboardProps {
   rows: LeaderboardRow[];
   total: number;
   limit?: number;
+  hideScores?: boolean;
 }
 
-export function Leaderboard({ rows, total, limit }: LeaderboardProps) {
+export function Leaderboard({ rows, total, limit, hideScores }: LeaderboardProps) {
   if (!rows || rows.length === 0) {
     return (
       <div className="py-8 text-center text-sm font-normal text-[#111118]/60 dark:text-[#f0f6ff]/60">
@@ -50,9 +51,15 @@ export function Leaderboard({ rows, total, limit }: LeaderboardProps) {
             <span className="text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-mono tabular-nums">
               {r.answered}/{total} câu
             </span>
-            <span className="w-14 text-right font-mono text-base font-normal text-[#111118] dark:text-[#f0f6ff] tabular-nums">
-              {r.score.toFixed(1)}
-            </span>
+            {!hideScores ? (
+              <span className="w-14 text-right font-mono text-base font-normal text-[#111118] dark:text-[#f0f6ff] tabular-nums">
+                {r.score.toFixed(1)}
+              </span>
+            ) : (
+              <span className="text-[11px] text-[#111118]/50 dark:text-[#f0f6ff]/50 font-mono">
+                Đang làm
+              </span>
+            )}
           </li>
         );
       })}
