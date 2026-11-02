@@ -22,6 +22,7 @@ interface EditorProps {
 
 export function Editor({ initial, docs = [], onSave, onCancel }: EditorProps) {
   const [title, setTitle] = useState(initial.title);
+  const [subject, setSubject] = useState(initial.subject || "");
   const [minutes, setMinutes] = useState<number | string>(initial.minutes);
   const [qs, setQs] = useState<Question[]>(initial.questions);
   const [aiOpen, setAiOpen] = useState(false);
@@ -31,23 +32,42 @@ export function Editor({ initial, docs = [], onSave, onCancel }: EditorProps) {
   const upd = (i: number, patch: Partial<Question>) =>
     setQs((a) => a.map((q, k) => (k === i ? { ...q, ...patch } : q)));
 
-  const addFromAI = (list: Question[]) => {
+  const addFromAI = (list: Question[], meta?: { title?: string; subject?: string }) => {
     setQs((a) => [...a.filter((q) => !isBlankQ(q)), ...list]); // Bỏ câu trống mặc định nếu chưa nhập gì
+    if (!title.trim() && meta?.title) {
+      setTitle(meta.title);
+    }
+    if (meta?.subject && !subject) {
+      setSubject(meta.subject);
+    }
     setNotice(`Đã thêm ${list.length} câu từ AI vào bộ câu hỏi.`);
     setAiOpen(false);
+    setErr("");
   };
 
   const save = () => {
-    if (!title.trim()) return setErr("Hãy nhập tên bộ câu hỏi.");
+    let finalTitle = title.trim();
+    // Nếu tên bộ câu hỏi còn trống, tự động gợi ý từ câu hỏi đầu tiên hoặc ngày tạo
+    if (!finalTitle) {
+      if (qs.length > 0 && qs[0].text && qs[0].text.trim()) {
+        finalTitle = qs[0].text.trim().replace(/^[\d\.\-\s]+/, "").slice(0, 50);
+        setTitle(finalTitle);
+      } else {
+        finalTitle = `Bộ câu hỏi (${new Date().toLocaleDateString("vi-VN")})`;
+        setTitle(finalTitle);
+      }
+    }
+
     if (!qs.length) return setErr("Cần ít nhất 1 câu hỏi.");
     for (const [i, q] of qs.entries()) {
       const m = validateQ(q, i);
       if (m) return setErr(m);
     }
+    setErr("");
     onSave({
       ...initial,
-      title: title.trim(),
-      subject: initial.subject || "",
+      title: finalTitle,
+      subject: subject || initial.subject || "Chung",
       minutes: Math.max(1, +minutes || 10),
       questions: qs,
     });
@@ -133,10 +153,10 @@ export function Editor({ initial, docs = [], onSave, onCancel }: EditorProps) {
 
       {err && <div className="mt-4 rounded-sharp bg-[#ff4141]/10 border border-[#ff4141] px-4 py-3 text-sm font-normal text-[#ff4141]">{err}</div>}
       <div className="mt-8 flex justify-end gap-3">
-        <button onClick={onCancel} className={BTN_OUT}>
+        <button type="button" onClick={onCancel} className={BTN_OUT}>
           Huỷ
         </button>
-        <button onClick={save} className={BTN}>
+        <button type="button" onClick={save} className={BTN}>
           <span>Lưu bộ câu hỏi</span>
         </button>
       </div>

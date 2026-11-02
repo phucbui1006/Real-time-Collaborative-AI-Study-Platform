@@ -16,7 +16,7 @@ import { AIKeyModal } from "../documents/AIKeyModal";
 
 interface AIPanelProps {
   docs: QuizDocItem[];
-  onAdd: (questions: Question[]) => void;
+  onAdd: (questions: Question[], meta?: { title?: string; subject?: string }) => void;
   onClose: () => void;
 }
 
@@ -72,7 +72,18 @@ export function AIPanel({ docs, onAdd, onClose }: AIPanelProps) {
       const m = validateQ(d, drafts.indexOf(d), "Câu AI");
       if (m) return setErr(m);
     }
-    onAdd(chosen.map(({ keep: _k, ...q }) => q));
+    const doc = docs.find((x) => String(x.id) === docId);
+    let suggestedTitle = topic.trim();
+    if (!suggestedTitle && doc?.title) {
+      suggestedTitle = doc.title;
+    } else if (suggestedTitle && doc?.title && !suggestedTitle.toLowerCase().includes(doc.title.toLowerCase())) {
+      suggestedTitle = `${doc.title} - ${suggestedTitle}`;
+    }
+    const suggestedSubject = doc?.subject || "";
+    onAdd(chosen.map(({ keep: _k, ...q }) => q), {
+      title: suggestedTitle,
+      subject: suggestedSubject,
+    });
   };
 
   return (
