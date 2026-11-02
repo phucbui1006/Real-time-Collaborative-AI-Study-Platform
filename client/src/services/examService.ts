@@ -724,3 +724,37 @@ export async function deleteUserHostedExam(userId: string | undefined, recordId:
   }
   return updated;
 }
+
+/**
+ * Xóa một bản ghi lịch sử làm bài kiểm tra
+ */
+export async function deleteUserExamHistory(userId: string | undefined, historyId: string): Promise<ExamHistory[]> {
+  const isRealUser = isValidUUID(userId);
+  const localKey = `permind_exam_history_${userId || "guest"}`;
+  let updated: ExamHistory[] = [];
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(localKey);
+      const existing: ExamHistory[] = raw ? JSON.parse(raw) : [];
+      updated = existing.filter((h) => h.id !== historyId);
+      localStorage.setItem(localKey, JSON.stringify(updated));
+    } catch {}
+  }
+
+  if (isRealUser && userId) {
+    try {
+      const { error } = await supabase
+        .from("exam_history")
+        .delete()
+        .eq("id", historyId)
+        .eq("user_id", userId);
+      if (error) {
+        console.warn("Xóa lịch sử thi trên Supabase:", error.message);
+      }
+    } catch (err) {
+      console.warn("Lỗi mạng khi xóa lịch sử thi:", err);
+    }
+  }
+
+  return updated;
+}

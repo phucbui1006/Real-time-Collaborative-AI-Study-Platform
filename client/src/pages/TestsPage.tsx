@@ -22,6 +22,7 @@ import {
   deleteUserExamSet,
   loadUserExamHistory,
   saveUserExamHistory,
+  deleteUserExamHistory,
   HostedExamRecord,
   loadUserHostedExams,
   saveUserHostedExam,
@@ -211,7 +212,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     });
   };
 
-  // Tự động lưu bài thi vào Lịch sử làm bài (Ghi nhận điểm cao nhất nếu làm lại)
+  // Tự động lưu bài thi vào Lịch sử làm bài (Lưu riêng từng lần làm bài)
   const saveExamToHistory = (
     exam: LiveExam,
     score: number,
@@ -219,33 +220,17 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     ofCount: number
   ) => {
     setHistory((prev) => {
-      const today = new Date().toLocaleDateString("vi-VN");
-      const existingIdx = prev.findIndex(
-        (h) => h.examCode === exam.code || (h.title === exam.set.title && h.date === today)
-      );
+      // Đếm số lần đã làm bài kiểm tra này trước đó
+      const previousAttempts = prev.filter(
+        (h) => h.examCode === exam.code || h.title === exam.set.title
+      ).length;
+      const attemptNumber = previousAttempts + 1;
 
-      // Nếu đã từng làm bài thi này: ghi nhận điểm số cao nhất
-      if (existingIdx !== -1) {
-        const old = prev[existingIdx];
-        const newScore = Number(score.toFixed(1));
-        const attempts = (old.attempts || 1) + 1;
-        const bestScore = Math.max(old.score, newScore);
-        const bestRank = score >= old.score ? rank : old.rank;
-        const updatedEntry: ExamHistory = {
-          ...old,
-          score: bestScore,
-          rank: Math.max(1, bestRank),
-          of: Math.max(old.of, ofCount),
-          attempts,
-        };
-        const updated = [...prev];
-        updated[existingIdx] = updatedEntry;
-        try {
-          localStorage.setItem(historyKey, JSON.stringify(updated));
-        } catch {}
-        saveUserExamHistory(userId, updatedEntry);
-        return updated;
-      }
+      const now = new Date();
+      const dateFormatted =
+        now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) +
+        " · " +
+        now.toLocaleDateString("vi-VN");
 
       const newEntry: ExamHistory = {
         id: uid(),
@@ -255,8 +240,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
         score: Number(score.toFixed(1)),
         rank: Math.max(1, rank),
         of: Math.max(1, ofCount),
-        date: today,
-        attempts: 1,
+        date: dateFormatted,
+        attempts: attemptNumber,
       };
 
       const updated = [newEntry, ...prev];
@@ -394,10 +379,14 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     const qs = candidateQuestions.length ? candidateQuestions : live.set.questions;
     const ans = mine.answers;
     const me = rows.find((r) => r.me) || { score: 0, rank: 1, correct: 0 };
-    const existingHistory = history.find((h) => h.examCode === live.code || (h.title === live.set.title && h.date === new Date().toLocaleDateString("vi-VN")));
-    const prevBest = existingHistory ? existingHistory.score : 0;
+    const previousAttempts = history.filter(
+      (h) => h.examCode === live.code || h.title === live.set.title
+    );
+    const prevBest = previousAttempts.length
+      ? Math.max(...previousAttempts.map((h) => h.score))
+      : 0;
     const bestScore = Math.max(prevBest, me.score);
-    const attempts = (existingHistory?.attempts || 0) + 1;
+    const attempts = previousAttempts.length + 1;
     const res: ExamResult = {
       title: live.set.title,
       subject: live.set.subject,
@@ -945,15 +934,40 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                           {subStyle.icon}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs font-normal tracking-wide uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">{h.subject}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-normal tracking-wide uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">{h.subject}</span>
+                            {h.attempts && (
+                              <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#e1edff] dark:bg-[#242436] text-[#0b7a75] dark:text-[#2dd4bf] font-medium border border-[#111118]/20">
+                                Lần {h.attempts}
+                              </span>
+                            )}
+                          </div>
                           <div className="truncate font-normal text-[#111118] dark:text-[#f0f6ff] text-base mt-0.5">{h.title}</div>
-                          <div className="text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums mt-0.5">
-                            {h.date} · Hạng {h.rank}/{h.of}{h.attempts && h.attempts > 1 ? ` · Đã làm ${h.attempts} lần` : ""}
+                          <div className="text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums mt-0.5 flex flex-wrap gap-x-2.5">
+                            <span>📅 {h.date}</span>
+                            <span>·</span>
+                            <span>Hạng {h.rank}/{h.of}</span>
                           </div>
                         </div>
-                        <span className="rounded-sharp px-4 py-2 text-xs font-mono font-normal bg-[#16ab59] text-white border-2 border-[#111118] shadow-[0_2px_0_0_#111118] tabular-nums">
-                          {h.attempts && h.attempts > 1 ? `Cao nhất ${h.score.toFixed(1)}` : `Đã đạt ${h.score.toFixed(1)}`}
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="rounded-sharp px-4 py-2 text-xs font-mono font-normal bg-[#16ab59] text-white border-2 border-[#111118] shadow-[0_2px_0_0_#111118] tabular-nums">
+                            Đạt {h.score.toFixed(1)} đ
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Xoá lần làm bài "${h.title}" (Lần ${h.attempts || 1}) khỏi lịch sử?`)) {
+                                deleteUserExamHistory(userId, h.id).then((updated) => {
+                                  setHistory(updated);
+                                });
+                              }
+                            }}
+                            className="w-9 h-9 rounded-sm border border-[#111118]/30 flex items-center justify-center text-[#ff4141] hover:bg-[#ffbac4]/30 text-sm cursor-pointer transition-colors"
+                            title="Xoá lần làm bài này"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </li>
                     );
                   })}
