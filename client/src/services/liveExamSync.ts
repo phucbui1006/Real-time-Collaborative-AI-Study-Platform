@@ -1,6 +1,7 @@
 // services/liveExamSync.ts — Đồng bộ phòng thi & bài kiểm tra trực tuyến đa thiết bị (Realtime Multi-Device)
 import { supabase } from "./supabaseClient";
 import { LiveExam } from "./examService";
+import { isValidUUID } from "../utils";
 
 export interface ExamSyncPayload {
   __type: "PERMIND_EXAM";
@@ -51,6 +52,7 @@ export async function publishLiveExam(
     name: JSON.stringify(syncData),
     code,
     is_active: true,
+    ...(hostUserId && isValidUUID(hostUserId) ? { host_user_id: hostUserId } : {}),
   };
 
   try {
@@ -69,29 +71,36 @@ export async function publishLiveExam(
 /**
  * 2. Tìm bài kiểm tra đang mở theo mã 6 số từ bất kỳ thiết bị nào (Cloud + Cache)
  */
-export async function fetchLiveExam(code: string): Promise<LiveExam | null> {
+export async function fetchLiveExam(code: string, activeOnly: boolean = false): Promise<LiveExam | null> {
   const cleanCode = code.trim();
   if (!cleanCode) return null;
 
   // 1. Thử lấy từ Supabase Cloud trước
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("rooms")
       .select("id, name, code, is_active, created_at")
       .eq("code", cleanCode)
-      .eq("is_active", true)
       .order("created_at", { ascending: false })
       .limit(1);
 
+    if (activeOnly) {
+      query = query.eq("is_active", true);
+    }
+
+    const { data, error } = await query;
+
     if (!error && Array.isArray(data) && data.length > 0) {
       try {
-        const parsed = JSON.parse(data[0].name) as ExamSyncPayload;
+        const row = data[0];
+        const parsed = JSON.parse(row.name) as ExamSyncPayload;
         if (parsed && parsed.__type === "PERMIND_EXAM" && parsed.exam) {
           const exam = parsed.exam;
           // Đồng bộ lại mốc thời gian tuyệt đối chính xác
           exam.startedAt = parsed.startedAt || exam.startedAt;
           exam.endAt = parsed.endAt || exam.endAt;
-          exam.status = parsed.status || exam.status;
+          exam.status = (!row.is_active || parsed.status === "ended") ? "ended" : (parsed.status || exam.status);
+          exam.participants = parsed.exam.participants || [];
           return exam;
         }
       } catch (parseErr) {
@@ -230,10 +239,10 @@ export async function fetchHostActiveExam(hostUserId: string): Promise<LiveExam 
   try {
     const { data, error } = await supabase
       .from("rooms")
-      .select("id, name, code, is_active, created_at")
+      .select("id, name, code, is_active, created_at, host_user_id")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(30);
 
     if (!error && Array.isArray(data)) {
       const now = Date.now();
@@ -243,7 +252,7 @@ export async function fetchHostActiveExam(hostUserId: string): Promise<LiveExam 
           if (
             parsed &&
             parsed.__type === "PERMIND_EXAM" &&
-            parsed.hostUserId === hostUserId &&
+            (parsed.hostUserId === hostUserId || row.host_user_id === hostUserId) &&
             parsed.exam &&
             parsed.endAt > now
           ) {
@@ -252,6 +261,7 @@ export async function fetchHostActiveExam(hostUserId: string): Promise<LiveExam 
             exam.endAt = parsed.endAt || exam.endAt;
             exam.status = parsed.status || "running";
             exam.hostUserId = hostUserId;
+            exam.participants = parsed.exam.participants || [];
             return exam;
           }
         } catch {}
@@ -262,4 +272,78 @@ export async function fetchHostActiveExam(hostUserId: string): Promise<LiveExam 
   }
 
   return null;
+}
+
+/**
+ * Lưu/cập nhật thông tin thí sinh và tiến độ, điểm số vào bản ghi phòng thi trên Supabase Cloud
+ */
+export async function syncParticipantToCloud(
+  code: string,
+  participant: {
+    name: string;
+    id?: string;
+    answered: number;
+    correct: number;
+    score: number;
+    done?: boolean;
+  }
+): Promise<void> {
+  const cleanCode = code.trim();
+  if (!cleanCode) return;
+
+  try {
+    const { data, error } = await supabase
+      .from("rooms")
+      .select("id, name, is_active")
+      .eq("code", cleanCode)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error || !Array.isArray(data) || data.length === 0) return;
+
+    const row = data[0];
+    let payload: ExamSyncPayload;
+    try {
+      payload = JSON.parse(row.name);
+    } catch {
+      return;
+    }
+
+    if (!payload || payload.__type !== "PERMIND_EXAM" || !payload.exam) return;
+
+    const participants = payload.exam.participants || [];
+    const existingIdx = participants.findIndex(
+      (p) => (participant.id && p.id === participant.id) || p.name === participant.name
+    );
+
+    if (existingIdx !== -1) {
+      const old = participants[existingIdx];
+      participants[existingIdx] = {
+        ...old,
+        answered: Math.max(old.answered || 0, participant.answered),
+        correct: Math.max(old.correct || 0, participant.correct),
+        score: Math.max(old.score || 0, participant.score),
+        done: participant.done || old.done,
+      };
+    } else {
+      participants.push({
+        id: participant.id,
+        name: participant.name,
+        answered: participant.answered,
+        correct: participant.correct,
+        score: participant.score,
+        done: !!participant.done,
+        joinedAt: Date.now(),
+      });
+    }
+
+    payload.exam.participants = participants;
+
+    await supabase
+      .from("rooms")
+      .update({ name: JSON.stringify(payload) })
+      .eq("id", row.id);
+  } catch (err) {
+    console.warn("Lỗi đồng bộ thí sinh lên Supabase Cloud:", err);
+  }
 }

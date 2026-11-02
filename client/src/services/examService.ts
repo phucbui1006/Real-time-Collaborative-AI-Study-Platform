@@ -120,6 +120,7 @@ export type LeaderboardRow = {
   me?: boolean;
   rank: number;
   score: number;
+  done?: boolean;
 };
 
 export const DARK = "#111118";
@@ -356,7 +357,7 @@ export function board(
   customQuestions?: Question[]
 ): LeaderboardRow[] {
   const qs = customQuestions && customQuestions.length > 0 ? customQuestions : live.set.questions;
-  const rowsMap = new Map<string, { name: string; me?: boolean; answered: number; correct: number }>();
+  const rowsMap = new Map<string, { name: string; me?: boolean; answered: number; correct: number; done?: boolean }>();
 
   // 1. Thêm các thí sinh thực tế tham gia qua mạng
   if (Array.isArray(live.participants)) {
@@ -366,6 +367,7 @@ export function board(
         me: p.name === userName || p.isMe,
         answered: p.answered,
         correct: p.correct,
+        done: p.done,
       });
     }
   }
@@ -378,6 +380,7 @@ export function board(
           name: b.name,
           correct: b.correct,
           answered: b.answered,
+          done: b.answered >= qs.length,
         });
       }
     }
@@ -393,12 +396,13 @@ export function board(
       me: true,
       answered: answeredCount,
       correct: correctCount,
+      done: mine.done,
     });
   }
 
   const rows = Array.from(rowsMap.values());
   rows.sort((a, b) => b.correct - a.correct || b.answered - a.answered);
-  return rows.map((r, i) => ({ ...r, rank: i + 1, score: score10(r.correct, qs.length) }));
+  return rows.map((r, i) => ({ ...r, rank: i + 1, score: score10(r.correct, qs.length), done: r.done }));
 }
 
 export async function generateQuestionsApi({
@@ -685,6 +689,105 @@ export async function loadUserHostedExams(userId?: string): Promise<HostedExamRe
       if (raw) records = JSON.parse(raw);
     } catch {}
   }
+
+  if (!isRealUser || !userId) {
+    return records;
+  }
+
+  // Lấy thêm từ Supabase Cloud để nếu đăng xuất/đổi máy vẫn xem được danh sách phòng đã tổ chức kèm bảng điểm
+  try {
+    const { data, error } = await supabase
+      .from("rooms")
+      .select("id, name, code, is_active, created_at, host_user_id")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (!error && Array.isArray(data)) {
+      const cloudRecords: HostedExamRecord[] = [];
+      for (const row of data) {
+        try {
+          const parsed = JSON.parse(row.name);
+          if (
+            parsed &&
+            parsed.__type === "PERMIND_EXAM" &&
+            (parsed.hostUserId === userId || row.host_user_id === userId) &&
+            parsed.exam
+          ) {
+            const exam: LiveExam = parsed.exam;
+            const participants: LiveParticipant[] = exam.participants || [];
+            const sorted = [...participants].sort(
+              (a, b) => (b.score || 0) - (a.score || 0) || (b.answered || 0) - (a.answered || 0)
+            );
+            const total = exam.set?.questions?.length || 0;
+            const avg = sorted.length
+              ? sorted.reduce((s, p) => s + (p.score || 0), 0) / sorted.length
+              : 0;
+
+            const dateStr = row.created_at
+              ? new Date(row.created_at).toLocaleString("vi-VN", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                })
+              : new Date(parsed.startedAt || Date.now()).toLocaleString("vi-VN", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                });
+
+            cloudRecords.push({
+              id: `hosted_cloud_${row.id}`,
+              code: exam.code || row.code,
+              title: exam.set?.title || "Bài kiểm tra",
+              subject: exam.set?.subject || "KIỂM TRA",
+              date: dateStr,
+              totalQuestions: total,
+              participantCount: sorted.length,
+              avgScore: Number(avg.toFixed(1)),
+              leaderboard: sorted.map((p, idx) => ({
+                name: p.name,
+                score: Number((p.score || 0).toFixed(1)),
+                answered: p.answered || 0,
+                correct: p.correct || 0,
+                rank: idx + 1,
+              })),
+            });
+          }
+        } catch {}
+      }
+
+      // Hợp nhất dữ liệu cloud và local (ưu tiên bản ghi có thí sinh nhiều hơn)
+      const mergedMap = new Map<string, HostedExamRecord>();
+      for (const cr of cloudRecords) {
+        mergedMap.set(cr.code, cr);
+      }
+      for (const lr of records) {
+        const cloudRec = mergedMap.get(lr.code);
+        if (!cloudRec) {
+          mergedMap.set(lr.code, lr);
+        } else {
+          if ((lr.participantCount || 0) > (cloudRec.participantCount || 0)) {
+            mergedMap.set(lr.code, lr);
+          }
+        }
+      }
+
+      const mergedList = Array.from(mergedMap.values());
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(localKey, JSON.stringify(mergedList));
+        } catch {}
+      }
+      return mergedList;
+    }
+  } catch (err) {
+    console.warn("Lỗi tải danh sách phòng đã tổ chức từ Supabase:", err);
+  }
+
   return records;
 }
 

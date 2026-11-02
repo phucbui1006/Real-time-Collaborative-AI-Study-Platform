@@ -12,6 +12,7 @@ import {
   ExamSet,
   ExamHistory,
   LiveExam,
+  LiveParticipant,
   MyExamState,
   ExamResult,
   board,
@@ -43,6 +44,7 @@ import {
   fetchHostActiveExam,
   closeLiveExam,
   subscribeExamRealtime,
+  syncParticipantToCloud,
 } from "../services/liveExamSync";
 
 
@@ -135,13 +137,38 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       fetchHostActiveExam(userId).then((cloudLive) => {
         if (active && cloudLive) {
           setLive((curr) => {
-            if (!curr || curr.status === "ended") {
+            if (!curr || curr.status === "ended" || curr.code === cloudLive.code) {
+              const existingParts = curr?.participants || [];
+              const cloudParts = cloudLive.participants || [];
+              const mergedMap = new Map<string, LiveParticipant>();
+              for (const p of existingParts) {
+                mergedMap.set(p.name, p);
+              }
+              for (const cp of cloudParts) {
+                const cur = mergedMap.get(cp.name);
+                if (!cur) {
+                  mergedMap.set(cp.name, cp);
+                } else {
+                  mergedMap.set(cp.name, {
+                    ...cur,
+                    answered: Math.max(cur.answered || 0, cp.answered || 0),
+                    correct: Math.max(cur.correct || 0, cp.correct || 0),
+                    score: Math.max(cur.score || 0, cp.score || 0),
+                    done: cur.done || cp.done,
+                  });
+                }
+              }
+              const finalLive: LiveExam = {
+                ...(curr || cloudLive),
+                ...cloudLive,
+                participants: Array.from(mergedMap.values()),
+              };
               const userLiveKey = `permind_current_live_exam_${userId}`;
               try {
-                localStorage.setItem("permind_current_live_exam", JSON.stringify(cloudLive));
-                localStorage.setItem(userLiveKey, JSON.stringify(cloudLive));
+                localStorage.setItem("permind_current_live_exam", JSON.stringify(finalLive));
+                localStorage.setItem(userLiveKey, JSON.stringify(finalLive));
               } catch {}
-              return cloudLive;
+              return finalLive;
             }
             return curr;
           });
@@ -191,13 +218,21 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   const rows = live ? board(live, mine, userName, candidateQuestions) : [];
 
   // Tự động lưu bản tổng kết kết quả phòng thi do người dùng này tổ chức
-  const saveHostedRecord = (exam: LiveExam, currentRows: LeaderboardRow[]) => {
+  const saveHostedRecord = async (exam: LiveExam, currentRows: LeaderboardRow[]) => {
+    let rowsToUse = [...currentRows];
+    try {
+      const latestCloud = await fetchLiveExam(exam.code);
+      if (latestCloud && Array.isArray(latestCloud.participants) && latestCloud.participants.length > 0) {
+        rowsToUse = board(latestCloud, mine, userName, candidateQuestions);
+      }
+    } catch {}
+
     const total = exam.set.questions.length;
-    const avg = currentRows.length
-      ? currentRows.reduce((s, r) => s + r.score, 0) / currentRows.length
+    const avg = rowsToUse.length
+      ? rowsToUse.reduce((s, r) => s + r.score, 0) / rowsToUse.length
       : 0;
 
-    const sorted = [...currentRows].sort((a, b) => b.score - a.score || b.answered - a.answered);
+    const sorted = [...rowsToUse].sort((a, b) => b.score - a.score || b.answered - a.answered);
 
     const record: HostedExamRecord = {
       id: `hosted_${exam.code}_${Date.now()}`,
@@ -402,6 +437,62 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     return () => clearInterval(t);
   }, [live?.status, live?.code, live?.bots?.length]);
 
+  // Định kỳ đồng bộ danh sách thí sinh và điểm số từ Supabase Cloud khi phòng thi đang chạy
+  useEffect(() => {
+    if (!live || live.status !== "running") return;
+    const interval = setInterval(async () => {
+      try {
+        const cloudExam = await fetchLiveExam(live.code);
+        if (cloudExam && Array.isArray(cloudExam.participants) && cloudExam.participants.length > 0) {
+          setLive((curr) => {
+            if (!curr || curr.code !== cloudExam.code) return curr;
+            const currentParts = curr.participants || [];
+            const cloudParts = cloudExam.participants || [];
+            let changed = false;
+            const map = new Map<string, LiveParticipant>();
+            for (const p of currentParts) {
+              map.set(p.name, p);
+            }
+            for (const cp of cloudParts) {
+              const cur = map.get(cp.name);
+              if (!cur) {
+                map.set(cp.name, cp);
+                changed = true;
+              } else if (
+                cur.answered !== cp.answered ||
+                cur.correct !== cp.correct ||
+                cur.score !== cp.score ||
+                cur.done !== cp.done
+              ) {
+                map.set(cp.name, {
+                  ...cur,
+                  answered: Math.max(cur.answered || 0, cp.answered || 0),
+                  correct: Math.max(cur.correct || 0, cp.correct || 0),
+                  score: Math.max(cur.score || 0, cp.score || 0),
+                  done: cur.done || cp.done,
+                });
+                changed = true;
+              }
+            }
+            if (!changed) return curr;
+            const updated = {
+              ...curr,
+              participants: Array.from(map.values()),
+            };
+            const userLiveKey = `permind_current_live_exam_${userId || "guest"}`;
+            try {
+              localStorage.setItem("permind_current_live_exam", JSON.stringify(updated));
+              localStorage.setItem(userLiveKey, JSON.stringify(updated));
+            } catch {}
+            return updated;
+          });
+        }
+      } catch {}
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, [live?.code, live?.status, userId]);
+
   const finishTake = () => {
     if (!mine || mine.done || !live) return;
     const qs = candidateQuestions.length ? candidateQuestions : live.set.questions;
@@ -427,7 +518,15 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       bestScore,
       attempts,
     };
-    channelRef.current?.sendStudentSubmit(userName, me.correct, me.correct, me.score);
+    channelRef.current?.sendStudentSubmit(userName, qs.length, me.correct, me.score);
+    syncParticipantToCloud(live.code, {
+      name: userName,
+      id: userId,
+      answered: qs.length,
+      correct: me.correct,
+      score: me.score,
+      done: true,
+    });
     setMine((m) => (m ? { ...m, done: true } : null));
     saveExamToHistory(live, res.score, res.rank, res.of);
     setResult(res);
@@ -523,6 +622,14 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       setLive(target);
       setMine({ answers: {}, done: false, startedAt: Date.now() });
       setView({ name: "take" });
+      syncParticipantToCloud(target.code, {
+        name: userName,
+        id: userId,
+        answered: 0,
+        correct: 0,
+        score: 0,
+        done: false,
+      });
     } catch (err: any) {
       setJoinErr(err?.message || "Lỗi kết nối khi tham gia bài kiểm tra.");
     } finally {
@@ -541,6 +648,14 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     const correctCount = qs.filter((q) => newAnswers[q.id] === q.correct).length;
     const currentScore = score10(correctCount, qs.length);
     channelRef.current?.sendStudentProgress(userName, answeredCount, correctCount, currentScore, false);
+    syncParticipantToCloud(live.code, {
+      name: userName,
+      id: userId,
+      answered: answeredCount,
+      correct: correctCount,
+      score: currentScore,
+      done: false,
+    });
   };
 
   const saveSet = (s: ExamSet) => {

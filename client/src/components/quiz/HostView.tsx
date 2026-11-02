@@ -21,7 +21,7 @@ export function HostView({ live, rows, remaining, onBack, onEnd, onClose, onTry,
   const total = live.set.questions.length;
   const running = live.status === "running";
   const avg = rows.length ? rows.reduce((s, r) => s + r.score, 0) / rows.length : 0;
-  const done = rows.filter((r) => r.answered === total).length;
+  const done = rows.filter((r) => r.done || r.answered >= total).length;
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 sm:px-8 py-8">
