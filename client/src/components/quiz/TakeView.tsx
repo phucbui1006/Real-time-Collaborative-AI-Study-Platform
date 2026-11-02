@@ -2,25 +2,23 @@ import { useState } from "react";
 import {
   LiveExam,
   MyExamState,
-  LeaderboardRow,
   LETTERS,
   fmt,
   Question,
 } from "../../services/examService";
-import { Leaderboard } from "./Leaderboard";
 import { Clock, ChevronLeft, ChevronRight, AlertTriangle, X } from "lucide-react";
 
 interface TakeViewProps {
   live: LiveExam;
   mine: MyExamState;
-  rows: LeaderboardRow[];
+  rows?: any;
   remaining: number;
   onAnswer: (qid: string, idx: number) => void;
   onFinish: () => void;
   questions?: Question[];
 }
 
-export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish, questions }: TakeViewProps) {
+export function TakeView({ live, mine, remaining, onAnswer, onFinish, questions }: TakeViewProps) {
   const qs = questions && questions.length > 0 ? questions : live.set.questions;
   const [qi, setQi] = useState(0);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -81,8 +79,8 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish, ques
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
-        <section className="col-span-12 lg:col-span-7 min-w-0 rounded-md bg-white dark:bg-[#1b1b26] p-6 sm:p-7 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
+      <div className="max-w-4xl mx-auto">
+        <section className="w-full min-w-0 rounded-md bg-white dark:bg-[#1b1b26] p-6 sm:p-7 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]">
           {/* Question pagination pills */}
           <div className="mb-6 flex flex-wrap gap-2">
             {qs.map((x, i) => {
@@ -196,30 +194,6 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish, ques
             )}
           </div>
         </section>
-
-        <aside className="col-span-12 lg:col-span-3 min-w-0 space-y-4">
-          <div className="rounded-md bg-white dark:bg-[#1b1b26] p-6 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] text-center">
-            <div className="text-xs font-normal uppercase tracking-wider text-[#111118]/70 dark:text-[#f0f6ff]/70">
-              Tiến độ làm bài
-            </div>
-            <div className="mt-2 text-4xl font-mono font-normal text-[#111118] dark:text-[#f0f6ff] tabular-nums">
-              {answered}/{qs.length}
-            </div>
-            <div className="mt-1 text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-mono tabular-nums">
-              Đã hoàn thành <strong className="text-[#0b7a75] dark:text-[#2dd4bf] font-mono">{Math.round((answered / qs.length) * 100)}%</strong>
-            </div>
-            <p className="mt-3 text-[11px] text-[#111118]/60 dark:text-[#f0f6ff]/60 leading-tight">
-              Điểm số và đáp án đúng sẽ được tổng kết sau khi bạn nộp bài.
-            </p>
-          </div>
-
-          <div className="rounded-md bg-white dark:bg-[#1b1b26] p-5 border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118]">
-            <h3 className="mb-3 text-xs font-normal text-[#111118] dark:text-[#f0f6ff] tracking-tight uppercase">
-              Bảng xếp hạng trực tiếp
-            </h3>
-            <Leaderboard rows={rows} total={qs.length} limit={5} hideScores={true} />
-          </div>
-        </aside>
       </div>
 
       {/* Modal xác nhận nộp bài khi chưa làm hết câu */}

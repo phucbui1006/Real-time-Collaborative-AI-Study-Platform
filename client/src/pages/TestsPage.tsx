@@ -1234,8 +1234,6 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                           <div className="truncate font-normal text-[#111118] dark:text-[#f0f6ff] text-base mt-0.5">{h.title}</div>
                           <div className="text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums mt-0.5 flex flex-wrap gap-x-2.5">
                             <span>📅 {h.date}</span>
-                            <span>·</span>
-                            <span>Hạng {h.rank}/{h.of}</span>
                           </div>
                         </div>
                         <div className="flex items-center shrink-0">

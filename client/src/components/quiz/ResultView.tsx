@@ -15,7 +15,7 @@ export function ResultView({ res, onHome, onBackToHost }: ResultViewProps) {
           {res.score.toFixed(1)}
         </div>
         <div className="mt-3 text-sm font-mono font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70">
-          {res.correct}/{res.total} câu đúng · Hạng {res.rank}/{res.of}
+          {res.correct}/{res.total} câu đúng
         </div>
       </div>
 
