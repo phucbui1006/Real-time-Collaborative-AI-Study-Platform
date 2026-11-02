@@ -40,6 +40,7 @@ import { isValidUUID } from "../utils";
 import {
   publishLiveExam,
   fetchLiveExam,
+  fetchHostActiveExam,
   closeLiveExam,
   subscribeExamRealtime,
 } from "../services/liveExamSync";
@@ -128,6 +129,26 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     loadUserHostedExams(userId).then((loadedHosted) => {
       if (active) setHostedExams(loadedHosted);
     });
+
+    // Tự động kiểm tra và nhận lại phòng thi đang mở của host trên Supabase Cloud
+    if (userId) {
+      fetchHostActiveExam(userId).then((cloudLive) => {
+        if (active && cloudLive) {
+          setLive((curr) => {
+            if (!curr || curr.status === "ended") {
+              const userLiveKey = `permind_current_live_exam_${userId}`;
+              try {
+                localStorage.setItem("permind_current_live_exam", JSON.stringify(cloudLive));
+                localStorage.setItem(userLiveKey, JSON.stringify(cloudLive));
+              } catch {}
+              return cloudLive;
+            }
+            return curr;
+          });
+        }
+      });
+    }
+
     return () => {
       active = false;
     };
@@ -136,7 +157,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   // Khôi phục phòng thi đang mở (nếu còn thời gian chạy)
   const [live, setLive] = useState<LiveExam | null>(() => {
     try {
-      const stored = localStorage.getItem("permind_current_live_exam");
+      const userLiveKey = `permind_current_live_exam_${userId || "guest"}`;
+      const stored = localStorage.getItem(userLiveKey) || localStorage.getItem("permind_current_live_exam");
       if (stored) {
         const parsed: LiveExam = JSON.parse(stored);
         if (parsed.status === "running" && parsed.endAt > Date.now()) {
@@ -250,6 +272,14 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       return updated;
     });
   };
+
+
+  // Tự động cập nhật bảng xếp hạng vào danh sách "Phòng đã tổ chức" theo thời gian thực nếu là chủ phòng
+  useEffect(() => {
+    if (live && !mine && rows.length > 0) {
+      saveHostedRecord(live, rows);
+    }
+  }, [rows.length, live?.status]);
 
   // Hết giờ theo mốc thời gian tuyệt đối (endAt) → tự động kết thúc bài
   useEffect(() => {
@@ -431,13 +461,18 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       allowRetake,
     };
     setLive(newLive);
+    const userLiveKey = `permind_current_live_exam_${userId || "guest"}`;
     try {
       localStorage.setItem(`permind_active_exam_${code}`, JSON.stringify(newLive));
       localStorage.setItem("permind_current_live_exam", JSON.stringify(newLive));
+      localStorage.setItem(userLiveKey, JSON.stringify(newLive));
     } catch {}
     setMine(null);
     setOpenFor(null);
     setView({ name: "host" });
+
+    // Ghi nhận ngay phòng thi vào danh sách "Phòng đã tổ chức" ngay khi mở phòng
+    saveHostedRecord(newLive, []);
 
     // Đồng bộ phòng thi lên Supabase Cloud để mọi máy khác đều có thể nhập mã tham gia
     await publishLiveExam(newLive, userId, userName);
@@ -570,6 +605,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
             try {
               localStorage.removeItem(`permind_active_exam_${live.code}`);
               localStorage.removeItem("permind_current_live_exam");
+              localStorage.removeItem(`permind_current_live_exam_${userId || "guest"}`);
             } catch {}
           }
           setLive(null);
@@ -768,6 +804,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                             setHistorySubTab("hosted");
                             try {
                               localStorage.removeItem("permind_current_live_exam");
+                              localStorage.removeItem(`permind_current_live_exam_${userId || "guest"}`);
                               localStorage.removeItem("permind_current_mine_exam");
                             } catch {}
                           }

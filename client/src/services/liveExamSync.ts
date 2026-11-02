@@ -220,3 +220,46 @@ export function subscribeExamRealtime(code: string, handlers: RealtimeHandlers) 
     },
   };
 }
+
+/**
+ * Tra cứu phòng thi do chính hostUserId này tạo đang còn hiệu lực trên máy chủ đám mây Supabase
+ */
+export async function fetchHostActiveExam(hostUserId: string): Promise<LiveExam | null> {
+  if (!hostUserId) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from("rooms")
+      .select("id, name, code, is_active, created_at")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (!error && Array.isArray(data)) {
+      const now = Date.now();
+      for (const row of data) {
+        try {
+          const parsed = JSON.parse(row.name) as ExamSyncPayload;
+          if (
+            parsed &&
+            parsed.__type === "PERMIND_EXAM" &&
+            parsed.hostUserId === hostUserId &&
+            parsed.exam &&
+            parsed.endAt > now
+          ) {
+            const exam = parsed.exam;
+            exam.startedAt = parsed.startedAt || exam.startedAt;
+            exam.endAt = parsed.endAt || exam.endAt;
+            exam.status = parsed.status || "running";
+            exam.hostUserId = hostUserId;
+            return exam;
+          }
+        } catch {}
+      }
+    }
+  } catch (err) {
+    console.warn("Lỗi tra cứu phòng thi đang mở của host:", err);
+  }
+
+  return null;
+}

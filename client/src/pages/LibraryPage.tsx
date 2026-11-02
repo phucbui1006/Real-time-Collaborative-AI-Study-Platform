@@ -93,6 +93,8 @@ export function clearAllUserState() {
             (key.startsWith("permind_exam_sets_") && key !== "permind_exam_sets_guest") ||
             (key.startsWith("permind_exam_history_") && key !== "permind_exam_history_guest") ||
             (key.startsWith("permind_hosted_exams_") && key !== "permind_hosted_exams_guest") ||
+            (key.startsWith("permind_current_live_exam_") && key !== "permind_current_live_exam_guest") ||
+            key.startsWith("permind_active_exam_") ||
             (key.startsWith("permind_docs_") && key !== "permind_docs_guest");
 
           if (!isPersistentRealUserData) {
