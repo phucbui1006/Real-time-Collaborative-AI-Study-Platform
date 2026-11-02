@@ -3,9 +3,10 @@ import { ExamResult } from "../../services/examService";
 interface ResultViewProps {
   res: ExamResult;
   onHome: () => void;
+  onBackToHost?: () => void;
 }
 
-export function ResultView({ res, onHome }: ResultViewProps) {
+export function ResultView({ res, onHome, onBackToHost }: ResultViewProps) {
   return (
     <div className="mx-auto max-w-2xl px-4 sm:px-8 py-10">
       <div className="rounded-md p-8 text-center bg-white dark:bg-[#1b1b26] border-2 border-[#111118] dark:border-[#2a2a3a] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000]">
@@ -42,10 +43,22 @@ export function ResultView({ res, onHome }: ResultViewProps) {
         </p>
       </div>
 
-      <div className="mt-8 text-center">
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+        {onBackToHost && (
+          <button
+            onClick={onBackToHost}
+            className="inline-flex items-center justify-center gap-2 rounded-pill h-12 px-8 text-base font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer"
+          >
+            <span>Quản lý phòng thi & Bảng điểm</span>
+          </button>
+        )}
         <button
           onClick={onHome}
-          className="inline-flex items-center justify-center gap-2 rounded-pill h-12 px-8 text-base font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer"
+          className={`inline-flex items-center justify-center gap-2 rounded-pill h-12 px-8 text-base font-normal ${
+            onBackToHost
+              ? "bg-white dark:bg-[#242436] hover:bg-[#f0f6ff] dark:hover:bg-[#2e2e42] text-[#111118] dark:text-[#f0f6ff]"
+              : "bg-[#0b7a75] hover:bg-[#09635f] text-white"
+          } border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer`}
         >
           <span>Về trang bài kiểm tra</span>
         </button>

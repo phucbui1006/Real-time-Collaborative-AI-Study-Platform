@@ -206,8 +206,21 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   const now = useNow();
 
   const remaining = live ? Math.max(0, Math.ceil((live.endAt - now) / 1000)) : 0;
-  // Chỉ coi là đang hoạt động nếu bài đang running, còn thời gian và người dùng chưa nộp bài
-  const isLiveActive = Boolean(live && live.status === "running" && remaining > 0 && (!mine || !mine.done));
+  const isHost = Boolean(
+    live && (
+      (userId && live.hostUserId === userId) ||
+      (userName && live.hostName === userName)
+    )
+  );
+  // Phòng thi coi là đang hoạt động nếu bài đang running, còn thời gian và:
+  // - Nếu là host: luôn active để quản lý cho tới khi hết giờ hoặc host đóng
+  // - Nếu là thí sinh thường: active khi chưa nộp bài (!mine || !mine.done)
+  const isLiveActive = Boolean(
+    live &&
+    live.status === "running" &&
+    remaining > 0 &&
+    (isHost || (!mine || !mine.done))
+  );
 
   // Danh sách câu hỏi được xáo trộn ngẫu nhiên riêng biệt cho từng thí sinh (theo mã phòng + ID/Tên)
   const candidateQuestions = useMemo(() => {
@@ -367,10 +380,10 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
 
   // Tự động cập nhật bảng xếp hạng vào danh sách "Phòng đã tổ chức" theo thời gian thực nếu là chủ phòng
   useEffect(() => {
-    if (live && !mine && rows.length > 0) {
+    if (live && isHost && rows.length > 0) {
       saveHostedRecord(live, rows);
     }
-  }, [rows.length, live?.status]);
+  }, [rows.length, live?.status, isHost]);
 
   // Hết giờ theo mốc thời gian tuyệt đối (endAt) → tự động kết thúc bài
   useEffect(() => {
@@ -381,8 +394,11 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
         localStorage.setItem(`permind_active_exam_${live.code}`, JSON.stringify(endedLive));
         localStorage.setItem("permind_current_live_exam", JSON.stringify(endedLive));
       } catch {}
+      if (isHost) {
+        saveHostedRecord(endedLive, rows);
+      }
     }
-  }, [remaining, live]);
+  }, [remaining, live?.status, isHost]);
 
   // Kết nối Supabase Realtime Channel để nhận dữ liệu từ các thí sinh thực tế
   useEffect(() => {
@@ -553,7 +569,15 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     if (!mine || mine.done || !live) return;
     const qs = candidateQuestions.length ? candidateQuestions : live.set.questions;
     const ans = mine.answers;
-    const me = rows.find((r) => r.me) || { score: 0, rank: 1, correct: 0 };
+    const me: LeaderboardRow = rows.find((r) => r.me) || {
+      name: userName,
+      score: 0,
+      rank: 1,
+      correct: 0,
+      answered: Object.keys(ans).length,
+      me: true,
+      done: true,
+    };
     const previousAttempts = history.filter(
       (h) => h.examCode === live.code || h.title === live.set.title
     );
@@ -585,11 +609,49 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     });
     setMine((m) => (m ? { ...m, done: true } : null));
     saveExamToHistory(live, res.score, res.rank, res.of);
+
+    // Cập nhật danh sách thí sinh trong phòng trực tiếp
+    setLive((curr) => {
+      if (!curr) return null;
+      const existing = curr.participants || [];
+      const updatedParts = [
+        ...existing.filter((p) => p.name !== userName && p.id !== userId),
+        {
+          name: userName,
+          id: userId,
+          answered: qs.length,
+          correct: me.correct,
+          score: me.score,
+          done: true,
+          isMe: true,
+        },
+      ];
+      const updated: LiveExam = { ...curr, participants: updatedParts };
+      try {
+        localStorage.setItem(`permind_active_exam_${curr.code}`, JSON.stringify(updated));
+        localStorage.setItem("permind_current_live_exam", JSON.stringify(updated));
+        if (userId) {
+          localStorage.setItem(`permind_current_live_exam_${userId}`, JSON.stringify(updated));
+        }
+      } catch {}
+      return updated;
+    });
+
+    const updatedRows = rows.some((r) => r.me)
+      ? rows.map((r) => (r.me ? me : r))
+      : [...rows, me];
+    if (isHost) {
+      saveHostedRecord(live, updatedRows);
+    }
+
     setResult(res);
     setView({ name: "result" });
     try {
       localStorage.removeItem("permind_current_mine_exam");
-      localStorage.removeItem("permind_current_live_exam");
+      if (!isHost) {
+        localStorage.removeItem("permind_current_live_exam");
+        localStorage.removeItem(`permind_current_live_exam_${userId || "guest"}`);
+      }
     } catch {}
   };
 
@@ -727,13 +789,19 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   };
 
   const home = () => {
-    // Nếu bài thi đã kết thúc hoặc thí sinh đã làm xong bài, tự động mở tab Lịch sử làm bài
-    if (!isLiveActive && (result || (mine && mine.done) || (live && live.status === "ended"))) {
+    // Nếu bài thi đã kết thúc hoặc thí sinh thường đã làm xong bài, tự động mở tab Lịch sử làm bài
+    // Đối với chủ phòng, chỉ hủy phòng khi bài kiểm tra đã kết thúc hoàn toàn (status === "ended" hoặc remaining <= 0)
+    const shouldClearLive = isHost
+      ? (!live || live.status === "ended" || remaining <= 0)
+      : (!isLiveActive && (result || (mine && mine.done) || (live && live.status === "ended")));
+
+    if (shouldClearLive && (result || (mine && mine.done) || (live && live.status === "ended"))) {
       setTab("history");
       setLive(null);
       setMine(null);
       try {
         localStorage.removeItem("permind_current_live_exam");
+        localStorage.removeItem(`permind_current_live_exam_${userId || "guest"}`);
         localStorage.removeItem("permind_current_mine_exam");
       } catch {}
     }
@@ -813,7 +881,13 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   }
 
   if (view.name === "result" && result) {
-    return <ResultView res={result} onHome={home} />;
+    return (
+      <ResultView
+        res={result}
+        onHome={home}
+        onBackToHost={isHost && live && live.status === "running" ? () => setView({ name: "host" }) : undefined}
+      />
+    );
   }
 
   const running = live?.status === "running";
@@ -947,10 +1021,16 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                       <span>Mã: <strong className="text-[#0b7a75] dark:text-[#2dd4bf] font-mono text-sm">{live.code}</strong></span>
                       <span>·</span>
                       <span>Còn <strong className="text-[#ff4141] font-mono">{fmt(remaining)}</strong></span>
-                      {mine && (
+                      {mine && !mine.done && (
                         <>
                           <span>·</span>
                           <span>Đã làm {Object.keys(mine.answers).length}/{(candidateQuestions.length || live.set.questions.length)} câu</span>
+                        </>
+                      )}
+                      {mine?.done && (
+                        <>
+                          <span>·</span>
+                          <span className="text-[#16ab59] dark:text-[#2dd4bf] font-medium">Đã nộp bài (Điểm: {rows.find(r => r.me)?.score?.toFixed(1) ?? "--"})</span>
                         </>
                       )}
                     </div>
@@ -959,7 +1039,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                   <div className="mt-4 pt-3 border-t border-[#111118]/10 dark:border-white/10 flex items-center justify-between gap-2">
                     <button
                       onClick={() => {
-                        if (mine) {
+                        if (mine && !mine.done) {
                           if (window.confirm("Bạn có muốn nộp bài sớm và rời phòng thi? Điểm số hiện tại sẽ được lưu vào Lịch sử.")) {
                             finishTake();
                           }
@@ -983,12 +1063,12 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                       }}
                       className="text-xs text-[#ff4141] hover:underline cursor-pointer font-normal"
                     >
-                      {mine ? "Nộp bài sớm & Rời" : "Đóng bài kiểm tra"}
+                      {mine && !mine.done ? "Nộp bài sớm & Rời" : "Đóng bài kiểm tra"}
                     </button>
 
                     <button
                       onClick={() => {
-                        if (mine) {
+                        if (mine && !mine.done) {
                           setView({ name: "take" });
                         } else {
                           setView({ name: "host" });
@@ -996,7 +1076,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                       }}
                       className="inline-flex items-center gap-1.5 h-10 px-5 rounded-pill bg-[#0b7a75] hover:bg-[#09635f] text-white text-xs font-normal border-2 border-[#111118] shadow-[0_3px_0_0_#111118] active:translate-y-[1px] transition-all cursor-pointer"
                     >
-                      <span>{mine ? "Tiếp tục làm bài" : "Vào phòng thi & Bảng điểm"}</span>
+                      <span>{mine && !mine.done ? "Tiếp tục làm bài" : "Vào phòng thi & Bảng điểm"}</span>
                     </button>
                   </div>
                 </div>
