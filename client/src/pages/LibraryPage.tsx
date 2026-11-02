@@ -92,6 +92,7 @@ export function clearAllUserState() {
           const isPersistentRealUserData =
             (key.startsWith("permind_exam_sets_") && key !== "permind_exam_sets_guest") ||
             (key.startsWith("permind_exam_history_") && key !== "permind_exam_history_guest") ||
+            (key.startsWith("permind_hosted_exams_") && key !== "permind_hosted_exams_guest") ||
             (key.startsWith("permind_docs_") && key !== "permind_docs_guest");
 
           if (!isPersistentRealUserData) {

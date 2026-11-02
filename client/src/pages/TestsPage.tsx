@@ -22,6 +22,11 @@ import {
   deleteUserExamSet,
   loadUserExamHistory,
   saveUserExamHistory,
+  HostedExamRecord,
+  loadUserHostedExams,
+  saveUserHostedExam,
+  deleteUserHostedExam,
+  LeaderboardRow,
 } from "../services/examService";
 import { Editor } from "../components/quiz/Editor";
 import { OpenModal } from "../components/quiz/OpenModal";
@@ -77,6 +82,9 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   const historyKey = `permind_exam_history_${userId || "guest"}`;
 
   const [tab, setTab] = useState<"sets" | "history">("sets");
+  const [hostedExams, setHostedExams] = useState<HostedExamRecord[]>([]);
+  const [historySubTab, setHistorySubTab] = useState<"taken" | "hosted">("taken");
+  const [viewingHosted, setViewingHosted] = useState<HostedExamRecord | null>(null);
   const [libraryDocs, setLibraryDocs] = useState<QuizDocItem[]>([]);
 
   // Tải danh sách tài liệu từ Thư viện (kết hợp cache và Supabase) để phục vụ AI tạo câu hỏi
@@ -117,6 +125,9 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     loadUserExamHistory(userId).then((loadedHistory) => {
       if (active) setHistory(loadedHistory);
     });
+    loadUserHostedExams(userId).then((loadedHosted) => {
+      if (active) setHostedExams(loadedHosted);
+    });
     return () => {
       active = false;
     };
@@ -148,6 +159,48 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   // Chỉ coi là đang hoạt động nếu bài đang running, còn thời gian và người dùng chưa nộp bài
   const isLiveActive = Boolean(live && live.status === "running" && remaining > 0 && (!mine || !mine.done));
   const rows = live ? board(live, mine, userName) : [];
+
+  // Tự động lưu bản tổng kết kết quả phòng thi do người dùng này tổ chức
+  const saveHostedRecord = (exam: LiveExam, currentRows: LeaderboardRow[]) => {
+    const total = exam.set.questions.length;
+    const avg = currentRows.length
+      ? currentRows.reduce((s, r) => s + r.score, 0) / currentRows.length
+      : 0;
+
+    const sorted = [...currentRows].sort((a, b) => b.score - a.score || b.answered - a.answered);
+
+    const record: HostedExamRecord = {
+      id: `hosted_${exam.code}_${Date.now()}`,
+      code: exam.code,
+      title: exam.set.title,
+      subject: exam.set.subject || "KIỂM TRA",
+      date: new Date().toLocaleString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }),
+      totalQuestions: total,
+      participantCount: sorted.length,
+      avgScore: Number(avg.toFixed(1)),
+      leaderboard: sorted.map((r, idx) => ({
+        name: r.name,
+        score: Number(r.score.toFixed(1)),
+        answered: r.answered,
+        correct: r.correct,
+        rank: idx + 1,
+        isMe: !!r.me,
+      })),
+    };
+
+    setHostedExams((prev) => {
+      const filtered = prev.filter((p) => p.code !== record.code);
+      const updated = [record, ...filtered];
+      saveUserHostedExam(userId, record);
+      return updated;
+    });
+  };
 
   // Tự động lưu bài thi vào Lịch sử làm bài (Ghi nhận điểm cao nhất nếu làm lại)
   const saveExamToHistory = (
@@ -501,6 +554,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
           if (live) {
             channelRef.current?.sendExamEnded();
             closeLiveExam(live.code);
+            saveHostedRecord(live, rows);
             setLive((l) => {
               if (!l) return null;
               const endedLive: LiveExam = { ...l, status: "ended", endAt: Date.now() };
@@ -516,6 +570,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
           if (live) {
             channelRef.current?.sendExamEnded();
             closeLiveExam(live.code);
+            saveHostedRecord(live, rows);
             try {
               localStorage.removeItem(`permind_active_exam_${live.code}`);
               localStorage.removeItem("permind_current_live_exam");
@@ -523,6 +578,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
           }
           setLive(null);
           setMine(null);
+          setTab("history");
+          setHistorySubTab("hosted");
           home();
         }}
         onTry={() => {
@@ -706,10 +763,12 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                           if (window.confirm("Bạn có muốn kết thúc và đóng bài kiểm tra này?")) {
                             channelRef.current?.sendExamEnded();
                             closeLiveExam(live.code);
+                            saveHostedRecord(live, rows);
                             const me = rows.find((r) => r.me);
                             saveExamToHistory(live, me ? me.score : 10, me ? me.rank : 1, rows.length || 1);
                             setLive(null);
                             setTab("history");
+                            setHistorySubTab("hosted");
                             try {
                               localStorage.removeItem("permind_current_live_exam");
                               localStorage.removeItem("permind_current_mine_exam");
@@ -832,37 +891,259 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
               })}
             </ul>
           )
-        ) : history.length === 0 ? (
-          <p className="py-10 text-center text-sm font-normal text-[#111118]/60 dark:text-[#f0f6ff]/60">
-            Chưa có lịch sử làm bài kiểm tra nào. Hãy tham gia hoặc mở phòng thi để xem xếp hạng nhé!
-          </p>
-        ) : (
-          <ul className="divide-y divide-[#e1edff] dark:divide-[#2a2a3a]">
-            {history.map((h) => {
-              const subStyle = getSubjectStyle(h.subject);
-              return (
-                <li key={h.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
-                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-[#111118] shadow-[0_2px_0_0_#111118] ${subStyle.box}`}>
-                    {subStyle.icon}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-normal tracking-wide uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">{h.subject}</div>
-                    <div className="truncate font-normal text-[#111118] dark:text-[#f0f6ff] text-base mt-0.5">{h.title}</div>
-                    <div className="text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums mt-0.5">
-                      {h.date} · Hạng {h.rank}/{h.of}{h.attempts && h.attempts > 1 ? ` · Đã làm ${h.attempts} lần` : ""}
-                    </div>
-                  </div>
-                  <span className="rounded-sharp px-4 py-2 text-xs font-mono font-normal bg-[#16ab59] text-white border-2 border-[#111118] shadow-[0_2px_0_0_#111118] tabular-nums">
-                    {h.attempts && h.attempts > 1 ? `Cao nhất ${h.score.toFixed(1)}` : `Đã đạt ${h.score.toFixed(1)}`}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+                ) : (
+          <div>
+            {/* Thanh chuyển đổi mục Lịch sử: Bài thi đã làm vs Phòng đã tổ chức */}
+            <div className="flex items-center gap-2 mb-6 border-b border-[#e1edff] dark:border-[#2a2a3a] pb-4">
+              <button
+                type="button"
+                onClick={() => setHistorySubTab("taken")}
+                className={`px-4 py-2 text-xs sm:text-sm font-medium rounded-pill border border-[#111118] transition-all cursor-pointer ${
+                  historySubTab === "taken"
+                    ? "bg-[#0b7a75] text-white shadow-[0_2px_0_0_#111118]"
+                    : "bg-white dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#1b1b26]"
+                }`}
+              >
+                Bài thi đã làm ({history.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setHistorySubTab("hosted")}
+                className={`px-4 py-2 text-xs sm:text-sm font-medium rounded-pill border border-[#111118] transition-all cursor-pointer ${
+                  historySubTab === "hosted"
+                    ? "bg-[#0b7a75] text-white shadow-[0_2px_0_0_#111118]"
+                    : "bg-white dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#1b1b26]"
+                }`}
+              >
+                Phòng đã tổ chức ({hostedExams.length})
+              </button>
+            </div>
+
+            {historySubTab === "taken" ? (
+              history.length === 0 ? (
+                <p className="py-10 text-center text-sm font-normal text-[#111118]/60 dark:text-[#f0f6ff]/60">
+                  Chưa có lịch sử làm bài kiểm tra nào. Hãy tham gia hoặc mở phòng thi để xem xếp hạng nhé!
+                </p>
+              ) : (
+                <ul className="divide-y divide-[#e1edff] dark:divide-[#2a2a3a]">
+                  {history.map((h) => {
+                    const subStyle = getSubjectStyle(h.subject);
+                    return (
+                      <li key={h.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
+                        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-[#111118] shadow-[0_2px_0_0_#111118] ${subStyle.box}`}>
+                          {subStyle.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-normal tracking-wide uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">{h.subject}</div>
+                          <div className="truncate font-normal text-[#111118] dark:text-[#f0f6ff] text-base mt-0.5">{h.title}</div>
+                          <div className="text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums mt-0.5">
+                            {h.date} · Hạng {h.rank}/{h.of}{h.attempts && h.attempts > 1 ? ` · Đã làm ${h.attempts} lần` : ""}
+                          </div>
+                        </div>
+                        <span className="rounded-sharp px-4 py-2 text-xs font-mono font-normal bg-[#16ab59] text-white border-2 border-[#111118] shadow-[0_2px_0_0_#111118] tabular-nums">
+                          {h.attempts && h.attempts > 1 ? `Cao nhất ${h.score.toFixed(1)}` : `Đã đạt ${h.score.toFixed(1)}`}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )
+            ) : hostedExams.length === 0 ? (
+              <p className="py-10 text-center text-sm font-normal text-[#111118]/60 dark:text-[#f0f6ff]/60">
+                Bạn chưa có phòng thi nào đã đóng. Khi bạn mở phòng thi và đóng lại, toàn bộ bảng điểm và kết quả của các thí sinh sẽ được lưu trữ tại đây!
+              </p>
+            ) : (
+              <ul className="divide-y divide-[#e1edff] dark:divide-[#2a2a3a]">
+                {hostedExams.map((rec) => {
+                  const subStyle = getSubjectStyle(rec.subject);
+                  return (
+                    <li key={rec.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                      <div className="flex items-center gap-4 min-w-0 flex-1">
+                        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-[#111118] shadow-[0_2px_0_0_#111118] ${subStyle.box}`}>
+                          {subStyle.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-normal tracking-wide uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">{rec.subject}</span>
+                            <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#e1edff] dark:bg-[#242436] text-[#0b7a75] dark:text-[#2dd4bf] font-semibold border border-[#111118]/20">
+                              Mã: {rec.code}
+                            </span>
+                          </div>
+                          <div className="truncate font-medium text-[#111118] dark:text-[#f0f6ff] text-base mt-0.5">{rec.title}</div>
+                          <div className="text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums mt-0.5 flex flex-wrap gap-x-3 gap-y-1">
+                            <span>📅 {rec.date}</span>
+                            <span>👥 {rec.participantCount} thí sinh</span>
+                            <span>⭐ Điểm TB: {rec.avgScore.toFixed(1)}/10</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setViewingHosted(rec)}
+                          className="inline-flex items-center gap-1.5 rounded-pill h-10 px-4 text-xs font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_3px_0_0_#111118] active:translate-y-[1px] transition-all cursor-pointer"
+                        >
+                          Xem bảng điểm
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`Xoá lịch sử phòng thi "${rec.title}" (Mã: ${rec.code})?`)) {
+                              deleteUserHostedExam(userId, rec.id).then((updated) => {
+                                setHostedExams(updated);
+                              });
+                            }
+                          }}
+                          className="w-10 h-10 rounded-sm border border-[#111118]/30 flex items-center justify-center text-[#ff4141] hover:bg-[#ffbac4]/30 text-base cursor-pointer transition-colors"
+                          title="Xoá lịch sử phòng này"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         )}
       </div>
 
       {openFor && <OpenModal set={openFor} onStart={startExam} onClose={() => setOpenFor(null)} />}
+
+      {/* Modal xem chi tiết bảng điểm phòng thi đã tổ chức */}
+      {viewingHosted && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-md bg-white dark:bg-[#1b1b26] border-2 border-[#111118] dark:border-[#2a2a3a] shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between p-6 border-b border-[#e1edff] dark:border-[#2a2a3a]">
+              <div>
+                <span className="rounded-sharp px-2.5 py-0.5 text-xs font-mono bg-[#e1edff] dark:bg-[#242436] text-[#0b7a75] dark:text-[#2dd4bf] border border-[#111118]">
+                  Mã phòng: {viewingHosted.code}
+                </span>
+                <h3 className="mt-2 text-xl font-normal text-[#111118] dark:text-[#f0f6ff]">
+                  {viewingHosted.title}
+                </h3>
+                <p className="text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 mt-1 font-mono">
+                  Ngày tổ chức: {viewingHosted.date}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingHosted(null)}
+                className="w-8 h-8 rounded-full border border-[#111118]/20 flex items-center justify-center text-sm hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Stats Overview */}
+            <div className="grid grid-cols-3 gap-3 p-4 bg-[#f8fafd] dark:bg-[#20202e] border-b border-[#e1edff] dark:border-[#2a2a3a]">
+              <div className="text-center p-2 rounded bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a]">
+                <div className="text-xl font-mono font-medium text-[#111118] dark:text-[#f0f6ff]">
+                  {viewingHosted.participantCount}
+                </div>
+                <div className="text-[11px] text-[#111118]/60 dark:text-[#f0f6ff]/60 mt-0.5">Thí sinh</div>
+              </div>
+              <div className="text-center p-2 rounded bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a]">
+                <div className="text-xl font-mono font-medium text-[#111118] dark:text-[#f0f6ff]">
+                  {viewingHosted.totalQuestions}
+                </div>
+                <div className="text-[11px] text-[#111118]/60 dark:text-[#f0f6ff]/60 mt-0.5">Số câu hỏi</div>
+              </div>
+              <div className="text-center p-2 rounded bg-white dark:bg-[#1b1b26] border border-[#e1edff] dark:border-[#2a2a3a]">
+                <div className="text-xl font-mono font-medium text-[#0b7a75] dark:text-[#2dd4bf]">
+                  {viewingHosted.avgScore.toFixed(1)}
+                </div>
+                <div className="text-[11px] text-[#111118]/60 dark:text-[#f0f6ff]/60 mt-0.5">Điểm TB</div>
+              </div>
+            </div>
+
+            {/* Leaderboard Table */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <h4 className="text-sm font-medium text-[#111118] dark:text-[#f0f6ff] mb-3">
+                Bảng xếp hạng chung cuộc
+              </h4>
+              {viewingHosted.leaderboard.length === 0 ? (
+                <p className="text-center py-8 text-sm text-[#111118]/60 dark:text-[#f0f6ff]/60">
+                  Không có dữ liệu thí sinh cho phòng thi này.
+                </p>
+              ) : (
+                <div className="rounded border border-[#e1edff] dark:border-[#2a2a3a] overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-[#f0f4f9] dark:bg-[#242436] text-xs font-medium text-[#111118]/70 dark:text-[#f0f6ff]/70 border-b border-[#e1edff] dark:border-[#2a2a3a]">
+                      <tr>
+                        <th className="py-2.5 px-3 text-center w-14">Hạng</th>
+                        <th className="py-2.5 px-3">Thí sinh</th>
+                        <th className="py-2.5 px-3 text-center">Làm đúng</th>
+                        <th className="py-2.5 px-3 text-right">Điểm số</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#e1edff] dark:divide-[#2a2a3a]">
+                      {viewingHosted.leaderboard.map((p, idx) => (
+                        <tr
+                          key={idx}
+                          className={`hover:bg-[#f8fafd] dark:hover:bg-[#20202e] ${
+                            p.isMe ? "bg-[#e1edff]/40 dark:bg-[#242436]/40 font-medium" : ""
+                          }`}
+                        >
+                          <td className="py-3 px-3 text-center">
+                            {p.rank === 1 ? (
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#facc15] text-[#111118] font-bold text-xs shadow-sm">
+                                1
+                              </span>
+                            ) : p.rank === 2 ? (
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#cbd5e1] text-[#111118] font-bold text-xs shadow-sm">
+                                2
+                              </span>
+                            ) : p.rank === 3 ? (
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#fdba74] text-[#111118] font-bold text-xs shadow-sm">
+                                3
+                              </span>
+                            ) : (
+                              <span className="font-mono text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60">
+                                #{p.rank}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="text-[#111118] dark:text-[#f0f6ff]">
+                              {p.name} {p.isMe && <span className="text-xs text-[#0b7a75] font-normal">(Bạn)</span>}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center font-mono text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70">
+                            {p.correct}/{viewingHosted.totalQuestions} câu
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <span className="font-mono font-medium text-xs px-2.5 py-1 rounded bg-[#16ab59]/15 text-[#16ab59] border border-[#16ab59]/30">
+                              {p.score.toFixed(1)} đ
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-[#e1edff] dark:border-[#2a2a3a] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setViewingHosted(null)}
+                className="h-10 px-6 rounded-pill bg-[#0b7a75] hover:bg-[#09635f] text-white text-xs font-normal border-2 border-[#111118] shadow-[0_2px_0_0_#111118] cursor-pointer transition-all active:translate-y-[1px]"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       </div>
     </div>
   );

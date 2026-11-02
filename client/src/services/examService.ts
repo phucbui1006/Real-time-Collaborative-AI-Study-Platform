@@ -29,6 +29,27 @@ export type ExamSet = {
   isNew?: boolean;
 };
 
+export type HostedExamParticipant = {
+  name: string;
+  score: number;
+  answered: number;
+  correct: number;
+  rank: number;
+  isMe?: boolean;
+};
+
+export type HostedExamRecord = {
+  id: string;
+  code: string;
+  title: string;
+  subject: string;
+  date: string;
+  totalQuestions: number;
+  participantCount: number;
+  avgScore: number;
+  leaderboard: HostedExamParticipant[];
+};
+
 export type ExamHistory = {
   id: string;
   examCode?: string;
@@ -583,3 +604,55 @@ export async function saveUserExamHistory(userId: string | undefined, entry: Exa
   }
 }
 
+/**
+ * Lấy lịch sử các phòng thi do tài khoản này tổ chức
+ */
+export async function loadUserHostedExams(userId?: string): Promise<HostedExamRecord[]> {
+  const isRealUser = isValidUUID(userId);
+  const localKey = isRealUser ? `permind_hosted_exams_${userId}` : "permind_hosted_exams_guest";
+  let records: HostedExamRecord[] = [];
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(localKey);
+      if (raw) records = JSON.parse(raw);
+    } catch {}
+  }
+  return records;
+}
+
+/**
+ * Lưu kết quả phòng thi đã tổ chức
+ */
+export async function saveUserHostedExam(userId: string | undefined, record: HostedExamRecord): Promise<void> {
+  const isRealUser = isValidUUID(userId);
+  const localKey = isRealUser ? `permind_hosted_exams_${userId}` : "permind_hosted_exams_guest";
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(localKey);
+      const existing: HostedExamRecord[] = raw ? JSON.parse(raw) : [];
+      const filtered = existing.filter((r) => r.id !== record.id && r.code !== record.code);
+      const updated = [record, ...filtered];
+      localStorage.setItem(localKey, JSON.stringify(updated));
+    } catch (e) {
+      console.warn("Lỗi lưu lịch sử phòng thi:", e);
+    }
+  }
+}
+
+/**
+ * Xóa phòng thi khỏi danh sách đã tổ chức
+ */
+export async function deleteUserHostedExam(userId: string | undefined, recordId: string): Promise<HostedExamRecord[]> {
+  const isRealUser = isValidUUID(userId);
+  const localKey = isRealUser ? `permind_hosted_exams_${userId}` : "permind_hosted_exams_guest";
+  let updated: HostedExamRecord[] = [];
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(localKey);
+      const existing: HostedExamRecord[] = raw ? JSON.parse(raw) : [];
+      updated = existing.filter((r) => r.id !== recordId);
+      localStorage.setItem(localKey, JSON.stringify(updated));
+    } catch {}
+  }
+  return updated;
+}
