@@ -88,7 +88,15 @@ export function clearAllUserState() {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith("permind_")) {
-          keysToRemove.push(key);
+          // Giữ lại bộ câu hỏi, lịch sử làm bài và cache tài liệu của tài khoản thật
+          const isPersistentRealUserData =
+            (key.startsWith("permind_exam_sets_") && key !== "permind_exam_sets_guest") ||
+            (key.startsWith("permind_exam_history_") && key !== "permind_exam_history_guest") ||
+            (key.startsWith("permind_docs_") && key !== "permind_docs_guest");
+
+          if (!isPersistentRealUserData) {
+            keysToRemove.push(key);
+          }
         }
       }
       keysToRemove.forEach((k) => localStorage.removeItem(k));

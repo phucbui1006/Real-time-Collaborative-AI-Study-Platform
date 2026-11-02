@@ -17,6 +17,11 @@ import {
   board,
   QuizDocItem,
   loadUserQuizDocs,
+  loadUserExamSets,
+  saveUserExamSet,
+  deleteUserExamSet,
+  loadUserExamHistory,
+  saveUserExamHistory,
 } from "../services/examService";
 import { Editor } from "../components/quiz/Editor";
 import { OpenModal } from "../components/quiz/OpenModal";
@@ -103,14 +108,19 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     return isRealUser ? [] : SEED_HISTORY;
   });
 
+  // Tải danh sách bộ câu hỏi và lịch sử thi (đồng bộ Cloud Supabase + LocalStorage Cache)
   useEffect(() => {
-    try {
-      const storedSets = localStorage.getItem(setsKey);
-      setSets(storedSets ? JSON.parse(storedSets) : (isRealUser ? [] : SEED_SETS));
-      const storedHistory = localStorage.getItem(historyKey);
-      setHistory(storedHistory ? JSON.parse(storedHistory) : (isRealUser ? [] : SEED_HISTORY));
-    } catch {}
-  }, [userId, setsKey, historyKey, isRealUser]);
+    let active = true;
+    loadUserExamSets(userId).then((loadedSets) => {
+      if (active) setSets(loadedSets);
+    });
+    loadUserExamHistory(userId).then((loadedHistory) => {
+      if (active) setHistory(loadedHistory);
+    });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   // Khôi phục phòng thi đang mở (nếu còn thời gian chạy)
   const [live, setLive] = useState<LiveExam | null>(() => {
@@ -159,17 +169,19 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
         const attempts = (old.attempts || 1) + 1;
         const bestScore = Math.max(old.score, newScore);
         const bestRank = score >= old.score ? rank : old.rank;
-        const updated = [...prev];
-        updated[existingIdx] = {
+        const updatedEntry: ExamHistory = {
           ...old,
           score: bestScore,
           rank: Math.max(1, bestRank),
           of: Math.max(old.of, ofCount),
           attempts,
         };
+        const updated = [...prev];
+        updated[existingIdx] = updatedEntry;
         try {
           localStorage.setItem(historyKey, JSON.stringify(updated));
         } catch {}
+        saveUserExamHistory(userId, updatedEntry);
         return updated;
       }
 
@@ -189,6 +201,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       try {
         localStorage.setItem(historyKey, JSON.stringify(updated));
       } catch {}
+      saveUserExamHistory(userId, newEntry);
       return updated;
     });
   };
@@ -452,11 +465,9 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       const updated = a.some((x) => x.id === clean.id)
         ? a.map((x) => (x.id === clean.id ? clean : x))
         : [clean, ...a];
-      try {
-        localStorage.setItem(setsKey, JSON.stringify(updated));
-      } catch {}
       return updated;
     });
+    saveUserExamSet(userId, clean);
     setView({ name: "home" });
   };
 
@@ -806,13 +817,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                       <button
                         onClick={() => {
                           if (window.confirm(`Xoá "${s.title}"?`)) {
-                            setSets((a) => {
-                              const updated = a.filter((x) => x.id !== s.id);
-                              try {
-                                localStorage.setItem(setsKey, JSON.stringify(updated));
-                              } catch {}
-                              return updated;
-                            });
+                            setSets((a) => a.filter((x) => x.id !== s.id));
+                            deleteUserExamSet(userId, s.id);
                           }
                         }}
                         aria-label={`Xoá ${s.title}`}

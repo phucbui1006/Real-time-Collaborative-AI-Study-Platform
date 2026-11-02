@@ -360,3 +360,226 @@ export function validateQ(q: Question, i: number, label = "Câu"): string {
 }
 
 export const isBlankQ = (q: Question) => !q.text.trim() && q.options.every((o) => !o.trim());
+
+// ==============================================================================
+// ĐỒNG BỘ BỘ CÂU HỎI & LỊCH SỬ THI THEO TÀI KHOẢN (SUPABASE + LOCALSTORAGE)
+// ==============================================================================
+
+/**
+ * Tải danh sách bộ câu hỏi của người dùng (Cloud Supabase + LocalStorage Cache)
+ */
+export async function loadUserExamSets(userId?: string): Promise<ExamSet[]> {
+  const isRealUser = isValidUUID(userId);
+  const localKey = `permind_exam_sets_${userId || "guest"}`;
+
+  // 1. Đọc nhanh từ localStorage (0ms phản hồi tức thì)
+  let localSets: ExamSet[] = [];
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(localKey);
+      if (stored) {
+        localSets = JSON.parse(stored);
+      }
+    } catch {}
+  }
+
+  // Tài khoản khách: trả về dữ liệu mẫu hoặc local
+  if (!isRealUser) {
+    return localSets.length ? localSets : SEED_SETS;
+  }
+
+  // 2. Tài khoản thật: Đồng bộ dữ liệu từ bảng exam_sets trên Supabase
+  try {
+    const { data, error } = await supabase
+      .from("exam_sets")
+      .select("id, subject, title, minutes, questions, created_at")
+      .eq("creator_user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (!error && Array.isArray(data)) {
+      const cloudSets: ExamSet[] = data.map((d: any) => ({
+        id: String(d.id),
+        subject: d.subject || "",
+        title: d.title || "",
+        minutes: Number(d.minutes) || 10,
+        questions: Array.isArray(d.questions) ? d.questions : [],
+      }));
+
+      // Hợp nhất dữ liệu (ưu tiên cloud, giữ thêm local nếu có bộ đề mới vừa tạo offline)
+      const cloudIds = new Set(cloudSets.map((s) => s.id));
+      const merged = [...cloudSets, ...localSets.filter((s) => !cloudIds.has(s.id))];
+
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(localKey, JSON.stringify(merged));
+        } catch {}
+      }
+      return merged;
+    }
+  } catch (err) {
+    console.warn("Lỗi đồng bộ bộ đề từ Supabase:", err);
+  }
+
+  return localSets;
+}
+
+/**
+ * Lưu/cập nhật bộ câu hỏi vào LocalStorage và đồng bộ lên Supabase
+ */
+export async function saveUserExamSet(userId: string | undefined, set: ExamSet): Promise<void> {
+  const isRealUser = isValidUUID(userId);
+  const localKey = `permind_exam_sets_${userId || "guest"}`;
+
+  // 1. Cập nhật localStorage
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(localKey);
+      const prev: ExamSet[] = stored ? JSON.parse(stored) : [];
+      const updated = prev.some((x) => x.id === set.id)
+        ? prev.map((x) => (x.id === set.id ? set : x))
+        : [set, ...prev];
+      localStorage.setItem(localKey, JSON.stringify(updated));
+    } catch (e) {
+      console.warn("Lỗi lưu bộ đề vào localStorage:", e);
+    }
+  }
+
+  // 2. Đồng bộ lên Supabase
+  if (isRealUser && userId) {
+    try {
+      const { error } = await supabase.from("exam_sets").upsert({
+        id: String(set.id),
+        creator_user_id: userId,
+        subject: set.subject || "Chung",
+        title: set.title,
+        minutes: set.minutes || 10,
+        questions: set.questions || [],
+      });
+      if (error) {
+        console.warn("Lưu bộ đề lên Supabase thông báo:", error.message);
+      }
+    } catch (err) {
+      console.warn("Lỗi mạng khi lưu bộ đề lên Supabase:", err);
+    }
+  }
+}
+
+/**
+ * Xóa bộ câu hỏi khỏi LocalStorage và Supabase
+ */
+export async function deleteUserExamSet(userId: string | undefined, setId: string): Promise<void> {
+  const isRealUser = isValidUUID(userId);
+  const localKey = `permind_exam_sets_${userId || "guest"}`;
+
+  // 1. Xóa khỏi localStorage
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(localKey);
+      if (stored) {
+        const prev: ExamSet[] = JSON.parse(stored);
+        const updated = prev.filter((x) => x.id !== setId);
+        localStorage.setItem(localKey, JSON.stringify(updated));
+      }
+    } catch (e) {
+      console.warn("Lỗi xóa bộ đề khỏi localStorage:", e);
+    }
+  }
+
+  // 2. Xóa khỏi Supabase
+  if (isRealUser && userId) {
+    try {
+      const { error } = await supabase
+        .from("exam_sets")
+        .delete()
+        .eq("id", setId)
+        .eq("creator_user_id", userId);
+      if (error) {
+        console.warn("Xóa bộ đề trên Supabase thông báo:", error.message);
+      }
+    } catch (err) {
+      console.warn("Lỗi mạng khi xóa bộ đề trên Supabase:", err);
+    }
+  }
+}
+
+/**
+ * Tải lịch sử làm bài kiểm tra của người dùng (Supabase + LocalStorage)
+ */
+export async function loadUserExamHistory(userId?: string): Promise<ExamHistory[]> {
+  const isRealUser = isValidUUID(userId);
+  const localKey = `permind_exam_history_${userId || "guest"}`;
+
+  let localHistory: ExamHistory[] = [];
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(localKey);
+      if (stored) {
+        localHistory = JSON.parse(stored);
+      }
+    } catch {}
+  }
+
+  if (!isRealUser) {
+    return localHistory.length ? localHistory : SEED_HISTORY;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("exam_history")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (!error && Array.isArray(data)) {
+      const cloudHistory: ExamHistory[] = data.map((d: any) => ({
+        id: String(d.id),
+        title: d.title,
+        subject: d.subject || "KIỂM TRA",
+        score: Number(d.score),
+        rank: Number(d.rank) || 1,
+        of: Number(d.of_total) || 1,
+        date: d.created_at ? new Date(d.created_at).toLocaleDateString("vi-VN") : new Date().toLocaleDateString("vi-VN"),
+      }));
+
+      const cloudIds = new Set(cloudHistory.map((h) => h.id));
+      const merged = [...cloudHistory, ...localHistory.filter((h) => !cloudIds.has(h.id))];
+
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(localKey, JSON.stringify(merged));
+        } catch {}
+      }
+      return merged;
+    }
+  } catch (err) {
+    console.warn("Lỗi đồng bộ lịch sử thi từ Supabase:", err);
+  }
+
+  return localHistory;
+}
+
+/**
+ * Lưu kết quả thi vào Supabase
+ */
+export async function saveUserExamHistory(userId: string | undefined, entry: ExamHistory): Promise<void> {
+  const isRealUser = isValidUUID(userId);
+  if (!isRealUser || !userId) return;
+
+  try {
+    const { error } = await supabase.from("exam_history").upsert({
+      id: String(entry.id),
+      user_id: userId,
+      title: entry.title,
+      subject: entry.subject,
+      score: entry.score,
+      rank: entry.rank,
+      of_total: entry.of,
+    });
+    if (error) {
+      console.warn("Lưu lịch sử thi lên Supabase thông báo:", error.message);
+    }
+  } catch (err) {
+    console.warn("Lỗi mạng khi lưu lịch sử thi lên Supabase:", err);
+  }
+}
+
