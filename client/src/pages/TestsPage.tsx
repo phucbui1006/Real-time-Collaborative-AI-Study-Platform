@@ -932,14 +932,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                           {subStyle.icon}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-normal tracking-wide uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">{h.subject}</span>
-                            {h.attempts && (
-                              <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#e1edff] dark:bg-[#242436] text-[#0b7a75] dark:text-[#2dd4bf] font-medium border border-[#111118]/20">
-                                Lần {h.attempts}
-                              </span>
-                            )}
-                          </div>
+                          <div className="text-xs font-normal tracking-wide uppercase text-[#111118]/70 dark:text-[#f0f6ff]/70">{h.subject}</div>
                           <div className="truncate font-normal text-[#111118] dark:text-[#f0f6ff] text-base mt-0.5">{h.title}</div>
                           <div className="text-xs text-[#111118]/60 dark:text-[#f0f6ff]/60 font-mono tabular-nums mt-0.5 flex flex-wrap gap-x-2.5">
                             <span>📅 {h.date}</span>
