@@ -38,6 +38,7 @@ import { getSubjectStyle } from "../components/documents/DocumentStore";
 import { Radio, PlayCircle, Plus } from "lucide-react";
 import { idleService } from "../services/idleService";
 import { isValidUUID } from "../utils";
+import { Pagination } from "../components/common/Pagination";
 import {
   publishLiveExam,
   fetchLiveExam,
@@ -266,6 +267,61 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       return updated;
     });
   };
+
+  // Trạng thái phân trang cho các danh sách (Bộ câu hỏi, Bài thi đã làm, Phòng đã tổ chức, Modal bảng điểm)
+  const [setsPage, setSetsPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [hostedPage, setHostedPage] = useState(1);
+  const [modalPage, setModalPage] = useState(1);
+
+  const SETS_PER_PAGE = 5;
+  const HISTORY_PER_PAGE = 5;
+  const HOSTED_PER_PAGE = 5;
+  const MODAL_PER_PAGE = 6;
+
+  // Tự động kiểm soát trang hợp lệ khi danh sách thay đổi
+  useEffect(() => {
+    const max = Math.max(1, Math.ceil(sets.length / SETS_PER_PAGE));
+    if (setsPage > max) setSetsPage(max);
+  }, [sets.length, setsPage]);
+
+  useEffect(() => {
+    const max = Math.max(1, Math.ceil(history.length / HISTORY_PER_PAGE));
+    if (historyPage > max) setHistoryPage(max);
+  }, [history.length, historyPage]);
+
+  useEffect(() => {
+    const max = Math.max(1, Math.ceil(hostedExams.length / HOSTED_PER_PAGE));
+    if (hostedPage > max) setHostedPage(max);
+  }, [hostedExams.length, hostedPage]);
+
+  useEffect(() => {
+    if (viewingHosted) {
+      const max = Math.max(1, Math.ceil(viewingHosted.leaderboard.length / MODAL_PER_PAGE));
+      if (modalPage > max) setModalPage(max);
+    }
+  }, [viewingHosted?.leaderboard?.length, modalPage]);
+
+  const paginatedSets = useMemo(() => {
+    const start = (setsPage - 1) * SETS_PER_PAGE;
+    return sets.slice(start, start + SETS_PER_PAGE);
+  }, [sets, setsPage]);
+
+  const paginatedHistory = useMemo(() => {
+    const start = (historyPage - 1) * HISTORY_PER_PAGE;
+    return history.slice(start, start + HISTORY_PER_PAGE);
+  }, [history, historyPage]);
+
+  const paginatedHosted = useMemo(() => {
+    const start = (hostedPage - 1) * HOSTED_PER_PAGE;
+    return hostedExams.slice(start, start + HOSTED_PER_PAGE);
+  }, [hostedExams, hostedPage]);
+
+  const paginatedLeaderboard = useMemo(() => {
+    if (!viewingHosted) return [];
+    const start = (modalPage - 1) * MODAL_PER_PAGE;
+    return viewingHosted.leaderboard.slice(start, start + MODAL_PER_PAGE);
+  }, [viewingHosted, modalPage]);
 
   // Tự động lưu bài thi vào Lịch sử làm bài (Lưu riêng từng lần làm bài)
   const saveExamToHistory = (
@@ -993,8 +1049,9 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
               Chưa có bộ câu hỏi nào. Bấm "+ Tạo bộ câu hỏi" để bắt đầu.
             </p>
           ) : (
-            <ul className="divide-y divide-[#e1edff] dark:divide-[#2a2a3a]">
-              {sets.map((s) => {
+            <>
+              <ul className="divide-y divide-[#e1edff] dark:divide-[#2a2a3a]">
+                {paginatedSets.map((s) => {
                 const subStyle = getSubjectStyle(s.subject);
                 return (
                   <li key={s.id} className="flex flex-col sm:flex-row sm:items-center gap-4 py-4 first:pt-0 last:pb-0">
@@ -1039,6 +1096,14 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                 );
               })}
             </ul>
+            <Pagination
+              currentPage={setsPage}
+              totalItems={sets.length}
+              pageSize={SETS_PER_PAGE}
+              onPageChange={setSetsPage}
+              itemLabel="bộ đề"
+            />
+            </>
           )
                 ) : (
           <div>
@@ -1075,8 +1140,9 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                   Chưa có lịch sử làm bài kiểm tra nào. Hãy tham gia hoặc mở phòng thi để xem xếp hạng nhé!
                 </p>
               ) : (
-                <ul className="divide-y divide-[#e1edff] dark:divide-[#2a2a3a]">
-                  {history.map((h) => {
+                <>
+                  <ul className="divide-y divide-[#e1edff] dark:divide-[#2a2a3a]">
+                    {paginatedHistory.map((h) => {
                     const subStyle = getSubjectStyle(h.subject);
                     return (
                       <li key={h.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
@@ -1101,14 +1167,23 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                     );
                   })}
                 </ul>
+                <Pagination
+                  currentPage={historyPage}
+                  totalItems={history.length}
+                  pageSize={HISTORY_PER_PAGE}
+                  onPageChange={setHistoryPage}
+                  itemLabel="bài thi"
+                />
+                </>
               )
             ) : hostedExams.length === 0 ? (
               <p className="py-10 text-center text-sm font-normal text-[#111118]/60 dark:text-[#f0f6ff]/60">
                 Bạn chưa có phòng thi nào đã đóng. Khi bạn mở phòng thi và đóng lại, toàn bộ bảng điểm và kết quả của các thí sinh sẽ được lưu trữ tại đây!
               </p>
             ) : (
-              <ul className="divide-y divide-[#e1edff] dark:divide-[#2a2a3a]">
-                {hostedExams.map((rec) => {
+              <>
+                <ul className="divide-y divide-[#e1edff] dark:divide-[#2a2a3a]">
+                  {paginatedHosted.map((rec) => {
                   const subStyle = getSubjectStyle(rec.subject);
                   return (
                     <li key={rec.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
@@ -1135,7 +1210,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                       <div className="flex items-center shrink-0">
                         <button
                           type="button"
-                          onClick={() => setViewingHosted(rec)}
+                          onClick={() => { setViewingHosted(rec); setModalPage(1); }}
                           className="inline-flex items-center gap-1.5 rounded-pill h-10 px-4 text-xs font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_3px_0_0_#111118] active:translate-y-[1px] transition-all cursor-pointer"
                         >
                           Xem bảng điểm
@@ -1145,6 +1220,14 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                   );
                 })}
               </ul>
+              <Pagination
+                currentPage={hostedPage}
+                totalItems={hostedExams.length}
+                pageSize={HOSTED_PER_PAGE}
+                onPageChange={setHostedPage}
+                itemLabel="phòng thi"
+              />
+              </>
             )}
           </div>
         )}
@@ -1210,7 +1293,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                   Không có dữ liệu thí sinh cho phòng thi này.
                 </p>
               ) : (
-                <div className="rounded border border-[#e1edff] dark:border-[#2a2a3a] overflow-hidden">
+                <>
+                  <div className="rounded border border-[#e1edff] dark:border-[#2a2a3a] overflow-hidden">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-[#f0f4f9] dark:bg-[#242436] text-xs font-medium text-[#111118]/70 dark:text-[#f0f6ff]/70 border-b border-[#e1edff] dark:border-[#2a2a3a]">
                       <tr>
@@ -1221,7 +1305,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#e1edff] dark:divide-[#2a2a3a]">
-                      {viewingHosted.leaderboard.map((p, idx) => (
+                      {paginatedLeaderboard.map((p, idx) => (
                         <tr
                           key={idx}
                           className={`hover:bg-[#f8fafd] dark:hover:bg-[#20202e] ${
@@ -1265,6 +1349,14 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                     </tbody>
                   </table>
                 </div>
+                <Pagination
+                  currentPage={modalPage}
+                  totalItems={viewingHosted.leaderboard.length}
+                  pageSize={MODAL_PER_PAGE}
+                  onPageChange={setModalPage}
+                  itemLabel="thí sinh"
+                />
+                </>
               )}
             </div>
 
