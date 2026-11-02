@@ -7,7 +7,7 @@ import {
   fmt,
 } from "../../services/examService";
 import { Leaderboard } from "./Leaderboard";
-import { Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Clock, ChevronLeft, ChevronRight, AlertTriangle, X } from "lucide-react";
 
 interface TakeViewProps {
   live: LiveExam;
@@ -21,6 +21,15 @@ interface TakeViewProps {
 export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: TakeViewProps) {
   const qs = live.set.questions;
   const [qi, setQi] = useState(0);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  const handleFinishClick = () => {
+    if (answered < qs.length && !locked) {
+      setShowConfirmModal(true);
+    } else {
+      onFinish();
+    }
+  };
   const q = qs[qi];
   const chosen = mine.answers[q.id];
   const answered = Object.keys(mine.answers).length;
@@ -173,7 +182,7 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
               </button>
             ) : (
               <button
-                onClick={onFinish}
+                onClick={handleFinishClick}
                 className="inline-flex items-center gap-2 h-12 px-7 rounded-pill bg-[#0b7a75] text-white hover:bg-[#09635f] text-sm font-normal transition-all cursor-pointer border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px]"
               >
                 <span>
@@ -210,6 +219,66 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
           </div>
         </aside>
       </div>
+
+      {/* Modal xác nhận nộp bài khi chưa làm hết câu */}
+      {showConfirmModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111118]/60 backdrop-blur-xs"
+          onMouseDown={(e) => e.target === e.currentTarget && setShowConfirmModal(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Xác nhận nộp bài"
+            className="w-full max-w-[420px] rounded-lg p-6 border-2 border-[#111118] dark:border-[#2a2a3a] bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] shadow-[0_8px_0_0_#111118] dark:shadow-[0_8px_0_0_#000000]"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-[#ffda00] text-[#111118] border border-[#111118] shadow-[0_2px_0_0_#111118]">
+                  <AlertTriangle className="h-5 w-5" strokeWidth={2} />
+                </span>
+                <div>
+                  <h2 className="text-xl font-normal tracking-[-0.015em] text-[#111118] dark:text-[#f0f6ff]">
+                    Chưa làm hết câu hỏi
+                  </h2>
+                  <p className="text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70 font-mono">
+                    Còn {qs.length - answered} / {qs.length} câu chưa trả lời
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="w-8 h-8 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] cursor-pointer"
+                aria-label="Đóng"
+              >
+                <X className="h-4 w-4" strokeWidth={1.75} />
+              </button>
+            </div>
+
+            <div className="mt-4 p-4 rounded-sm bg-[#e1edff]/60 dark:bg-[#242436]/60 border border-[#e1edff] dark:border-[#2a2a3a] text-sm text-[#111118]/80 dark:text-[#f0f6ff]/80 leading-relaxed font-normal">
+              Bạn mới trả lời <strong className="text-[#0b7a75] dark:text-[#2dd4bf] font-mono">{answered}/{qs.length}</strong> câu hỏi. Những câu chưa chọn sẽ không được tính điểm. Bạn có chắc chắn muốn nộp bài sớm không?
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="h-11 px-5 rounded-pill border-2 border-[#111118] bg-white dark:bg-[#1b1b26] text-sm font-normal text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#242436] transition-all cursor-pointer shadow-[0_2px_0_0_#111118] active:translate-y-[1px]"
+              >
+                Quay lại làm tiếp
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  onFinish();
+                }}
+                className="h-11 px-5 rounded-pill bg-[#ff4141] hover:bg-[#e03030] text-white text-sm font-normal border-2 border-[#111118] shadow-[0_3px_0_0_#111118] active:translate-y-[1px] transition-all cursor-pointer"
+              >
+                Vẫn nộp bài
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
