@@ -286,8 +286,76 @@ export const AI_DOCS = [
 
 export const LEVELS = ["Dễ", "Vừa", "Khó"];
 
-export function board(live: LiveExam, mine: MyExamState | null, userName: string): LeaderboardRow[] {
-  const qs = live.set.questions;
+/**
+ * Thuật toán tạo số ngẫu nhiên có kiểm soát dựa trên Seed
+ */
+function seededRandom(seedState: { seed: number }) {
+  const x = Math.sin(seedState.seed++) * 10000;
+  return x - Math.floor(x);
+}
+
+/**
+ * Đảo ngẫu nhiên thứ tự câu hỏi và thứ tự đáp án (A, B, C, D) cho từng thí sinh
+ * Dựa trên seedKey (mã phòng thi + định danh người dùng) để đảm bảo:
+ * 1. Mỗi thí sinh có thứ tự câu hỏi và đáp án khác biệt hoàn toàn
+ * 2. Độc lập và ổn định khi thí sinh tải lại trang (F5) trong cùng phòng thi
+ * 3. Tự động ánh xạ lại chỉ số đáp án đúng (correct) sau khi hoán vị đáp án
+ */
+export function shuffleQuestionsForUser(questions: Question[], seedKey: string): Question[] {
+  if (!questions || questions.length === 0) return [];
+
+  // Tạo seed số từ chuỗi seedKey
+  let hash = 0;
+  for (let i = 0; i < seedKey.length; i++) {
+    hash = (hash << 5) - hash + seedKey.charCodeAt(i);
+    hash |= 0;
+  }
+  const seedState = { seed: Math.abs(hash) + 12345 };
+
+  // 1. Sao chép sâu và đảo thứ tự các đáp án trong từng câu hỏi
+  const qsWithShuffledOptions = questions.map((q) => {
+    const indexedOptions = q.options.map((opt, idx) => ({
+      text: opt,
+      originalIdx: idx,
+    }));
+
+    // Fisher-Yates shuffle cho options
+    for (let i = indexedOptions.length - 1; i > 0; i--) {
+      const j = Math.floor(seededRandom(seedState) * (i + 1));
+      const temp = indexedOptions[i];
+      indexedOptions[i] = indexedOptions[j];
+      indexedOptions[j] = temp;
+    }
+
+    const newOptions = indexedOptions.map((o) => o.text);
+    const newCorrect = indexedOptions.findIndex((o) => o.originalIdx === q.correct);
+
+    return {
+      ...q,
+      options: newOptions,
+      correct: newCorrect !== -1 ? newCorrect : q.correct,
+    };
+  });
+
+  // 2. Đảo ngẫu nhiên thứ tự các câu hỏi
+  const shuffledQuestions = [...qsWithShuffledOptions];
+  for (let i = shuffledQuestions.length - 1; i > 0; i--) {
+    const j = Math.floor(seededRandom(seedState) * (i + 1));
+    const temp = shuffledQuestions[i];
+    shuffledQuestions[i] = shuffledQuestions[j];
+    shuffledQuestions[j] = temp;
+  }
+
+  return shuffledQuestions;
+}
+
+export function board(
+  live: LiveExam,
+  mine: MyExamState | null,
+  userName: string,
+  customQuestions?: Question[]
+): LeaderboardRow[] {
+  const qs = customQuestions && customQuestions.length > 0 ? customQuestions : live.set.questions;
   const rowsMap = new Map<string, { name: string; me?: boolean; answered: number; correct: number }>();
 
   // 1. Thêm các thí sinh thực tế tham gia qua mạng

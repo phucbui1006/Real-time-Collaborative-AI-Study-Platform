@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   uid,
   code6,
@@ -27,6 +27,7 @@ import {
   saveUserHostedExam,
   deleteUserHostedExam,
   LeaderboardRow,
+  shuffleQuestionsForUser,
 } from "../services/examService";
 import { Editor } from "../components/quiz/Editor";
 import { OpenModal } from "../components/quiz/OpenModal";
@@ -158,7 +159,15 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   const remaining = live ? Math.max(0, Math.ceil((live.endAt - now) / 1000)) : 0;
   // Chỉ coi là đang hoạt động nếu bài đang running, còn thời gian và người dùng chưa nộp bài
   const isLiveActive = Boolean(live && live.status === "running" && remaining > 0 && (!mine || !mine.done));
-  const rows = live ? board(live, mine, userName) : [];
+
+  // Danh sách câu hỏi được xáo trộn ngẫu nhiên riêng biệt cho từng thí sinh (theo mã phòng + ID/Tên)
+  const candidateQuestions = useMemo(() => {
+    if (!live || !live.set || !live.set.questions) return [];
+    const seedKey = `${live.code}_${userId || userName || "guest"}`;
+    return shuffleQuestionsForUser(live.set.questions, seedKey);
+  }, [live?.code, live?.set, userId, userName]);
+
+  const rows = live ? board(live, mine, userName, candidateQuestions) : [];
 
   // Tự động lưu bản tổng kết kết quả phòng thi do người dùng này tổ chức
   const saveHostedRecord = (exam: LiveExam, currentRows: LeaderboardRow[]) => {
@@ -382,7 +391,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
 
   const finishTake = () => {
     if (!mine || mine.done || !live) return;
-    const qs = live.set.questions;
+    const qs = candidateQuestions.length ? candidateQuestions : live.set.questions;
     const ans = mine.answers;
     const me = rows.find((r) => r.me) || { score: 0, rank: 1, correct: 0 };
     const existingHistory = history.find((h) => h.examCode === live.code || (h.title === live.set.title && h.date === new Date().toLocaleDateString("vi-VN")));
@@ -505,7 +514,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     setMine((m) => (m ? { ...m, answers: newAnswers } : null));
 
     // Phát sóng tiến độ thời gian thực cho chủ phòng
-    const qs = live.set.questions;
+    const qs = candidateQuestions.length ? candidateQuestions : live.set.questions;
     const answeredCount = Object.keys(newAnswers).length;
     const correctCount = qs.filter((q) => newAnswers[q.id] === q.correct).length;
     const currentScore = score10(correctCount, qs.length);
@@ -604,6 +613,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
         remaining={remaining}
         onAnswer={answer}
         onFinish={finishTake}
+        questions={candidateQuestions}
       />
     );
   }
@@ -746,7 +756,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                       {mine && (
                         <>
                           <span>·</span>
-                          <span>Đã làm {Object.keys(mine.answers).length}/{live.set.questions.length} câu</span>
+                          <span>Đã làm {Object.keys(mine.answers).length}/{(candidateQuestions.length || live.set.questions.length)} câu</span>
                         </>
                       )}
                     </div>

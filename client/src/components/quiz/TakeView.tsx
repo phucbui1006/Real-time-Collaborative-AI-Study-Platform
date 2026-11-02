@@ -5,6 +5,7 @@ import {
   LeaderboardRow,
   LETTERS,
   fmt,
+  Question,
 } from "../../services/examService";
 import { Leaderboard } from "./Leaderboard";
 import { Clock, ChevronLeft, ChevronRight, AlertTriangle, X } from "lucide-react";
@@ -16,10 +17,11 @@ interface TakeViewProps {
   remaining: number;
   onAnswer: (qid: string, idx: number) => void;
   onFinish: () => void;
+  questions?: Question[];
 }
 
-export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: TakeViewProps) {
-  const qs = live.set.questions;
+export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish, questions }: TakeViewProps) {
+  const qs = questions && questions.length > 0 ? questions : live.set.questions;
   const [qi, setQi] = useState(0);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
