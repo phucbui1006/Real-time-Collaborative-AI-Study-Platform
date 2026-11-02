@@ -447,7 +447,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   };
 
   const answer = (qid: string, idx: number) => {
-    if (!live || live.status !== "running" || !mine || mine.answers[qid] !== undefined) return;
+    if (!live || live.status !== "running" || !mine || mine.answers[qid] === idx) return;
     const newAnswers = { ...mine.answers, [qid]: idx };
     setMine((m) => (m ? { ...m, answers: newAnswers } : null));
 

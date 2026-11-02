@@ -117,16 +117,14 @@ export function TakeView({ live, mine, rows, remaining, onAnswer, onFinish }: Ta
               return (
                 <button
                   key={j}
-                  disabled={chosen !== undefined || locked}
+                  disabled={locked}
                   onClick={() => onAnswer(q.id, j)}
                   className={`flex w-full items-center gap-3.5 rounded-sm p-4 text-left text-sm font-normal transition-all cursor-pointer disabled:cursor-not-allowed ${
                     picked
                       ? "bg-[#0b7a75] text-white border-2 border-[#111118] shadow-[0_3px_0_0_#111118]"
                       : "bg-[#f0f6ff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] border-2 border-[#111118] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] hover:bg-[#e1edff] dark:hover:bg-[#2a2a3a] active:translate-y-[2px]"
                   }`}
-                  style={{
-                    opacity: chosen !== undefined && !picked ? 0.6 : 1,
-                  }}
+                  
                 >
                   <span
                     className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-normal shrink-0 font-mono border border-[#111118] ${
