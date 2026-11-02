@@ -938,7 +938,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                     : "bg-white dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#1b1b26]"
                 }`}
               >
-                Bài thi đã làm ({history.length})
+                Bài thi đã làm
               </button>
 
               <button
@@ -950,7 +950,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                     : "bg-white dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#1b1b26]"
                 }`}
               >
-                Phòng đã tổ chức ({hostedExams.length})
+                Phòng đã tổ chức
               </button>
             </div>
 
