@@ -703,6 +703,26 @@ export async function loadUserHostedExams(userId?: string): Promise<HostedExamRe
       .limit(50);
 
     if (!error && Array.isArray(data)) {
+      // Truy vấn toàn bộ thí sinh đã tham gia các phòng từ bảng room_members
+      const roomIds = data.map((r) => r.id);
+      let membersMap = new Map<number | string, any[]>();
+      try {
+        const { data: allMembers } = await supabase
+          .from("room_members")
+          .select("room_id, user_name, avatar_color, role, joined_at")
+          .in("room_id", roomIds)
+          .eq("role", "exam_participant")
+          .order("joined_at", { ascending: true });
+
+        if (Array.isArray(allMembers)) {
+          for (const m of allMembers) {
+            const list = membersMap.get(m.room_id) || [];
+            list.push(m);
+            membersMap.set(m.room_id, list);
+          }
+        }
+      } catch {}
+
       const cloudRecords: HostedExamRecord[] = [];
       for (const row of data) {
         try {
@@ -714,7 +734,54 @@ export async function loadUserHostedExams(userId?: string): Promise<HostedExamRe
             parsed.exam
           ) {
             const exam: LiveExam = parsed.exam;
-            const participants: LiveParticipant[] = exam.participants || [];
+            const payloadParts: LiveParticipant[] = exam.participants || [];
+            const rMembers = membersMap.get(row.id) || [];
+
+            // Hợp nhất thí sinh từ room_members và payload
+            const pMap = new Map<string, LiveParticipant>();
+            for (const p of payloadParts) {
+              pMap.set(p.name, p);
+            }
+            for (const rm of rMembers) {
+              try {
+                const p = JSON.parse(rm.avatar_color);
+                const name = rm.user_name || p.name;
+                if (!name) continue;
+                const cur = pMap.get(name);
+                if (!cur) {
+                  pMap.set(name, {
+                    name,
+                    id: p.id,
+                    answered: Number(p.answered) || 0,
+                    correct: Number(p.correct) || 0,
+                    score: Number(p.score) || 0,
+                    done: !!p.done,
+                    joinedAt: p.timestamp ? Number(p.timestamp) : (rm.joined_at ? new Date(rm.joined_at).getTime() : Date.now()),
+                  });
+                } else {
+                  pMap.set(name, {
+                    ...cur,
+                    id: p.id || cur.id,
+                    answered: Math.max(cur.answered || 0, Number(p.answered) || 0),
+                    correct: Math.max(cur.correct || 0, Number(p.correct) || 0),
+                    score: Math.max(cur.score || 0, Number(p.score) || 0),
+                    done: cur.done || !!p.done,
+                  });
+                }
+              } catch {
+                if (rm.user_name && !pMap.has(rm.user_name)) {
+                  pMap.set(rm.user_name, {
+                    name: rm.user_name,
+                    answered: 0,
+                    correct: 0,
+                    score: 0,
+                    done: false,
+                  });
+                }
+              }
+            }
+
+            const participants = Array.from(pMap.values());
             const sorted = [...participants].sort(
               (a, b) => (b.score || 0) - (a.score || 0) || (b.answered || 0) - (a.answered || 0)
             );

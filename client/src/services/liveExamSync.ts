@@ -1,6 +1,6 @@
 // services/liveExamSync.ts — Đồng bộ phòng thi & bài kiểm tra trực tuyến đa thiết bị (Realtime Multi-Device)
 import { supabase } from "./supabaseClient";
-import { LiveExam } from "./examService";
+import { LiveExam, LiveParticipant } from "./examService";
 import { isValidUUID } from "../utils";
 
 export interface ExamSyncPayload {
@@ -69,6 +69,68 @@ export async function publishLiveExam(
 }
 
 /**
+ * Tra cứu danh sách thí sinh đã tham gia và nộp bài từ bảng room_members trên Supabase Cloud
+ */
+export async function fetchRoomParticipants(roomId: number | string): Promise<LiveParticipant[]> {
+  if (!roomId) return [];
+  try {
+    const { data, error } = await supabase
+      .from("room_members")
+      .select("user_name, avatar_color, role, joined_at")
+      .eq("room_id", roomId)
+      .eq("role", "exam_participant")
+      .order("joined_at", { ascending: true });
+
+    if (error || !Array.isArray(data)) return [];
+
+    const map = new Map<string, LiveParticipant>();
+    for (const m of data) {
+      try {
+        const parsed = JSON.parse(m.avatar_color);
+        const name = m.user_name || parsed.name;
+        if (!name) continue;
+
+        const cur = map.get(name);
+        if (!cur) {
+          map.set(name, {
+            name,
+            id: parsed.id,
+            answered: Number(parsed.answered) || 0,
+            correct: Number(parsed.correct) || 0,
+            score: Number(parsed.score) || 0,
+            done: !!parsed.done,
+            joinedAt: parsed.timestamp ? Number(parsed.timestamp) : (m.joined_at ? new Date(m.joined_at).getTime() : Date.now()),
+          });
+        } else {
+          map.set(name, {
+            ...cur,
+            id: parsed.id || cur.id,
+            answered: Math.max(cur.answered || 0, Number(parsed.answered) || 0),
+            correct: Math.max(cur.correct || 0, Number(parsed.correct) || 0),
+            score: Math.max(cur.score || 0, Number(parsed.score) || 0),
+            done: cur.done || !!parsed.done,
+          });
+        }
+      } catch {
+        if (m.user_name && !map.has(m.user_name)) {
+          map.set(m.user_name, {
+            name: m.user_name,
+            answered: 0,
+            correct: 0,
+            score: 0,
+            done: false,
+          });
+        }
+      }
+    }
+    return Array.from(map.values());
+  } catch (err) {
+    console.warn("Lỗi tra cứu thí sinh từ room_members:", err);
+    return [];
+  }
+}
+
+/**
  * 2. Tìm bài kiểm tra đang mở theo mã 6 số từ bất kỳ thiết bị nào (Cloud + Cache)
  */
 export async function fetchLiveExam(code: string, activeOnly: boolean = false): Promise<LiveExam | null> {
@@ -100,7 +162,29 @@ export async function fetchLiveExam(code: string, activeOnly: boolean = false): 
           exam.startedAt = parsed.startedAt || exam.startedAt;
           exam.endAt = parsed.endAt || exam.endAt;
           exam.status = (!row.is_active || parsed.status === "ended") ? "ended" : (parsed.status || exam.status);
-          exam.participants = parsed.exam.participants || [];
+          
+          // Lấy danh sách thí sinh đã lưu trên room_members (Cloud)
+          const memberParticipants = await fetchRoomParticipants(row.id);
+          const mergedMap = new Map<string, LiveParticipant>();
+          for (const p of (parsed.exam.participants || [])) {
+            mergedMap.set(p.name, p);
+          }
+          for (const mp of memberParticipants) {
+            const cur = mergedMap.get(mp.name);
+            if (!cur) {
+              mergedMap.set(mp.name, mp);
+            } else {
+              mergedMap.set(mp.name, {
+                ...cur,
+                id: mp.id || cur.id,
+                answered: Math.max(cur.answered || 0, mp.answered || 0),
+                correct: Math.max(cur.correct || 0, mp.correct || 0),
+                score: Math.max(cur.score || 0, mp.score || 0),
+                done: cur.done || mp.done,
+              });
+            }
+          }
+          exam.participants = Array.from(mergedMap.values());
           return exam;
         }
       } catch (parseErr) {
@@ -261,7 +345,29 @@ export async function fetchHostActiveExam(hostUserId: string): Promise<LiveExam 
             exam.endAt = parsed.endAt || exam.endAt;
             exam.status = parsed.status || "running";
             exam.hostUserId = hostUserId;
-            exam.participants = parsed.exam.participants || [];
+            
+            // Lấy danh sách thí sinh từ room_members
+            const memberParticipants = await fetchRoomParticipants(row.id);
+            const mergedMap = new Map<string, LiveParticipant>();
+            for (const p of (parsed.exam.participants || [])) {
+              mergedMap.set(p.name, p);
+            }
+            for (const mp of memberParticipants) {
+              const cur = mergedMap.get(mp.name);
+              if (!cur) {
+                mergedMap.set(mp.name, mp);
+              } else {
+                mergedMap.set(mp.name, {
+                  ...cur,
+                  id: mp.id || cur.id,
+                  answered: Math.max(cur.answered || 0, mp.answered || 0),
+                  correct: Math.max(cur.correct || 0, mp.correct || 0),
+                  score: Math.max(cur.score || 0, mp.score || 0),
+                  done: cur.done || mp.done,
+                });
+              }
+            }
+            exam.participants = Array.from(mergedMap.values());
             return exam;
           }
         } catch {}
@@ -292,6 +398,7 @@ export async function syncParticipantToCloud(
   if (!cleanCode) return;
 
   try {
+    // 1. Tìm room_id của mã phòng thi
     const { data, error } = await supabase
       .from("rooms")
       .select("id, name, is_active")
@@ -300,50 +407,63 @@ export async function syncParticipantToCloud(
       .limit(1);
 
     if (error || !Array.isArray(data) || data.length === 0) return;
-
     const row = data[0];
-    let payload: ExamSyncPayload;
+    const roomId = row.id;
+
+    // 2. Ghi nhận dữ liệu thí sinh vào bảng room_members (có chính sách Public INSERT cho mọi tài khoản)
+    await supabase.from("room_members").insert([
+      {
+        room_id: roomId,
+        user_name: participant.name,
+        role: "exam_participant",
+        avatar_color: JSON.stringify({
+          id: participant.id,
+          answered: participant.answered,
+          correct: participant.correct,
+          score: participant.score,
+          done: !!participant.done,
+          timestamp: Date.now(),
+        }),
+        is_online: !participant.done,
+      },
+    ]);
+
+    // 3. Cập nhật dự phòng vào trường name của rooms nếu được cấp quyền
     try {
-      payload = JSON.parse(row.name);
-    } catch {
-      return;
-    }
-
-    if (!payload || payload.__type !== "PERMIND_EXAM" || !payload.exam) return;
-
-    const participants = payload.exam.participants || [];
-    const existingIdx = participants.findIndex(
-      (p) => (participant.id && p.id === participant.id) || p.name === participant.name
-    );
-
-    if (existingIdx !== -1) {
-      const old = participants[existingIdx];
-      participants[existingIdx] = {
-        ...old,
-        answered: Math.max(old.answered || 0, participant.answered),
-        correct: Math.max(old.correct || 0, participant.correct),
-        score: Math.max(old.score || 0, participant.score),
-        done: participant.done || old.done,
-      };
-    } else {
-      participants.push({
-        id: participant.id,
-        name: participant.name,
-        answered: participant.answered,
-        correct: participant.correct,
-        score: participant.score,
-        done: !!participant.done,
-        joinedAt: Date.now(),
-      });
-    }
-
-    payload.exam.participants = participants;
-
-    await supabase
-      .from("rooms")
-      .update({ name: JSON.stringify(payload) })
-      .eq("id", row.id);
+      const payload: ExamSyncPayload = JSON.parse(row.name);
+      if (payload && payload.__type === "PERMIND_EXAM" && payload.exam) {
+        const participants = payload.exam.participants || [];
+        const existingIdx = participants.findIndex(
+          (p) => (participant.id && p.id === participant.id) || p.name === participant.name
+        );
+        if (existingIdx !== -1) {
+          const old = participants[existingIdx];
+          participants[existingIdx] = {
+            ...old,
+            answered: Math.max(old.answered || 0, participant.answered),
+            correct: Math.max(old.correct || 0, participant.correct),
+            score: Math.max(old.score || 0, participant.score),
+            done: participant.done || old.done,
+          };
+        } else {
+          participants.push({
+            id: participant.id,
+            name: participant.name,
+            answered: participant.answered,
+            correct: participant.correct,
+            score: participant.score,
+            done: !!participant.done,
+            joinedAt: Date.now(),
+          });
+        }
+        payload.exam.participants = participants;
+        await supabase
+          .from("rooms")
+          .update({ name: JSON.stringify(payload) })
+          .eq("id", row.id);
+      }
+    } catch {}
   } catch (err) {
-    console.warn("Lỗi đồng bộ thí sinh lên Supabase Cloud:", err);
+    console.warn("Lỗi đồng bộ thí sinh lên Supabase Cloud (room_members):", err);
   }
 }
