@@ -22,11 +22,9 @@ import {
   deleteUserExamSet,
   loadUserExamHistory,
   saveUserExamHistory,
-  deleteUserExamHistory,
   HostedExamRecord,
   loadUserHostedExams,
   saveUserHostedExam,
-  deleteUserHostedExam,
   LeaderboardRow,
   shuffleQuestionsForUser,
 } from "../services/examService";
@@ -949,24 +947,10 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                             <span>Hạng {h.rank}/{h.of}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center shrink-0">
                           <span className="rounded-sharp px-4 py-2 text-xs font-mono font-normal bg-[#16ab59] text-white border-2 border-[#111118] shadow-[0_2px_0_0_#111118] tabular-nums">
                             Đạt {h.score.toFixed(1)} đ
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (window.confirm(`Xoá lần làm bài "${h.title}" (Lần ${h.attempts || 1}) khỏi lịch sử?`)) {
-                                deleteUserExamHistory(userId, h.id).then((updated) => {
-                                  setHistory(updated);
-                                });
-                              }
-                            }}
-                            className="w-9 h-9 rounded-sm border border-[#111118]/30 flex items-center justify-center text-[#ff4141] hover:bg-[#ffbac4]/30 text-sm cursor-pointer transition-colors"
-                            title="Xoá lần làm bài này"
-                          >
-                            ✕
-                          </button>
                         </div>
                       </li>
                     );
@@ -1003,28 +987,13 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center shrink-0">
                         <button
                           type="button"
                           onClick={() => setViewingHosted(rec)}
                           className="inline-flex items-center gap-1.5 rounded-pill h-10 px-4 text-xs font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_3px_0_0_#111118] active:translate-y-[1px] transition-all cursor-pointer"
                         >
                           Xem bảng điểm
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm(`Xoá lịch sử phòng thi "${rec.title}" (Mã: ${rec.code})?`)) {
-                              deleteUserHostedExam(userId, rec.id).then((updated) => {
-                                setHostedExams(updated);
-                              });
-                            }
-                          }}
-                          className="w-10 h-10 rounded-sm border border-[#111118]/30 flex items-center justify-center text-[#ff4141] hover:bg-[#ffbac4]/30 text-base cursor-pointer transition-colors"
-                          title="Xoá lịch sử phòng này"
-                        >
-                          ✕
                         </button>
                       </div>
                     </li>
