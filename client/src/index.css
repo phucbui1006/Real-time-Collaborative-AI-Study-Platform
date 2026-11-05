@@ -74,6 +74,12 @@
 }
 
 /* Hỗ trợ prefers-reduced-motion: tắt trượt/nảy, chỉ giữ hiện mờ nhanh hoặc không hiệu ứng */
+/* Ẩn icon con mắt mặc định của trình duyệt Edge/IE trong các ô nhập mật khẩu */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --dur-fast: 0ms;
@@ -380,6 +386,12 @@ button {
   border: 1px solid #e2e8f0;
 }
 
+/* Ẩn icon con mắt mặc định của trình duyệt Edge/IE trong các ô nhập mật khẩu */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -620,6 +632,12 @@ html.dark .auth-back-button:hover,
     transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
       transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
   }
+}
+
+/* Ẩn icon con mắt mặc định của trình duyệt Edge/IE trong các ô nhập mật khẩu */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

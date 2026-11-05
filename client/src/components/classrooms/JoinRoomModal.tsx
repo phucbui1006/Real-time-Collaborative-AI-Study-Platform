@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, SignIn, Eye, EyeSlash } from "@phosphor-icons/react";
+import { X, SignIn } from "@phosphor-icons/react";
 import { ErrorBox } from "./JoinPanel";
 
 interface JoinRoomModalProps {
@@ -13,14 +13,12 @@ export function JoinRoomModal({ open, onClose, onSubmit, initialCode = "" }: Joi
   const [form, setForm] = useState({ code: initialCode, password: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
 
   // Update form when initialCode changes or modal opens
   useEffect(() => {
     if (open) {
       setForm({ code: initialCode, password: "" });
       setError("");
-      setShowPassword(false);
     }
   }, [open, initialCode]);
 
@@ -107,23 +105,13 @@ export function JoinRoomModal({ open, onClose, onSubmit, initialCode = "" }: Joi
             <label className="block mb-2 text-sm text-[#111118] dark:text-[#f0f6ff]">
               Mật khẩu phòng:
             </label>
-            <div className="relative flex items-center">
-              <input
-                type={showPassword ? "text" : "password"}
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                placeholder="Nhập mật khẩu phòng"
-                className="w-full h-12 rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] placeholder:text-[#111118]/40 px-5 pr-12 text-base outline-none focus:border-[#0b7a75] dark:focus:border-[#2dd4bf] focus:ring-2 focus:ring-[#0b7a75] dark:focus:ring-[#2dd4bf] transition-colors"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 text-[#111118]/60 dark:text-[#f0f6ff]/60 hover:text-[#111118] dark:hover:text-white"
-                title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-              >
-                {showPassword ? <EyeSlash size={20} weight="regular" /> : <Eye size={20} weight="regular" />}
-              </button>
-            </div>
+            <input
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+              placeholder="Nhập mật khẩu phòng"
+              className="w-full h-12 rounded-sm border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] placeholder:text-[#111118]/40 px-5 text-base outline-none focus:border-[#0b7a75] dark:focus:border-[#2dd4bf] focus:ring-2 focus:ring-[#0b7a75] dark:focus:ring-[#2dd4bf] transition-colors"
+            />
           </div>
 
           <ErrorBox>{error}</ErrorBox>
@@ -142,7 +130,7 @@ export function JoinRoomModal({ open, onClose, onSubmit, initialCode = "" }: Joi
               className="inline-flex items-center gap-2 h-11 px-6 rounded-pill bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white text-base font-normal border border-[#111118] shadow-[0_3px_0_0_#111118] dark:shadow-[0_3px_0_0_#000000] active:translate-y-[1px] transition-transform cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
             >
               <SignIn size={18} weight="regular" />
-              <span>{busy ? "Đang kết nối…" : "Vào phòng ngay →"}</span>
+              <span>{busy ? "Đang kết nối…" : "Vào phòng ngay"}</span>
             </button>
           </div>
         </form>
