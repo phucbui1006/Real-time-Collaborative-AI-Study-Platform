@@ -455,7 +455,32 @@ export default function RoomView({
           } else if (data && Array.isArray(data)) {
             data.forEach((d) => {
               const docTitle = d.original_name || d.filename || 'Tài liệu'
-              const rawPages = Array.isArray(d.pages_content) ? d.pages_content : []
+              let rawPages: string[] = []
+              if (Array.isArray(d.pages_content)) {
+                rawPages = d.pages_content
+              } else if (typeof d.pages_content === 'string') {
+                try {
+                  const parsed = JSON.parse(d.pages_content)
+                  if (Array.isArray(parsed)) rawPages = parsed
+                } catch {
+                  if (d.pages_content.includes('[[--PERMIND_PAGE_BREAK--]]')) {
+                    rawPages = d.pages_content
+                      .split(/\[\[--PERMIND_PAGE_BREAK--\]\]/)
+                      .map((p: string) => p.trim())
+                      .filter(Boolean)
+                  } else {
+                    rawPages = [d.pages_content]
+                  }
+                }
+              }
+
+              // Nếu có d.total_pages lớn hơn rawPages.length:
+              if (typeof d.total_pages === 'number' && d.total_pages > rawPages.length) {
+                while (rawPages.length < d.total_pages) {
+                  rawPages.push(`# ${docTitle}\n\nTrang ${rawPages.length + 1}`)
+                }
+              }
+
               const safePages = rawPages.length > 0 ? rawPages : [`# ${docTitle}\n\nTài liệu học tập.`]
               list.push({
                 id: d.id,
@@ -478,11 +503,27 @@ export default function RoomView({
                 parsed.forEach((d: any) => {
                   if (!list.some((x) => x.id === d.id)) {
                     const docTitle = d.title || d.original_name || d.filename || 'Tài liệu'
-                    const rawPages = Array.isArray(d.pagesContent)
-                      ? d.pagesContent
-                      : Array.isArray(d.pages_content)
-                      ? d.pages_content
-                      : []
+                    let rawPages: string[] = []
+                    if (Array.isArray(d.pagesContent)) {
+                      rawPages = d.pagesContent
+                    } else if (Array.isArray(d.pages_content)) {
+                      rawPages = d.pages_content
+                    } else if (typeof d.pagesContent === 'string') {
+                      try {
+                        const parsed = JSON.parse(d.pagesContent)
+                        if (Array.isArray(parsed)) rawPages = parsed
+                      } catch {
+                        rawPages = [d.pagesContent]
+                      }
+                    }
+
+                    const totalCount = d.pagesCount || d.total_pages || 0
+                    if (typeof totalCount === 'number' && totalCount > rawPages.length) {
+                      while (rawPages.length < totalCount) {
+                        rawPages.push(`# ${docTitle}\n\nTrang ${rawPages.length + 1}`)
+                      }
+                    }
+
                     const safePages = rawPages.length > 0 ? rawPages : [`# ${docTitle}\n\nTài liệu học tập.`]
                     list.push({
                       id: d.id,
@@ -588,13 +629,35 @@ export default function RoomView({
     }))
   }
 
-  // Lật trang tài liệu
+  // Lật trang tài liệu (Cập nhật tức thì 0ms trên máy Host và gửi Socket)
   const handlePageChange = (pageIndex: number) => {
+    setRoomState((prev) => {
+      if (!prev.activeDocument) return prev
+      return {
+        ...prev,
+        activeDocument: {
+          ...prev.activeDocument,
+          currentPage: pageIndex,
+        },
+      }
+    })
     changeDocumentPage(room.code, pageIndex)
   }
 
-  // Sửa văn bản trang tài liệu
+  // Sửa văn bản trang tài liệu (Cập nhật tức thì 0ms trên máy Host và gửi Socket)
   const handleEditPage = (pageIndex: number, newContent: string) => {
+    setRoomState((prev) => {
+      if (!prev.activeDocument) return prev
+      const pages = [...(prev.activeDocument.pagesContent || [])]
+      pages[pageIndex] = newContent
+      return {
+        ...prev,
+        activeDocument: {
+          ...prev.activeDocument,
+          pagesContent: pages,
+        },
+      }
+    })
     editDocumentPage(room.code, pageIndex, newContent)
   }
 

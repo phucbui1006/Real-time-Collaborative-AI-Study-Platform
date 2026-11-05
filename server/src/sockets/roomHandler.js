@@ -590,12 +590,18 @@ function roomHandler(io, socket) {
   // Host lật trang tài liệu
   socket.on('DOC:CHANGE_PAGE', ({ roomCode, pageIndex }) => {
     const room = activeRooms.get(roomCode)
-    if (!room || room.hostSocketId !== socket.id) {
+    if (!room) return
+
+    const currentUserId = socket.user?.id || socket.id
+    const isHost = room.hostSocketId === socket.id || (room.hostUserId && room.hostUserId === currentUserId)
+    if (!isHost) {
       return socket.emit('ERROR', { message: 'Chỉ chủ phòng mới có quyền điều khiển trang.' })
     }
+    room.hostSocketId = socket.id
+
     if (!room.activeDocument) return
 
-    const maxPage = Math.max(0, (room.activeDocument.totalPages || room.activeDocument.pagesContent.length) - 1)
+    const maxPage = Math.max(0, (room.activeDocument.totalPages || room.activeDocument.pagesContent?.length || 1) - 1)
     const validPage = Math.max(0, Math.min(maxPage, Number(pageIndex) || 0))
 
     room.activeDocument.currentPage = validPage
@@ -613,9 +619,15 @@ function roomHandler(io, socket) {
   // Host chỉnh sửa nội dung văn bản trang hiện tại
   socket.on('DOC:EDIT_PAGE', ({ roomCode, pageIndex, content }) => {
     const room = activeRooms.get(roomCode)
-    if (!room || room.hostSocketId !== socket.id) {
+    if (!room) return
+
+    const currentUserId = socket.user?.id || socket.id
+    const isHost = room.hostSocketId === socket.id || (room.hostUserId && room.hostUserId === currentUserId)
+    if (!isHost) {
       return socket.emit('ERROR', { message: 'Chỉ chủ phòng mới có quyền chỉnh sửa tài liệu.' })
     }
+    room.hostSocketId = socket.id
+
     if (!room.activeDocument || typeof content !== 'string') return
 
     const idx = Number(pageIndex) || 0

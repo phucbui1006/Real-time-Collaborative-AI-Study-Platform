@@ -54,7 +54,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
     }
   }, [hostPage, isFreeView])
 
-  const totalPages = Math.max(1, document.totalPages || document.pagesContent?.length || 1)
+  const totalPages = Math.max(1, document.totalPages || 0, document.pagesContent?.length || 0)
   const currentPageContent = document.pagesContent?.[localPage] || ''
 
   // Cập nhật nội dung editor khi đổi trang
@@ -65,21 +65,21 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
   // Xử lý chuyển trang
   const handlePrevPage = () => {
     const next = Math.max(0, localPage - 1)
+    setLocalPage(next)
     if (isHost) {
       onPageChange(next)
     } else {
       setIsFreeView(true)
-      setLocalPage(next)
     }
   }
 
   const handleNextPage = () => {
     const next = Math.min(totalPages - 1, localPage + 1)
+    setLocalPage(next)
     if (isHost) {
       onPageChange(next)
     } else {
       setIsFreeView(true)
-      setLocalPage(next)
     }
   }
 
