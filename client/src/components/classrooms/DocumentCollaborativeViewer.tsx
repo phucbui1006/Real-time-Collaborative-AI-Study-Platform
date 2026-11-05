@@ -70,6 +70,38 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
   const [textInputValue, setTextInputValue] = useState<string>('')
 
   const contentWrapperRef = useRef<HTMLDivElement>(null)
+  const notePopupRef = useRef<HTMLDivElement>(null)
+
+  // Đổi công cụ vẽ chú thích và tự động hủy ô note dở dang
+  const handleSelectTool = (tool: AnnotationTool) => {
+    setActiveTool(tool)
+    setTextInputPos(null)
+    setTextInputValue('')
+  }
+
+  // Tự động đóng và biến mất ô note nếu bấm ra ngoài vùng ghi chú khi chưa Enter/Lưu
+  useEffect(() => {
+    if (!textInputPos) return
+
+    const handlePointerDownOutside = (e: MouseEvent | PointerEvent) => {
+      if (notePopupRef.current && !notePopupRef.current.contains(e.target as Node)) {
+        setTextInputPos(null)
+        setTextInputValue('')
+      }
+    }
+
+    window.addEventListener('pointerdown', handlePointerDownOutside, true)
+
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDownOutside, true)
+    }
+  }, [textInputPos])
+
+  // Tự động hủy ô ghi chú khi chuyển trang tài liệu
+  useEffect(() => {
+    setTextInputPos(null)
+    setTextInputValue('')
+  }, [localPage])
 
   // Tự động theo sát trang của Host nếu không bật Chế độ xem tự do
   useEffect(() => {
@@ -243,7 +275,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
             <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-md border border-slate-200 dark:border-slate-800 shadow-xs">
               {/* Con trỏ bình thường */}
               <button
-                onClick={() => setActiveTool('select')}
+                onClick={() => handleSelectTool('select')}
                 className={`h-7 px-2 rounded flex items-center gap-1 text-xs font-medium transition-colors cursor-pointer ${
                   activeTool === 'select'
                     ? 'bg-teal-600 text-white shadow-xs'
@@ -257,7 +289,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
 
               {/* Khoanh hình chữ nhật */}
               <button
-                onClick={() => setActiveTool('rect')}
+                onClick={() => handleSelectTool('rect')}
                 className={`h-7 px-2 rounded flex items-center gap-1 text-xs font-medium transition-colors cursor-pointer ${
                   activeTool === 'rect'
                     ? 'bg-teal-600 text-white shadow-xs'
@@ -271,7 +303,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
 
               {/* Bút Highlight */}
               <button
-                onClick={() => setActiveTool('highlight')}
+                onClick={() => handleSelectTool('highlight')}
                 className={`h-7 px-2 rounded flex items-center gap-1 text-xs font-medium transition-colors cursor-pointer ${
                   activeTool === 'highlight'
                     ? 'bg-teal-600 text-white shadow-xs'
@@ -285,7 +317,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
 
               {/* Gõ chữ ghi chú */}
               <button
-                onClick={() => setActiveTool('text')}
+                onClick={() => handleSelectTool('text')}
                 className={`h-7 px-2 rounded flex items-center gap-1 text-xs font-medium transition-colors cursor-pointer ${
                   activeTool === 'text'
                     ? 'bg-teal-600 text-white shadow-xs'
@@ -485,6 +517,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
           {/* Ô nhập Text Note nổi khi Host bấm tool 'text' */}
           {textInputPos && isHost && (
             <div
+              ref={notePopupRef}
               style={{ left: `${textInputPos.x}%`, top: `${textInputPos.y}%` }}
               className="absolute z-30 -translate-x-2 -translate-y-2 p-2 rounded-md bg-white dark:bg-slate-900 border border-teal-500 shadow-2xl flex flex-col gap-1.5 w-64"
             >
@@ -498,6 +531,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
                     handleAddTextAnnotation()
                   } else if (e.key === 'Escape') {
                     setTextInputPos(null)
+                    setTextInputValue('')
                   }
                 }}
                 placeholder="Nhập ghi chú tại đây (Enter để lưu, Esc để hủy)..."
@@ -507,7 +541,10 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
                 <span className="text-[10px] text-slate-400">Enter để xong</span>
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => setTextInputPos(null)}
+                    onClick={() => {
+                      setTextInputPos(null)
+                      setTextInputValue('')
+                    }}
                     className="h-6 px-2 rounded text-[11px] text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                   >
                     Hủy
