@@ -33,6 +33,19 @@ const getIceServers = (): RTCConfiguration => {
   return { iceServers }
 }
 
+/**
+ * Helper tìm RTCRtpSender chịu trách nhiệm cho luồng Video trong RTCPeerConnection
+ */
+const findVideoSender = (pc: RTCPeerConnection): RTCRtpSender | undefined => {
+  if (typeof pc.getTransceivers === 'function') {
+    const videoTransceiver = pc.getTransceivers().find(
+      (t) => t.receiver?.track?.kind === 'video' || t.sender?.track?.kind === 'video'
+    )
+    if (videoTransceiver) return videoTransceiver.sender
+  }
+  return pc.getSenders().find((s) => s.track && s.track.kind === 'video')
+}
+
 interface PeerItem {
   pc: RTCPeerConnection
   makingOffer: boolean
@@ -62,27 +75,91 @@ export function useRoomRTC({ roomCode, currentSocketId, members, onPermissionErr
   const screenStreamRef = useRef<MediaStream | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const vadIntervalRef = useRef<number | null>(null)
+  const isUnmountedRef = useRef(false)
 
-  // ─── 1. KHỞI TẠO LOCAL MEDIA STREAM (MIC + CAM BAN ĐẦU TẮT ĐỂ TIẾT KIỆM BĂNG THÔNG) ───
+  // ─── 0. HÀM DỌN DẸP TOÀN DIỆN MỌI THIẾT BỊ MEDIA & KẾT NỐI WEBRTC ──────────
+  const stopAllMedia = useCallback(() => {
+    console.log('[WebRTC] Dừng toàn bộ thiết bị media và giải phóng kết nối...')
+    isUnmountedRef.current = true
+
+    // 1. Dừng triệt để tất cả tracks của local stream (Camera, Mic)
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop()
+          console.log(`[WebRTC] Đã stop local track: ${track.kind}`)
+        } catch (e) {
+          console.warn('[WebRTC] Lỗi khi stop local track:', e)
+        }
+      })
+      localStreamRef.current = null
+    }
+    setLocalStream(null)
+
+    // 2. Dừng triệt để tất cả tracks của screen stream (Chia sẻ màn hình)
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop()
+          console.log(`[WebRTC] Đã stop screen track: ${track.kind}`)
+        } catch (e) {
+          console.warn('[WebRTC] Lỗi khi stop screen track:', e)
+        }
+      })
+      screenStreamRef.current = null
+    }
+    setScreenStream(null)
+
+    // 3. Đóng tất cả RTCPeerConnection Mesh
+    peersRef.current.forEach((peer, peerId) => {
+      try {
+        peer.pc.close()
+        console.log(`[WebRTC] Đã đóng RTCPeerConnection với ${peerId}`)
+      } catch (e) {
+        console.warn(`[WebRTC] Lỗi khi đóng RTCPeerConnection với ${peerId}:`, e)
+      }
+    })
+    peersRef.current.clear()
+
+    // 4. Dừng VAD và đóng AudioContext
+    if (vadIntervalRef.current) {
+      window.clearInterval(vadIntervalRef.current)
+      vadIntervalRef.current = null
+    }
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close().catch(() => {})
+      } catch {}
+      audioContextRef.current = null
+    }
+
+    setIsMicOn(false)
+    setIsCamOn(false)
+    setIsSharingScreen(false)
+    setIsSpeaking(false)
+  }, [])
+
+  // ─── 1. KHỞI TẠO LOCAL MEDIA STREAM BAN ĐẦU (CHỈ AUDIO, TUYỆT ĐỐI KHÔNG BẬT CAM PHẦN CỨNG) ───
   const initLocalMedia = useCallback(async () => {
+    if (isUnmountedRef.current) return null
     try {
-      // Yêu cầu quyền truy cập cơ bản (mặc định mic/cam tắt track để người dùng chủ động bật)
+      // Chỉ xin Audio ban đầu, video = false để webcam không khởi động và đèn LED camera KHÔNG sáng
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
         },
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          frameRate: { ideal: 24, max: 30 },
-        },
+        video: false,
       })
 
-      // Mặc định ban đầu tắt track mic và cam
+      if (isUnmountedRef.current) {
+        stream.getTracks().forEach((t) => t.stop())
+        return null
+      }
+
+      // Mặc định ban đầu tắt micro (người dùng bấm bật mic mới mở)
       stream.getAudioTracks().forEach((t) => (t.enabled = false))
-      stream.getVideoTracks().forEach((t) => (t.enabled = false))
 
       localStreamRef.current = stream
       setLocalStream(stream)
@@ -92,34 +169,37 @@ export function useRoomRTC({ roomCode, currentSocketId, members, onPermissionErr
 
       return stream
     } catch (err: any) {
-      console.warn('Chưa cấp quyền truy cập camera/micro ban đầu:', err.name)
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        onPermissionError?.('Bạn đã từ chối quyền Camera/Micro. Vui lòng nhấn vào biểu tượng ổ khóa trên thanh địa chỉ để cấp quyền.')
-      } else if (err.name === 'NotFoundError') {
-        onPermissionError?.('Không tìm thấy thiết bị Microphone hoặc Camera trên máy tính của bạn.')
-      }
-      return null
+      if (isUnmountedRef.current) return null
+      console.warn('[WebRTC] Khởi tạo audio ban đầu không thành công hoặc không có mic:', err.name)
+      // Tạo empty stream dự phòng để không crash
+      const emptyStream = new MediaStream()
+      localStreamRef.current = emptyStream
+      setLocalStream(emptyStream)
+      setIsMicOn(false)
+      setIsCamOn(false)
+      toggleMedia(roomCode, false, false)
+      return emptyStream
     }
-  }, [roomCode, onPermissionError])
+  }, [roomCode])
 
   useEffect(() => {
+    isUnmountedRef.current = false
     initLocalMedia()
-    return () => {
-      // Dọn dẹp local streams khi component unmount
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((t) => t.stop())
-      }
-      if (screenStreamRef.current) {
-        screenStreamRef.current.getTracks().forEach((t) => t.stop())
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(() => {})
-      }
-      if (vadIntervalRef.current) {
-        window.clearInterval(vadIntervalRef.current)
-      }
+
+    // Bắt sự kiện người dùng đóng tab, reload hoặc chuyển hướng URL
+    const handleBeforeUnload = () => {
+      stopAllMedia()
     }
-  }, [initLocalMedia])
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('pagehide', handleBeforeUnload)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('pagehide', handleBeforeUnload)
+      stopAllMedia()
+    }
+  }, [initLocalMedia, stopAllMedia])
 
   // ─── 2. THIẾT LẬP PERFECT NEGOTIATION CHO MỖI PEER (MESH P2P) ────────────
   const createPeer = useCallback(
@@ -133,10 +213,20 @@ export function useRoomRTC({ roomCode, currentSocketId, members, onPermissionErr
         iceCandidateQueue: [],
       }
 
-      // Thêm local tracks vào kết nối
+      // Thêm local tracks hiện có vào kết nối
       const streamToAdd = localStreamRef.current
       if (streamToAdd) {
         streamToAdd.getTracks().forEach((track) => pc.addTrack(track, streamToAdd))
+      }
+
+      // Thêm sẵn video transceiver để sau này replaceTrack khi bật cam/share màn hình không cần renegotiate lại
+      const hasVideoTrack = streamToAdd && streamToAdd.getVideoTracks().length > 0
+      if (!hasVideoTrack) {
+        try {
+          pc.addTransceiver('video', { direction: 'sendrecv' })
+        } catch (e) {
+          console.warn('[WebRTC] Không thể thêm video transceiver trước:', e)
+        }
       }
 
       // Xử lý ICE Candidate
@@ -378,38 +468,159 @@ export function useRoomRTC({ roomCode, currentSocketId, members, onPermissionErr
     }
   }, [isMicOn, localStream, roomCode])
 
-  // ─── 6. BẬT/TẮT MICRO VÀ CAMERA ──────────────────────────────────────────
+  // ─── 6. BẬT/TẮT MICRO VÀ CAMERA (ON-DEMAND HARDWARE: TẮT LÀ TẮT ĐÈN NGAY) ─
   const toggleMic = useCallback(async () => {
     let stream = localStreamRef.current
-    if (!stream) {
-      stream = await initLocalMedia()
-      if (!stream) return
+    let audioTrack = stream?.getAudioTracks()[0]
+
+    // Nếu chưa có audio track (do ban đầu bị chặn hoặc chưa cấp)
+    if (!audioTrack) {
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+          video: false,
+        })
+
+        if (isUnmountedRef.current) {
+          audioStream.getTracks().forEach((t) => t.stop())
+          return
+        }
+
+        audioTrack = audioStream.getAudioTracks()[0]
+        if (audioTrack) {
+          if (!stream) {
+            stream = new MediaStream()
+            localStreamRef.current = stream
+          }
+          stream.addTrack(audioTrack)
+          setLocalStream(new MediaStream(stream.getTracks()))
+
+          // Gắn vào các peer
+          peersRef.current.forEach((peer) => {
+            const sender = peer.pc.getSenders().find((s) => s.track && s.track.kind === 'audio')
+            if (sender) {
+              sender.replaceTrack(audioTrack!)
+            } else {
+              peer.pc.addTrack(audioTrack!, stream!)
+            }
+          })
+        }
+      } catch (err: any) {
+        console.warn('[WebRTC] Lỗi truy cập Microphone:', err)
+        onPermissionError?.('Không thể truy cập Microphone. Vui lòng cấp quyền trên trình duyệt.')
+        return
+      }
     }
 
-    const audioTrack = stream.getAudioTracks()[0]
     if (audioTrack) {
       const nextState = !audioTrack.enabled
       audioTrack.enabled = nextState
       setIsMicOn(nextState)
       toggleMedia(roomCode, nextState, isCamOn)
     }
-  }, [roomCode, isCamOn, initLocalMedia])
+  }, [roomCode, isCamOn, onPermissionError])
 
   const toggleCam = useCallback(async () => {
-    let stream = localStreamRef.current
-    if (!stream) {
-      stream = await initLocalMedia()
-      if (!stream) return
-    }
+    if (isCamOn) {
+      // ─── TẮT CAMERA: DỪNG TRACK HOÀN TOÀN → ĐÈN WEBCAM TẮT NGAY LẬP TỨC ───
+      console.log('[WebRTC] Tắt camera: Stop video track để ngắt phần cứng')
+      const stream = localStreamRef.current
+      if (stream) {
+        const videoTracks = stream.getVideoTracks()
+        videoTracks.forEach((track) => {
+          try {
+            track.stop() // TẮT PHẦN CỨNG CAMERA
+            console.log('[WebRTC] Camera track đã stop thành công.')
+          } catch (e) {
+            console.warn('[WebRTC] Lỗi khi stop camera track:', e)
+          }
+          stream.removeTrack(track)
+        })
+        setLocalStream(new MediaStream(stream.getTracks()))
+      }
 
-    const videoTrack = stream.getVideoTracks()[0]
-    if (videoTrack) {
-      const nextState = !videoTrack.enabled
-      videoTrack.enabled = nextState
-      setIsCamOn(nextState)
-      toggleMedia(roomCode, isMicOn, nextState)
+      // Thông báo cho các Peer thay thế video sender thành null (không phát hình)
+      peersRef.current.forEach((peer) => {
+        const sender = findVideoSender(peer.pc)
+        if (sender) {
+          sender.replaceTrack(null).catch(() => {})
+        }
+      })
+
+      setIsCamOn(false)
+      toggleMedia(roomCode, isMicOn, false)
+    } else {
+      // ─── BẬT CAMERA: GỌI getUserMedia ĐỂ MỞ PHẦN CỨNG VÀ BẬT ĐÈN WEBCAM ───
+      console.log('[WebRTC] Bật camera: Khởi tạo luồng video từ webcam')
+      try {
+        const camStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 24, max: 30 },
+          },
+          audio: false,
+        })
+
+        if (isUnmountedRef.current) {
+          camStream.getTracks().forEach((t) => t.stop())
+          return
+        }
+
+        const videoTrack = camStream.getVideoTracks()[0]
+        if (!videoTrack) return
+
+        let stream = localStreamRef.current
+        if (!stream) {
+          stream = new MediaStream()
+          localStreamRef.current = stream
+        }
+
+        stream.addTrack(videoTrack)
+        setLocalStream(new MediaStream(stream.getTracks()))
+
+        // Cập nhật cho các Peer
+        peersRef.current.forEach((peer) => {
+          const sender = findVideoSender(peer.pc)
+          if (sender) {
+            sender.replaceTrack(videoTrack).catch((e) => console.warn('[WebRTC] replaceTrack error:', e))
+          } else {
+            peer.pc.addTrack(videoTrack, stream!)
+          }
+        })
+
+        // Bắt sự kiện camera bị ngắt bất ngờ (rút webcam hoặc OS thu hồi quyền)
+        videoTrack.onended = () => {
+          console.log('[WebRTC] Video track onended được kích hoạt')
+          if (localStreamRef.current) {
+            localStreamRef.current.removeTrack(videoTrack)
+            setLocalStream(new MediaStream(localStreamRef.current.getTracks()))
+          }
+          setIsCamOn(false)
+          toggleMedia(roomCode, isMicOn, false)
+        }
+
+        setIsCamOn(true)
+        toggleMedia(roomCode, isMicOn, true)
+      } catch (err: any) {
+        if (isUnmountedRef.current) return
+        console.warn('[WebRTC] Lỗi khi bật Camera:', err)
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          onPermissionError?.('Bạn đã từ chối quyền truy cập Camera. Vui lòng cấp quyền trên trình duyệt để sử dụng.')
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          onPermissionError?.('Không tìm thấy thiết bị Camera trên máy tính của bạn.')
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+          onPermissionError?.('Camera đang bị ứng dụng khác (Zoom, Teams, v.v.) chiếm dụng. Vui lòng đóng ứng dụng đó và thử lại.')
+        } else {
+          onPermissionError?.(`Không thể mở Camera: ${err.message || 'Lỗi thiết bị'}`)
+        }
+      }
     }
-  }, [roomCode, isMicOn, initLocalMedia])
+  }, [isCamOn, isMicOn, roomCode, onPermissionError])
 
   // ─── 7. CHIA SẺ MÀN HÌNH (SCREEN SHARE) ──────────────────────────────────
   const startScreenShare = useCallback(async () => {
@@ -430,10 +641,9 @@ export function useRoomRTC({ roomCode, currentSocketId, members, onPermissionErr
       if (screenVideoTrack) {
         // Thay thế hoặc thêm video track vào các peer connection hiện có
         peersRef.current.forEach((peer, targetSocketId) => {
-          const senders = peer.pc.getSenders()
-          const videoSender = senders.find((s) => s.track && s.track.kind === 'video')
+          const videoSender = findVideoSender(peer.pc)
           if (videoSender) {
-            console.log(`[WebRTC] Thay thế track video cho peer ${targetSocketId}`)
+            console.log(`[WebRTC] Thay thế track video sang screen cho peer ${targetSocketId}`)
             videoSender.replaceTrack(screenVideoTrack)
           } else {
             console.log(`[WebRTC] Thêm track màn hình mới cho peer ${targetSocketId}`)
@@ -469,15 +679,15 @@ export function useRoomRTC({ roomCode, currentSocketId, members, onPermissionErr
     setIsSharingScreen(false)
     emitStopShare(roomCode)
 
-    // Khôi phục lại video track từ Camera cho các peer
-    const cameraTrack = localStreamRef.current?.getVideoTracks()[0] || null
+    // Khôi phục lại video track từ Camera cho các peer (nếu camera đang bật)
+    const cameraTrack = isCamOn ? (localStreamRef.current?.getVideoTracks()[0] || null) : null
     peersRef.current.forEach((peer) => {
-      const videoSender = peer.pc.getSenders().find((s) => s.track && s.track.kind === 'video')
-      if (videoSender && cameraTrack) {
-        videoSender.replaceTrack(cameraTrack)
+      const videoSender = findVideoSender(peer.pc)
+      if (videoSender) {
+        videoSender.replaceTrack(cameraTrack).catch(() => {})
       }
     })
-  }, [roomCode])
+  }, [roomCode, isCamOn])
 
   // Lắng nghe khi bị host tắt mic
   useEffect(() => {
@@ -508,5 +718,6 @@ export function useRoomRTC({ roomCode, currentSocketId, members, onPermissionErr
     toggleCam,
     startScreenShare,
     stopScreenShare,
+    stopAllMedia,
   }
 }

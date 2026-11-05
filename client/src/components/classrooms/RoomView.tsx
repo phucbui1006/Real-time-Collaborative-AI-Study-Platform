@@ -1,7 +1,7 @@
 // client/src/components/classrooms/RoomView.tsx
 // Giao diện phòng học nhóm trực tuyến PeerMind — Chuẩn Google Meet kết hợp trình chiếu & sửa tài liệu realtime
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   ArrowLeft,
   Copy,
@@ -224,6 +224,11 @@ export default function RoomView({
     return initialIsHost
   }, [roomState.hostSocketId, currentSocketId, roomState.hostUserId, userId, initialIsHost])
 
+  // Memoize handler lỗi quyền thiết bị
+  const handlePermissionError = useCallback((msg: string) => {
+    setErrorMessage(msg)
+  }, [])
+
   // Custom hook WebRTC Mesh P2P
   const {
     localStream,
@@ -236,12 +241,28 @@ export default function RoomView({
     toggleCam,
     startScreenShare,
     stopScreenShare,
+    stopAllMedia,
   } = useRoomRTC({
     roomCode: room.code,
     currentSocketId,
     members: roomState.members,
-    onPermissionError: (msg) => setErrorMessage(msg),
+    onPermissionError: handlePermissionError,
   })
+
+  // Hàm rời phòng tập trung: giải phóng toàn bộ Camera, Mic, Screen Share và thông báo Server
+  const handleLeave = useCallback(() => {
+    console.log('[RoomView] Thực hiện rời phòng: Dọn dẹp thiết bị media...')
+    stopAllMedia()
+    leaveRoom(room.code)
+    onLeave()
+  }, [stopAllMedia, room.code, onLeave])
+
+  // Đảm bảo dừng 100% camera và mic khi RoomView bị unmount
+  useEffect(() => {
+    return () => {
+      stopAllMedia()
+    }
+  }, [stopAllMedia])
 
   // Optimistic Member đại diện cho chính người dùng hiện tại (tránh badge = 0 và màn hình đen)
   const mySelfMember = useMemo<RoomMember>(() => ({
@@ -407,12 +428,12 @@ export default function RoomView({
     // Bị Host mời ra hoặc Phòng bị đóng
     const onKicked = ({ reason }: { reason: string }) => {
       alert(reason || 'Bạn đã bị mời ra khỏi phòng học.')
-      onLeave()
+      handleLeave()
     }
 
     const onClosed = ({ reason }: { reason: string }) => {
       alert(reason || 'Chủ phòng đã kết thúc buổi học.')
-      onLeave()
+      handleLeave()
     }
 
     // Thông báo lỗi từ server
@@ -455,7 +476,7 @@ export default function RoomView({
       socket.off('ROOM:CLOSED', onClosed)
       socket.off('ERROR', onError)
     }
-  }, [room.code, userId, userName, onLeave, chatOpen])
+  }, [room.code, userId, userName, handleLeave, chatOpen])
 
   // Reset badge tin chưa đọc khi mở bảng chat
   useEffect(() => {
@@ -742,7 +763,7 @@ export default function RoomView({
       <header className="flex h-14 items-center justify-between px-4 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md shrink-0 z-20">
         <div className="flex items-center gap-3 min-w-0">
           <button
-            onClick={onLeave}
+            onClick={handleLeave}
             className="flex h-8 w-8 items-center justify-center rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
             title="Quay lại"
           >
@@ -820,6 +841,7 @@ export default function RoomView({
               onClick={() => {
                 if (confirm('Bạn có chắc chắn muốn kết thúc buổi học và đóng phòng cho tất cả mọi người?')) {
                   closeRoom(room.code)
+                  handleLeave()
                 }
               }}
               className="hidden md:inline-flex items-center gap-1 h-8 px-2.5 rounded bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-800 text-xs font-medium transition-colors cursor-pointer"
@@ -975,7 +997,7 @@ export default function RoomView({
         onRaiseHand={handleRaiseHand}
         onToggleChat={() => setChatOpen(!chatOpen)}
         onToggleMembers={() => setMembersOpen(!membersOpen)}
-        onLeaveRoom={onLeave}
+        onLeaveRoom={handleLeave}
       />
 
       {/* ─── 4. MODALS: DANH SÁCH THÀNH VIÊN VÀ CHỌN TÀI LIỆU ───────────── */}
