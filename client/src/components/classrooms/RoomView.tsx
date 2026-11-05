@@ -1,1074 +1,676 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { MembersModal, RoomMember } from "./MembersModal";
+// client/src/components/classrooms/RoomView.tsx
+// Giao diện phòng học nhóm trực tuyến PeerMind — Chuẩn Google Meet kết hợp trình chiếu & sửa tài liệu realtime
+
+import { useState, useEffect, useMemo } from 'react'
 import {
-  Users,
-  MessageSquare,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  Undo2,
-  Trash2,
-  Pencil,
-  Minus,
-  Circle,
-  MoveUpRight,
-  Type,
-  Eraser,
-  FileText,
-  X,
-  Send,
   ArrowLeft,
   Copy,
   Check,
+  Crown,
+  FileText,
+  X,
   Presentation,
-  Highlighter,
-  StickyNote,
-  Hand,
+  ShieldAlert,
+  Sparkles,
+  LogOut,
   Maximize2,
-} from "lucide-react";
+  Minimize2,
+} from 'lucide-react'
+import {
+  socket,
+  joinRoom,
+  leaveRoom,
+  sendChatMessage,
+  selectDocument,
+  changeDocumentPage,
+  editDocumentPage,
+  muteMember,
+  kickMember,
+  transferHost,
+  toggleScreenPermission,
+  closeRoom,
+} from '../../services/socket'
+import { useRoomRTC } from '../../hooks/useRoomRTC'
+import { VideoGrid } from './VideoGrid'
+import { ClassroomControls } from './ClassroomControls'
+import { ClassroomChatPanel } from './ClassroomChatPanel'
+import { MembersModal } from './MembersModal'
+import { DocumentCollaborativeViewer } from './DocumentCollaborativeViewer'
+import type {
+  RoomState,
+  RoomMember,
+  ChatMessage,
+  RoomDocumentData,
+} from '../../types/classroom'
 
 export type SlideItem =
   | [string, string[]]
   | {
-      title: string;
-      points: string[];
-      imageUrl?: string;
-    };
+      title: string
+      points: string[]
+      imageUrl?: string
+    }
+
 export type DocItem = {
-  id: number;
-  title: string;
-  color: string;
-  slides: SlideItem[];
-};
+  id: number
+  title: string
+  color: string
+  slides: SlideItem[]
+  pagesContent?: string[]
+}
 
 export const DOCS: DocItem[] = [
   {
     id: 1,
-    title: "Toán cao cấp – Chương 4",
-    color: "#0ea5e9",
+    title: 'Toán cao cấp – Chương 4',
+    color: '#0ea5e9',
     slides: [
-      ["Tích phân bội", ["Định nghĩa tích phân kép", "Tính chất cơ bản", "Đổi biến số"]],
-      ["Tích phân kép trên miền chữ nhật", ["Định lý Fubini", "Ví dụ minh hoạ", "Bài tập áp dụng"]],
-      ["Tọa độ cực", ["x = r·cosθ, y = r·sinθ", "Jacobian = r", "Khi nào nên dùng"]],
+      ['Tích phân bội', ['Định nghĩa tích phân kép', 'Tính chất cơ bản', 'Đổi biến số']],
+      ['Tích phân kép trên miền chữ nhật', ['Định lý Fubini', 'Ví dụ minh hoạ', 'Bài tập áp dụng']],
     ],
   },
   {
     id: 2,
-    title: "Ngữ pháp tiếng Anh B1",
-    color: "#8b5cf6",
+    title: 'Ngữ pháp tiếng Anh B1',
+    color: '#8b5cf6',
     slides: [
-      ["Present Perfect", ["have/has + V3", "Kinh nghiệm & kết quả", "for / since"]],
-      ["Conditionals", ["Type 0 & 1", "Type 2: If I were…", "Lỗi thường gặp"]],
+      ['Present Perfect', ['have/has + V3', 'Kinh nghiệm & kết quả', 'for / since']],
     ],
   },
-  {
-    id: 3,
-    title: "Vật lý – Điện trường",
-    color: "#f59e0b",
-    slides: [
-      ["Điện trường", ["Cường độ điện trường E = F/q", "Đường sức điện", "Nguyên lý chồng chất"]],
-      ["Định luật Coulomb", ["F = k·q₁q₂/r²", "k ≈ 9·10⁹ N·m²/C²", "Bài tập ví dụ"]],
-      ["Điện thế & hiệu điện thế", ["V = W/q", "U = E·d", "Tụ điện"]],
-      ["Tổng kết", ["Công thức cần nhớ", "Bài tập về nhà"]],
-    ],
-  },
-];
+]
 
-export const INITIAL_MEMBERS: RoomMember[] = [
-  { id: 1, name: "Minh Anh (Bạn)", role: "host", avatarColor: "#0ea5e9", isOnline: true },
-  { id: 2, name: "Hà My", role: "member", avatarColor: "#8b5cf6", isOnline: true },
-  { id: 3, name: "Văn Nam", role: "member", avatarColor: "#10b981", isOnline: true },
-  { id: 4, name: "Thu Trang", role: "member", avatarColor: "#f59e0b", isOnline: false },
-];
-
-
-const COLORS = ["#ef4444", "#2563eb", "#16a34a", "#f59e0b", "#111827"];
-
-export type AnnotationObj =
-  | { t: "pen"; pts: [number, number][]; color: string; w: number }
-  | { t: "text"; p: [number, number]; text: string; color: string; w: number }
-  | { t: "line" | "ellipse" | "arrow"; a: [number, number]; b: [number, number]; color: string; w: number };
-
-/* ------------------------------------------------------------------ */
-/* Vẽ một nét lên canvas. Toạ độ chuẩn hoá 0–1 để co giãn theo màn hình   */
-/* ------------------------------------------------------------------ */
-function drawObj(ctx: CanvasRenderingContext2D, o: AnnotationObj, W: number, H: number) {
-  ctx.strokeStyle = o.color;
-  ctx.fillStyle = o.color;
-  ctx.lineWidth = o.w;
-  ctx.lineCap = ctx.lineJoin = "round";
-  if (o.t === "pen") {
-    ctx.beginPath();
-    o.pts.forEach(([x, y], i) => (i ? ctx.lineTo(x * W, y * H) : ctx.moveTo(x * W, y * H)));
-    ctx.stroke();
-  } else if (o.t === "text") {
-    ctx.font = `600 ${Math.round(H * 0.045)}px "Segoe UI", sans-serif`;
-    ctx.fillText(o.text, o.p[0] * W, o.p[1] * H);
-  } else {
-    const [x1, y1] = [o.a[0] * W, o.a[1] * H];
-    let [x2, y2] = [o.b[0] * W, o.b[1] * H];
-    if (o.t === "line") y2 = y1; // gạch chân luôn nằm ngang
-    if (o.t === "ellipse") {
-      ctx.beginPath();
-      ctx.ellipse((x1 + x2) / 2, (y1 + y2) / 2, Math.abs(x2 - x1) / 2, Math.abs(y2 - y1) / 2, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      return;
-    }
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-    if (o.t === "arrow") {
-      const a = Math.atan2(y2 - y1, x2 - x1),
-        L = 16;
-      ctx.beginPath();
-      ctx.moveTo(x2, y2);
-      ctx.lineTo(x2 - L * Math.cos(a - 0.45), y2 - L * Math.sin(a - 0.45));
-      ctx.moveTo(x2, y2);
-      ctx.lineTo(x2 - L * Math.cos(a + 0.45), y2 - L * Math.sin(a + 0.45));
-      ctx.stroke();
-    }
-  }
+export interface DocPickerItem {
+  id: number
+  title: string
+  color?: string
+  slides?: any[]
+  pagesContent?: string[]
 }
 
-function bbox(o: AnnotationObj): [number, number, number, number] {
-  if (o.t === "pen") {
-    const xs = o.pts.map((p) => p[0]),
-      ys = o.pts.map((p) => p[1]);
-    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
-  }
-  if (o.t === "text") return [o.p[0], o.p[1] - 0.05, o.p[0] + o.text.length * 0.014, o.p[1]];
-  const b = o.t === "line" ? [o.b[0], o.a[1]] : o.b;
-  return [Math.min(o.a[0], b[0]), Math.min(o.a[1], b[1]), Math.max(o.a[0], b[0]), Math.max(o.a[1], b[1])];
-}
-
-/* ------------------------------------------------------------------ */
-/* Khung slide + lớp canvas chú thích                                   */
-/* ------------------------------------------------------------------ */
-interface SlideStageProps {
-  doc: DocItem;
-  index: number;
-  objs: AnnotationObj[];
-  onChange: (objs: AnnotationObj[]) => void;
-  canEdit: boolean;
-  tool: string;
-  color: string;
-}
-
-function SlideStage({ doc, index, objs, onChange, canEdit, tool, color }: SlideStageProps) {
-  const box = useRef<HTMLDivElement>(null);
-  const cv = useRef<HTMLCanvasElement>(null);
-  const draft = useRef<AnnotationObj | null>(null);
-  const [size, setSize] = useState({ w: 0, h: 0 });
-  const [textAt, setTextAt] = useState<[number, number] | null>(null);
-  const [txt, setTxt] = useState("");
-  const currentSlide = doc.slides[index] || ["Trang " + (index + 1), []];
-  const isTuple = Array.isArray(currentSlide);
-  const title = isTuple ? currentSlide[0] : currentSlide.title;
-  const points = isTuple ? currentSlide[1] : currentSlide.points || [];
-  const imageUrl = !isTuple ? currentSlide.imageUrl : undefined;
-
-  useEffect(() => {
-    if (!box.current) return;
-    const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }));
-    ro.observe(box.current);
-    return () => ro.disconnect();
-  }, []);
-
-  const redraw = useCallback(() => {
-    const c = cv.current;
-    if (!c || !size.w) return;
-    const d = window.devicePixelRatio || 1;
-    c.width = size.w * d;
-    c.height = size.h * d;
-    const ctx = c.getContext("2d");
-    if (!ctx) return;
-    ctx.scale(d, d);
-    [...objs, ...(draft.current ? [draft.current] : [])].forEach((o) => drawObj(ctx, o, size.w, size.h));
-  }, [objs, size]);
-
-  useEffect(redraw, [redraw]);
-
-  const pos = (e: React.PointerEvent<HTMLCanvasElement>): [number, number] => {
-    if (!cv.current) return [0, 0];
-    const r = cv.current.getBoundingClientRect();
-    return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
-  };
-
-  const down = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!canEdit || !cv.current) return;
-    const p = pos(e);
-    if (tool === "text") {
-      setTextAt(p);
-      setTxt("");
-      return;
-    }
-    if (tool === "eraser") {
-      const i = [...objs]
-        .map((o, k): [AnnotationObj, number] => [o, k])
-        .reverse()
-        .find(([o]) => {
-          const [x1, y1, x2, y2] = bbox(o),
-            pad = 0.02;
-          return p[0] >= x1 - pad && p[0] <= x2 + pad && p[1] >= y1 - pad && p[1] <= y2 + pad;
-        });
-      if (i) onChange(objs.filter((_, k) => k !== i[1]));
-      return;
-    }
-    cv.current.setPointerCapture(e.pointerId);
-    draft.current =
-      tool === "pen"
-        ? { t: "pen", pts: [p], color, w: 3 }
-        : { t: tool as "line" | "ellipse" | "arrow", a: p, b: p, color, w: 3 };
-    redraw();
-  };
-
-  const move = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!draft.current) return;
-    const p = pos(e);
-    if (draft.current.t === "pen") draft.current.pts.push(p);
-    else if ("b" in draft.current) draft.current.b = p;
-    redraw();
-  };
-
-  const up = () => {
-    if (!draft.current) return;
-    const o = draft.current;
-    draft.current = null;
-    onChange([...objs, o]);
-  };
-
-  const commitText = () => {
-    if (txt.trim() && textAt) onChange([...objs, { t: "text", p: textAt, text: txt.trim(), color, w: 3 }]);
-    setTextAt(null);
-  };
-
-  return (
-    <div
-      ref={box}
-      className="relative w-full overflow-hidden rounded-md shadow-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900"
-      style={{ aspectRatio: "16 / 9", containerType: "inline-size" }}
-    >
-      {imageUrl ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/5 dark:bg-slate-950/40">
-          <img
-            src={imageUrl}
-            alt={title}
-            className="w-full h-full object-contain pointer-events-none select-none"
-          />
-        </div>
-      ) : (
-        <div className="absolute inset-0" style={{ padding: "6cqw" }}>
-          <div style={{ height: "1.2cqw", width: "10cqw", background: doc.color, borderRadius: 99 }} />
-          <h2 className="text-slate-900 dark:text-slate-50" style={{ fontSize: "4.4cqw", fontWeight: 700, marginTop: "2cqw" }}>{title}</h2>
-          <ul
-            className="text-slate-700 dark:text-slate-300"
-            style={{
-              marginTop: "3cqw",
-              fontSize: "2.6cqw",
-              lineHeight: 1.9,
-              listStyle: "disc",
-              paddingLeft: "3cqw",
-            }}
-          >
-            {points.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ul>
-          <div className="text-slate-300 dark:text-slate-600" style={{ position: "absolute", right: "3cqw", bottom: "2cqw", fontSize: "1.5cqw" }}>
-            {doc.title}
-          </div>
-        </div>
-      )}
-
-      <canvas
-        ref={cv}
-        className="absolute inset-0 h-full w-full"
-        style={{ touchAction: "none", cursor: canEdit ? (tool === "text" ? "text" : "crosshair") : "default" }}
-        onPointerDown={down}
-        onPointerMove={move}
-        onPointerUp={up}
-        onPointerCancel={up}
-      />
-
-      {textAt && (
-        <input
-          autoFocus
-          value={txt}
-          placeholder="Nhập chữ rồi Enter"
-          onChange={(e) => setTxt(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commitText();
-            if (e.key === "Escape") setTextAt(null);
-          }}
-          onBlur={commitText}
-          className="absolute rounded border px-2 py-1 text-sm outline-none shadow-md bg-white/95 dark:bg-slate-900/95 dark:text-slate-100"
-          style={{
-            left: `${textAt[0] * 100}%`,
-            top: `${textAt[1] * 100}%`,
-            transform: "translateY(-100%)",
-            color,
-            borderColor: color,
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Popup chọn tài liệu (chủ phòng)                                      */
-/* ------------------------------------------------------------------ */
-interface DocPickerProps {
-  docs: DocItem[];
-  current: DocItem | null;
-  onPick: (doc: DocItem) => void;
-  onClose: () => void;
-}
-
-function DocPicker({ docs, current, onPick, onClose }: DocPickerProps) {
-  useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", k);
-    return () => window.removeEventListener("keydown", k);
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="w-full max-w-md rounded-lg bg-white dark:bg-slate-900 p-6 border border-slate-200/90 dark:border-slate-800 shadow-2xl"
-      >
-        <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50 tracking-tight">Chọn tài liệu để trình bày</h2>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Lấy từ kho bài giảng và tài liệu học tập của bạn.
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Đóng"
-            className="flex h-7 w-7 items-center justify-center rounded-sm text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-          >
-            <X className="h-4 w-4" strokeWidth={1.75} />
-          </button>
-        </div>
-        <ul className="mt-4 space-y-2 max-h-80 overflow-y-auto pr-1">
-          {docs.map((d) => (
-            <li key={d.id}>
-              <button
-                onClick={() => onPick(d)}
-                className={`flex w-full items-center gap-3 rounded-[4px] p-3 text-left border transition-all cursor-pointer ${
-                  current?.id === d.id
-                    ? "bg-indigo-50/60 dark:bg-indigo-950/40 border-indigo-500 ring-1 ring-indigo-500/30"
-                    : "bg-white dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600"
-                }`}
-              >
-                <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-xs font-bold text-white shadow-2xs"
-                  style={{ background: d.color }}
-                >
-                  {d.title.slice(0, 1)}
-                </span>
-                <span className="flex-1 min-w-0">
-                  <span className="block font-medium text-xs text-slate-900 dark:text-slate-100 truncate">{d.title}</span>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono tabular-nums">
-                    {d.slides.length} slide
-                  </span>
-                </span>
-                {current?.id === d.id && (
-                  <span className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-950/80 px-2 py-0.5 rounded-sharp border border-indigo-200 dark:border-indigo-800/80">
-                    Đang chọn
-                  </span>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-          <button
-            onClick={onClose}
-            className="h-8 px-4 rounded-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer shadow-2xs"
-          >
-            Đóng
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Khung chat trong phòng                                               */
-/* ------------------------------------------------------------------ */
-export type ChatMsg = { who?: string; text: string; me?: boolean; time?: string };
-
-interface ChatPanelProps {
-  open: boolean;
-  msgs: ChatMsg[];
-  members: RoomMember[];
-  onSend: (text: string) => void;
-  onOpenMembers: () => void;
-}
-
-function ChatPanel({ open, msgs, members, onSend, onOpenMembers }: ChatPanelProps) {
-  const [text, setText] = useState("");
-  const end = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    end.current?.scrollIntoView({ behavior: "smooth" });
-  }, [msgs, open]);
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (text.trim()) {
-      onSend(text.trim());
-      setText("");
-    }
-  };
-
-  return (
-    <aside
-      className="shrink-0 overflow-hidden transition-all duration-300 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
-      style={{ width: open ? 340 : 0 }}
-      aria-hidden={!open}
-    >
-      <div className="flex h-full flex-col w-[340px]">
-        {/* Header khung chat */}
-        <div className="flex items-center justify-between px-4 h-14 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-indigo-600 dark:text-indigo-400" strokeWidth={2} />
-              Trò chuyện nhóm
-            </h3>
-            <p className="text-xs text-slate-400 dark:text-slate-400">Tin nhắn đồng bộ thời gian thực</p>
-          </div>
-          <button
-            onClick={onOpenMembers}
-            title={`Xem danh sách thành viên (${members.length})`}
-            className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
-          >
-            <Users className="h-4 w-4" strokeWidth={1.75} />
-          </button>
-        </div>
-
-        {/* Nội dung tin nhắn */}
-        <div className="flex-1 space-y-3.5 overflow-y-auto p-4 bg-slate-50/50 dark:bg-slate-950/50">
-          {msgs.length === 0 ? (
-            <div className="py-12 text-center text-xs text-slate-400 dark:text-slate-500">
-              Chưa có tin nhắn nào. Hãy gửi lời chào!
-            </div>
-          ) : (
-            msgs.map((m, i) => {
-              const isMe = !!m.me;
-              const senderName = isMe ? "Bạn" : m.who || "Thành viên";
-              const initial = senderName.charAt(0).toUpperCase();
-              const timeDisplay = m.time || "10:30";
-
-              return (
-                <div
-                  key={i}
-                  className={`flex items-start gap-2.5 ${isMe ? "flex-row-reverse" : "flex-row"}`}
-                >
-                  {/* Avatar tròn */}
-                  <div
-                    className={`w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs ${
-                      isMe
-                        ? "bg-indigo-600 text-white"
-                        : "bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 dark:border dark:border-indigo-800/50"
-                    }`}
-                  >
-                    {initial}
-                  </div>
-
-                  {/* Message content block */}
-                  <div className={`flex flex-col max-w-[78%] ${isMe ? "items-end" : "items-start"}`}>
-                    <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 px-1 mb-0.5">
-                      <span className="font-semibold text-slate-700 dark:text-slate-300">{senderName}</span>
-                      <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500 ml-2">{timeDisplay}</span>
-                    </div>
-
-                    <div
-                      className={`px-3.5 py-2 text-sm leading-relaxed shadow-2xs ${
-                        isMe
-                          ? "bg-indigo-600 text-white rounded-sm rounded-tr-xs"
-                          : "bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-100 rounded-sm rounded-tl-xs mt-1"
-                      }`}
-                    >
-                      {m.text}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-          <div ref={end} />
-        </div>
-
-        {/* Form gửi tin nhắn */}
-        <form onSubmit={submit} className="flex items-center gap-2 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shrink-0">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Nhắn tin trong phòng…"
-            className="flex-1 h-10 rounded-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 focus-visible:ring-indigo-600 transition-colors"
-          />
-          <button
-            type="submit"
-            disabled={!text.trim()}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-4 rounded-pill flex items-center justify-center shadow-xs transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            aria-label="Gửi tin nhắn"
-          >
-            <Send className="h-4 w-4" strokeWidth={2} />
-          </button>
-        </form>
-      </div>
-    </aside>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* MÀN HÌNH TRONG PHÒNG                                                 */
-/* Props: room {name, code}, isHost, docs, onLeave                      */
-/* ------------------------------------------------------------------ */
 interface RoomViewProps {
-  room?: { name: string; code: string };
-  isHost?: boolean;
-  docs?: DocItem[];
-  members?: RoomMember[];
-  onLeave?: () => void;
-  onPresent?: (doc: DocItem) => void;
-  onSlide?: (index: number) => void;
-  onChangeAnnotations?: (key: string, objs: AnnotationObj[]) => void;
+  room: { name: string; code: string; isHost?: boolean }
+  isHost?: boolean
+  userId?: string
+  userName?: string
+  docs?: DocPickerItem[]
+  onLeave: () => void
 }
 
 export default function RoomView({
-  room = { name: "Nhóm ôn thi Toán 12", code: "482913" },
-  isHost = true,
-  docs = DOCS,
-  members = INITIAL_MEMBERS,
-  onLeave = () => {},
-  onPresent = () => {},
-  onSlide = () => {},
-  onChangeAnnotations = () => {},
+  room,
+  isHost: initialIsHost = false,
+  userId = 'guest',
+  userName = 'Thành viên',
+  docs = [],
+  onLeave,
 }: RoomViewProps) {
-  const [doc, setDoc] = useState<DocItem | null>(docs && docs.length > 0 ? docs[0] : null);
-  const [index, setIndex] = useState(0);
-  const [notes, setNotes] = useState<Record<string, AnnotationObj[]>>({});
-  const [tool, setTool] = useState("pen");
-  const [color, setColor] = useState(COLORS[0]);
-  const [picker, setPicker] = useState(false);
-  const [chatOpen, setChatOpen] = useState(true);
-  const [unread, setUnread] = useState(0);
-  const [msgs, setMsgs] = useState<ChatMsg[]>([
-    { who: "Hà My", text: "Chào cả nhóm, mình vào rồi nhé!", time: "10:30" },
-  ]);
-  const [membersOpen, setMembersOpen] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(false);
+  // Trạng thái phòng từ Socket.io Server
+  const [roomState, setRoomState] = useState<RoomState>({
+    code: room.code,
+    name: room.name,
+    hostUserId: userId,
+    hostSocketId: '',
+    members: [],
+    activeDocument: null,
+    screenSharerSocketId: null,
+    allowMemberScreenShare: true,
+    maxMembers: 6,
+  })
 
-  const copyRoomCode = () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(room.code);
+  const [copiedCode, setCopiedCode] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [membersOpen, setMembersOpen] = useState(false)
+  const [docPickerOpen, setDocPickerOpen] = useState(false)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  // Socket ID của client hiện tại
+  const currentSocketId = socket.id
+
+  // Xác định người dùng có phải là Host không
+  const isHost = useMemo(() => {
+    if (roomState.hostSocketId && currentSocketId) {
+      return roomState.hostSocketId === currentSocketId
     }
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
+    if (roomState.hostUserId && userId) {
+      return roomState.hostUserId === userId
+    }
+    return initialIsHost
+  }, [roomState.hostSocketId, currentSocketId, roomState.hostUserId, userId, initialIsHost])
 
-  const key = doc ? `${doc.id}-${index}` : "";
-  const objs = notes[key] || [];
+  // Custom hook WebRTC Mesh P2P
+  const {
+    localStream,
+    screenStream,
+    remoteStreams,
+    isMicOn,
+    isCamOn,
+    isSharingScreen,
+    toggleMic,
+    toggleCam,
+    startScreenShare,
+    stopScreenShare,
+  } = useRoomRTC({
+    roomCode: room.code,
+    currentSocketId,
+    members: roomState.members,
+    onPermissionError: (msg) => setErrorMessage(msg),
+  })
 
-  const setObjs = (next: AnnotationObj[]) => {
-    setNotes((n) => ({ ...n, [key]: next }));
-    onChangeAnnotations(key, next);
-  };
-
-  const go = useCallback(
-    (i: number) => {
-      if (!doc) return;
-      const n = Math.max(0, Math.min(doc.slides.length - 1, i));
-      setIndex(n);
-      onSlide(n);
-    },
-    [doc, onSlide]
-  );
-
+  // ─── 1. KẾT NỐI SOCKET VÀ LẮNG NGHE SỰ KIỆN PHÒNG HỌC ───────────────────
   useEffect(() => {
-    if (!isHost) return;
-    const k = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
-      if (e.key === "ArrowRight") go(index + 1);
-      if (e.key === "ArrowLeft") go(index - 1);
-    };
-    window.addEventListener("keydown", k);
-    return () => window.removeEventListener("keydown", k);
-  }, [isHost, index, go]);
+    // Gửi lệnh tham gia phòng
+    joinRoom(room.code, {
+      id: userId,
+      name: userName,
+      avatarColor: '#0ea5e9',
+    })
 
+    // Đồng bộ snapshot phòng
+    const onRoomState = (state: RoomState) => {
+      setRoomState(state)
+    }
+
+    // Thành viên mới vào
+    const onMemberJoined = (newMember: RoomMember) => {
+      setRoomState((prev) => ({
+        ...prev,
+        members: [...prev.members.filter((m) => m.socketId !== newMember.socketId), newMember],
+      }))
+    }
+
+    // Thành viên rời
+    const onMemberLeft = ({ socketId }: { socketId: string }) => {
+      setRoomState((prev) => ({
+        ...prev,
+        members: prev.members.filter((m) => m.socketId !== socketId),
+        screenSharerSocketId: prev.screenSharerSocketId === socketId ? null : prev.screenSharerSocketId,
+      }))
+    }
+
+    // Cập nhật trạng thái thành viên (mic, cam, đang nói...)
+    const onMemberUpdated = (data: Partial<RoomMember> & { socketId: string }) => {
+      setRoomState((prev) => ({
+        ...prev,
+        members: prev.members.map((m) => (m.socketId === data.socketId ? { ...m, ...data } : m)),
+      }))
+    }
+
+    // Chuyển chủ phòng
+    const onHostChanged = ({ newHostUserId, newHostSocketId }: { newHostUserId: string; newHostSocketId: string }) => {
+      setRoomState((prev) => ({
+        ...prev,
+        hostUserId: newHostUserId,
+        hostSocketId: newHostSocketId,
+        members: prev.members.map((m) => ({
+          ...m,
+          role: m.socketId === newHostSocketId ? 'host' : 'member',
+        })),
+      }))
+    }
+
+    // Nhận tin nhắn chat
+    const onChatMessage = (msg: ChatMessage) => {
+      setMessages((prev) => [...prev, msg])
+      if (!chatOpen) {
+        setUnreadCount((c) => c + 1)
+      }
+    }
+
+    // Nhận lịch sử chat
+    const onChatHistory = (history: ChatMessage[]) => {
+      setMessages(history)
+    }
+
+    // Đồng bộ tài liệu trình chiếu
+    const onDocSync = (doc: RoomDocumentData | null) => {
+      setRoomState((prev) => ({ ...prev, activeDocument: doc }))
+    }
+
+    // Chuyển trang tài liệu
+    const onDocPageChanged = ({ pageIndex }: { pageIndex: number }) => {
+      setRoomState((prev) => {
+        if (!prev.activeDocument) return prev
+        return {
+          ...prev,
+          activeDocument: {
+            ...prev.activeDocument,
+            currentPage: pageIndex,
+          },
+        }
+      })
+    }
+
+    // Cập nhật nội dung văn bản trang tài liệu
+    const onDocPageUpdated = ({ pageIndex, content }: { pageIndex: number; content: string }) => {
+      setRoomState((prev) => {
+        if (!prev.activeDocument) return prev
+        const pages = [...(prev.activeDocument.pagesContent || [])]
+        pages[pageIndex] = content
+        return {
+          ...prev,
+          activeDocument: {
+            ...prev.activeDocument,
+            pagesContent: pages,
+          },
+        }
+      })
+    }
+
+    // Bị Host mời ra hoặc Phòng bị đóng
+    const onKicked = ({ reason }: { reason: string }) => {
+      alert(reason || 'Bạn đã bị mời ra khỏi phòng học.')
+      onLeave()
+    }
+
+    const onClosed = ({ reason }: { reason: string }) => {
+      alert(reason || 'Chủ phòng đã kết thúc buổi học.')
+      onLeave()
+    }
+
+    // Thông báo lỗi từ server
+    const onError = ({ message }: { message: string }) => {
+      setErrorMessage(message)
+      setTimeout(() => setErrorMessage(null), 5000)
+    }
+
+    socket.on('ROOM:STATE', onRoomState)
+    socket.on('ROOM:MEMBER_JOINED', onMemberJoined)
+    socket.on('ROOM:MEMBER_LEFT', onMemberLeft)
+    socket.on('ROOM:MEMBER_UPDATED', onMemberUpdated)
+    socket.on('ROOM:HOST_CHANGED', onHostChanged)
+    socket.on('CHAT:MESSAGE', onChatMessage)
+    socket.on('CHAT:HISTORY', onChatHistory)
+    socket.on('DOC:SYNC', onDocSync)
+    socket.on('DOC:PAGE_CHANGED', onDocPageChanged)
+    socket.on('DOC:PAGE_UPDATED', onDocPageUpdated)
+    socket.on('ROOM:KICKED', onKicked)
+    socket.on('ROOM:CLOSED', onClosed)
+    socket.on('ERROR', onError)
+
+    return () => {
+      leaveRoom(room.code)
+      socket.off('ROOM:STATE', onRoomState)
+      socket.off('ROOM:MEMBER_JOINED', onMemberJoined)
+      socket.off('ROOM:MEMBER_LEFT', onMemberLeft)
+      socket.off('ROOM:MEMBER_UPDATED', onMemberUpdated)
+      socket.off('ROOM:HOST_CHANGED', onHostChanged)
+      socket.off('CHAT:MESSAGE', onChatMessage)
+      socket.off('CHAT:HISTORY', onChatHistory)
+      socket.off('DOC:SYNC', onDocSync)
+      socket.off('DOC:PAGE_CHANGED', onDocPageChanged)
+      socket.off('DOC:PAGE_UPDATED', onDocPageUpdated)
+      socket.off('ROOM:KICKED', onKicked)
+      socket.off('ROOM:CLOSED', onClosed)
+      socket.off('ERROR', onError)
+    }
+  }, [room.code, userId, userName, onLeave, chatOpen])
+
+  // Reset badge tin chưa đọc khi mở bảng chat
   useEffect(() => {
-    if (chatOpen) setUnread(0);
-  }, [chatOpen]);
+    if (chatOpen) setUnreadCount(0)
+  }, [chatOpen])
 
-  const pick = (d: DocItem) => {
-    setDoc(d);
-    setIndex(0);
-    setPicker(false);
-    onPresent(d);
-  };
+  // Sao chép mã phòng
+  const handleCopyCode = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(room.code)
+      setCopiedCode(true)
+      setTimeout(() => setCopiedCode(false), 2000)
+    }
+  }
 
-  const send = (text: string) => {
-    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    setMsgs((m) => [...m, { me: true, text, time }]);
-    setTimeout(() => {
-      setMsgs((m) => [
-        ...m,
-        {
-          who: "Hà My",
-          text: "Mình đã nhận được 👍",
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        },
-      ]);
-      setUnread((u) => (chatOpen ? 0 : u + 1));
-    }, 1500);
-  };
+  // Gửi tin nhắn chat
+  const handleSendMessage = (text: string) => {
+    sendChatMessage(room.code, text)
+  }
 
-  const onlineMembersCount = members.filter((m) => m.isOnline).length || members.length;
+  // Giơ tay phát biểu
+  const handleRaiseHand = () => {
+    handleSendMessage('✋ [Giơ tay phát biểu]')
+  }
+
+  // Chọn tài liệu trình chiếu
+  const handleSelectDoc = (docId: number) => {
+    selectDocument(room.code, docId)
+    setDocPickerOpen(false)
+  }
+
+  // Lật trang tài liệu
+  const handlePageChange = (pageIndex: number) => {
+    changeDocumentPage(room.code, pageIndex)
+  }
+
+  // Sửa văn bản trang tài liệu
+  const handleEditPage = (pageIndex: number, newContent: string) => {
+    editDocumentPage(room.code, pageIndex, newContent)
+  }
+
+  // Quản trị thành viên (Host)
+  const handleMute = (targetSocketId: string) => muteMember(room.code, targetSocketId)
+  const handleKick = (targetSocketId: string) => kickMember(room.code, targetSocketId)
+  const handleTransfer = (targetSocketId: string) => transferHost(room.code, targetSocketId)
+  const handleToggleScreenSharePermission = (allow: boolean) => toggleScreenPermission(room.code, allow)
+
+  // Bật toàn màn hình
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.()
+      setIsFullscreen(true)
+    } else {
+      document.exitFullscreen?.()
+      setIsFullscreen(false)
+    }
+  }
+
+  // Xác định người đang chia sẻ màn hình
+  const screenSharerMember = useMemo(() => {
+    if (!roomState.screenSharerSocketId) return null
+    return roomState.members.find((m) => m.socketId === roomState.screenSharerSocketId)
+  }, [roomState.screenSharerSocketId, roomState.members])
 
   return (
-    <div className="fixed inset-0 z-50 flex h-screen flex-col overflow-hidden bg-slate-100 dark:bg-[#090D16] text-slate-800 dark:text-slate-100">
-      {/* 1. Thanh tiêu đề trên (Header chuẩn Miro / Figma Workspace) */}
-      <header className="flex h-14 items-center justify-between gap-3 px-4 sm:px-5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 dark:backdrop-blur-md shrink-0 shadow-2xs">
-        {/* Cụm bên trái */}
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+    <div className="fixed inset-0 z-50 flex h-screen w-screen flex-col overflow-hidden bg-slate-950 text-slate-100 font-sans">
+      {/* ─── 1. THANH TIÊU ĐỀ TRÊN (TOP BAR) ─────────────────────────────── */}
+      <header className="flex h-14 items-center justify-between px-4 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md shrink-0 z-20">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={onLeave}
-            className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer shrink-0"
+            className="flex h-8 w-8 items-center justify-center rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
             title="Quay lại"
           >
-            <ArrowLeft className="h-4 w-4" strokeWidth={2} />
+            <ArrowLeft className="w-4 h-4" />
           </button>
 
-          <h1 className="font-bold text-slate-900 dark:text-slate-50 text-base truncate">
-            {room.name && !room.name.toLowerCase().startsWith("phòng ") ? room.name : "Phòng học nhóm"}
+          <h1 className="font-bold text-sm sm:text-base text-slate-100 truncate max-w-[180px] sm:max-w-md">
+            {roomState.name || 'Phòng học nhóm'}
           </h1>
 
-          {/* Badge Mã phòng tương tác: Click để Copy */}
+          {/* Badge Mã phòng tương tác */}
           <button
-            onClick={copyRoomCode}
-            className="font-mono tabular-nums font-semibold text-xs bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 px-2.5 py-1 rounded-sharp hover:bg-indigo-100 dark:hover:bg-indigo-900/40 flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
+            onClick={handleCopyCode}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-teal-950/60 text-teal-300 border border-teal-800 hover:bg-teal-900/40 text-xs font-mono tabular-nums transition-colors cursor-pointer shrink-0"
             title="Nhấn để sao chép mã phòng"
           >
             {copiedCode ? (
               <>
-                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
-                <span className="text-emerald-700 dark:text-emerald-300">Đã sao chép</span>
+                <Check className="w-3 h-3 text-emerald-400" />
+                <span className="text-emerald-400 font-sans text-[11px]">Đã sao chép</span>
               </>
             ) : (
               <>
-                <Copy className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" strokeWidth={1.75} />
-                <span>Mã: {room.code}</span>
+                <Copy className="w-3 h-3 text-teal-400" />
+                <span>Mã: {roomState.code}</span>
               </>
             )}
           </button>
 
           {isHost && (
-            <span className="hidden md:inline-flex rounded-sharp px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 shrink-0">
-              Chủ phòng
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950/60 text-amber-300 border border-amber-800 shrink-0 uppercase tracking-wider">
+              <Crown className="w-3 h-3" />
+              <span>Chủ phòng</span>
             </span>
           )}
-
-          {/* Cụm Avatar Stack & Đang học */}
-          <button
-            onClick={() => setMembersOpen(true)}
-            className="hidden sm:flex items-center gap-2 hover:opacity-85 transition-opacity cursor-pointer ml-1 pl-1"
-            title="Xem danh sách người trong phòng"
-          >
-            <div className="flex items-center">
-              {members.slice(0, 3).map((m, idx) => {
-                const initial = m.name ? m.name.charAt(0).toUpperCase() : "U";
-                const bgColors = ["bg-sky-500", "bg-indigo-600", "bg-emerald-500", "bg-amber-500"];
-                const bg = bgColors[idx % bgColors.length];
-                return (
-                  <div
-                    key={m.id || idx}
-                    className={`w-7 h-7 rounded-full border-2 border-white dark:border-slate-900 -ml-2 first:ml-0 ${bg} text-white font-bold text-[11px] flex items-center justify-center shrink-0 shadow-2xs`}
-                  >
-                    {initial}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-              <span className="font-medium text-slate-700 dark:text-slate-300">{onlineMembersCount} đang học</span>
-            </div>
-          </button>
         </div>
 
-        {/* Cụm bên phải */}
+        {/* Cụm nút bên phải */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Nút Toàn màn hình */}
+          <button
+            onClick={toggleFullscreen}
+            className="flex h-8 w-8 items-center justify-center rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            title={isFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'}
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+
+          {/* Nút Host chọn tài liệu */}
           {isHost && (
             <button
-              onClick={() => setPicker(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 rounded-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer shadow-2xs"
+              onClick={() => setDocPickerOpen(true)}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded bg-teal-600 hover:bg-teal-500 text-white text-xs font-medium transition-colors cursor-pointer shadow-sm"
             >
-              <FileText className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" strokeWidth={1.75} />
-              <span>{doc ? "Đổi tài liệu" : "Chọn tài liệu"}</span>
+              <Presentation className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{roomState.activeDocument ? 'Đổi tài liệu' : 'Chiếu tài liệu'}</span>
             </button>
           )}
 
-          {/* Nút Ẩn/Mở chat */}
-          <button
-            onClick={() => setChatOpen((v) => !v)}
-            className={`relative bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 h-9 px-3 rounded-sm text-sm font-medium flex items-center gap-2 cursor-pointer transition-colors shadow-2xs ${
-              chatOpen ? "bg-slate-100 dark:bg-slate-700/80 text-slate-900 dark:text-white border-slate-300 dark:border-slate-600" : ""
-            }`}
-          >
-            <MessageSquare className="h-4 w-4 text-slate-500 dark:text-slate-400" strokeWidth={1.75} />
-            <span className="hidden sm:inline">{chatOpen ? "Ẩn chat" : "Mở chat"}</span>
-            {!chatOpen && unread > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white tabular-nums">
-                {unread}
-              </span>
-            )}
-          </button>
-
-          {/* Nút Rời phòng */}
-          <button
-            onClick={onLeave}
-            className="bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/60 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600 dark:hover:text-white h-9 px-3 rounded-sm text-sm font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-          >
-            <LogOut className="h-4 w-4" strokeWidth={1.75} />
-            <span>Rời phòng</span>
-          </button>
+          {/* Đóng phòng hoàn toàn (Host) */}
+          {isHost && (
+            <button
+              onClick={() => {
+                if (confirm('Bạn có chắc chắn muốn kết thúc buổi học và đóng phòng cho tất cả mọi người?')) {
+                  closeRoom(room.code)
+                }
+              }}
+              className="hidden md:inline-flex items-center gap-1 h-8 px-2.5 rounded bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-800 text-xs font-medium transition-colors cursor-pointer"
+              title="Đóng phòng học"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Đóng phòng</span>
+            </button>
+          )}
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* 2 & 3. Vùng Trình chiếu Trung tâm (Main Canvas & Floating Toolbar) */}
-        <main className="bg-[#F8FAFC] dark:bg-[#090D16] bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] dark:bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:20px_20px] relative flex-1 flex flex-col items-center justify-center p-6 overflow-hidden">
-          {!doc ? (
-            <>
-              {/* Thẻ Empty State làm mới */}
-              <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 shadow-xl rounded-md p-8 max-w-md w-full text-center relative z-1">
-                <div className="w-14 h-14 mx-auto mb-4 rounded-md bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-800/60 flex items-center justify-center relative">
-                  <Presentation className="w-7 h-7 text-indigo-600 dark:text-indigo-400" strokeWidth={1.75} />
-                  <span className="w-3 h-3 bg-sky-500 rounded-full animate-ping absolute -top-1 -right-1" />
-                  <span className="w-3 h-3 bg-sky-500 rounded-full absolute -top-1 -right-1" />
-                </div>
+      {/* Thông báo lỗi nổi (Error Banner) */}
+      {errorMessage && (
+        <div className="bg-rose-600 text-white text-xs px-4 py-2 flex items-center justify-between shadow-md shrink-0 z-30">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button onClick={() => setErrorMessage(null)} className="cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
-                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-1">
-                  Chủ phòng chưa chọn tài liệu
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-                  Slide bài giảng và ghi chú nhóm sẽ tự động đồng bộ tại đây ngay khi buổi học bắt đầu.
-                </p>
-
-                <div className="flex flex-col items-center justify-center gap-2.5">
-                  {isHost && (
-                    <button
-                      onClick={() => setPicker(true)}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2.5 rounded-pill text-sm inline-flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
-                    >
-                      <FileText className="w-4 h-4" strokeWidth={2} />
-                      <span>+ Chọn tài liệu trình chiếu</span>
-                    </button>
-                  )}
-
-                  <button
-                    onClick={copyRoomCode}
-                    className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700 font-medium px-4 py-2 rounded-sm text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    {copiedCode ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
-                        <span className="text-emerald-700 dark:text-emerald-300">Đã sao chép mã {room.code}!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" strokeWidth={1.75} />
-                        <span>Sao chép mã phòng {room.code} để mời bạn</span>
-                      </>
-                    )}
-                  </button>
+      {/* ─── 2. VÙNG TRUNG TÂM (STAGE + CHAT SIDEBAR) ────────────────────── */}
+      <div className="flex min-h-0 flex-1 overflow-hidden relative">
+        <main className="flex-1 flex flex-col items-center justify-center p-3 sm:p-4 overflow-hidden relative">
+          {/* TRƯỜNG HỢP A: ĐANG CHIA SẺ MÀN HÌNH */}
+          {roomState.screenSharerSocketId ? (
+            <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden">
+              <div className="w-full flex-1 rounded-md overflow-hidden bg-black flex items-center justify-center relative shadow-2xl">
+                {roomState.screenSharerSocketId === currentSocketId && screenStream ? (
+                  <video
+                    autoPlay
+                    playsInline
+                    muted
+                    ref={(el) => {
+                      if (el && screenStream) el.srcObject = screenStream
+                    }}
+                    className="w-full h-full object-contain"
+                  />
+                ) : remoteStreams[roomState.screenSharerSocketId] ? (
+                  <video
+                    autoPlay
+                    playsInline
+                    ref={(el) => {
+                      const st = remoteStreams[roomState.screenSharerSocketId!]
+                      if (el && st) el.srcObject = st
+                    }}
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <div className="text-slate-400 text-xs flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 animate-spin text-teal-400" />
+                    <span>Đang kết nối tín hiệu màn hình từ {screenSharerMember?.userName || 'thành viên'}…</span>
+                  </div>
+                )}
+                <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur px-3 py-1 rounded text-xs text-white">
+                  Màn hình chia sẻ của <span className="font-bold text-teal-400">{screenSharerMember?.userName}</span>
                 </div>
               </div>
 
-              {/* 3. Thanh công cụ nổi (Floating Workspace Toolbar) khi chưa có tài liệu */}
-              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 shadow-xl rounded-sm px-2 py-1.5 flex items-center gap-1 z-10">
-                <button
-                  disabled
-                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
-                  title="Sẽ mở khóa khi có Slide"
-                >
-                  <ChevronLeft className="w-4 h-4" strokeWidth={1.75} />
-                </button>
-                <span className="font-mono text-xs px-2 text-slate-500 dark:text-slate-400 tabular-nums">-- / --</span>
-                <button
-                  disabled
-                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
-                  title="Sẽ mở khóa khi có Slide"
-                >
-                  <ChevronRight className="w-4 h-4" strokeWidth={1.75} />
-                </button>
-
-                <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1" />
-
-                <button
-                  disabled
-                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
-                  title="Sẽ mở khóa khi có Slide"
-                >
-                  <Highlighter className="w-4 h-4" strokeWidth={1.75} />
-                </button>
-                <button
-                  disabled
-                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
-                  title="Sẽ mở khóa khi có Slide"
-                >
-                  <StickyNote className="w-4 h-4" strokeWidth={1.75} />
-                </button>
-                <button
-                  disabled
-                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
-                  title="Sẽ mở khóa khi có Slide"
-                >
-                  <Hand className="w-4 h-4" strokeWidth={1.75} />
-                </button>
-                <button
-                  disabled
-                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed"
-                  title="Sẽ mở khóa khi có Slide"
-                >
-                  <Maximize2 className="w-4 h-4" strokeWidth={1.75} />
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center w-full h-full relative">
-              <div
-                className="w-full flex-1 flex items-center justify-center max-h-[calc(100vh-140px)]"
-                style={{ maxWidth: "min(100%, calc((100vh - 160px) * 16 / 9))" }}
-              >
-                <SlideStage
-                  doc={doc}
-                  index={index}
-                  objs={objs}
-                  onChange={setObjs}
-                  canEdit={isHost}
-                  tool={tool}
-                  color={color}
+              {/* Dải Camera thu nhỏ phía dưới */}
+              <VideoGrid
+                members={roomState.members}
+                localSocketId={currentSocketId}
+                localStream={localStream}
+                remoteStreams={remoteStreams}
+                isPresentationMode={true}
+              />
+            </div>
+          ) : /* TRƯỜNG HỢP B: ĐANG TRÌNH CHIẾU TÀI LIỆU */
+          roomState.activeDocument ? (
+            <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden">
+              <div className="w-full flex-1 max-w-5xl rounded-md overflow-hidden mb-2">
+                <DocumentCollaborativeViewer
+                  document={roomState.activeDocument}
+                  isHost={isHost}
+                  currentUserId={userId}
+                  onPageChange={handlePageChange}
+                  onEditPage={handleEditPage}
                 />
               </div>
 
-              {/* Floating Workspace Toolbar khi đã có Slide */}
-              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 shadow-xl rounded-sm px-2 py-1.5 flex items-center gap-1 z-10 max-w-[95vw] overflow-x-auto">
-                {isHost && (
-                  <>
-                    <div className="flex items-center gap-0.5">
-                      <button
-                        onClick={() => setTool("pen")}
-                        title="Vẽ tự do"
-                        className={`flex h-8 w-8 items-center justify-center rounded-sm text-xs cursor-pointer transition-colors ${
-                          tool === "pen"
-                            ? "bg-indigo-600 text-white"
-                            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }`}
-                      >
-                        <Pencil className="w-4 h-4" strokeWidth={1.75} />
-                      </button>
-                      <button
-                        onClick={() => setTool("line")}
-                        title="Gạch chân"
-                        className={`flex h-8 w-8 items-center justify-center rounded-sm text-xs cursor-pointer transition-colors ${
-                          tool === "line"
-                            ? "bg-indigo-600 text-white"
-                            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }`}
-                      >
-                        <Minus className="w-4 h-4" strokeWidth={1.75} />
-                      </button>
-                      <button
-                        onClick={() => setTool("ellipse")}
-                        title="Khoanh tròn"
-                        className={`flex h-8 w-8 items-center justify-center rounded-sm text-xs cursor-pointer transition-colors ${
-                          tool === "ellipse"
-                            ? "bg-indigo-600 text-white"
-                            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }`}
-                      >
-                        <Circle className="w-4 h-4" strokeWidth={1.75} />
-                      </button>
-                      <button
-                        onClick={() => setTool("arrow")}
-                        title="Mũi tên"
-                        className={`flex h-8 w-8 items-center justify-center rounded-sm text-xs cursor-pointer transition-colors ${
-                          tool === "arrow"
-                            ? "bg-indigo-600 text-white"
-                            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }`}
-                      >
-                        <MoveUpRight className="w-4 h-4" strokeWidth={1.75} />
-                      </button>
-                      <button
-                        onClick={() => setTool("text")}
-                        title="Viết chữ"
-                        className={`flex h-8 w-8 items-center justify-center rounded-sm text-xs cursor-pointer transition-colors ${
-                          tool === "text"
-                            ? "bg-indigo-600 text-white"
-                            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }`}
-                      >
-                        <Type className="w-4 h-4" strokeWidth={1.75} />
-                      </button>
-                      <button
-                        onClick={() => setTool("eraser")}
-                        title="Xóa nét"
-                        className={`flex h-8 w-8 items-center justify-center rounded-sm text-xs cursor-pointer transition-colors ${
-                          tool === "eraser"
-                            ? "bg-indigo-600 text-white"
-                            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }`}
-                      >
-                        <Eraser className="w-4 h-4" strokeWidth={1.75} />
-                      </button>
-                    </div>
+              {/* Dải Camera thu nhỏ phía dưới */}
+              <VideoGrid
+                members={roomState.members}
+                localSocketId={currentSocketId}
+                localStream={localStream}
+                remoteStreams={remoteStreams}
+                isPresentationMode={true}
+              />
+            </div>
+          ) : (
+            /* TRƯỜNG HỢP C: CHẾ ĐỘ CUỘC HỌP THUẦN (GOOGLE MEET VIDEO GRID) */
+            <div className="w-full h-full flex flex-col items-center justify-center">
+              <VideoGrid
+                members={roomState.members}
+                localSocketId={currentSocketId}
+                localStream={localStream}
+                remoteStreams={remoteStreams}
+                isPresentationMode={false}
+              />
 
-                    <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1" />
-
-                    {/* Color picker */}
-                    <div className="flex items-center gap-1.5 px-1">
-                      {COLORS.map((c) => (
-                        <button
-                          key={c}
-                          onClick={() => setColor(c)}
-                          aria-label={`Màu ${c}`}
-                          className="h-4 w-4 rounded-full cursor-pointer transition-transform hover:scale-115"
-                          style={{
-                            background: c,
-                            outline: color === c ? "2px solid #6366f1" : "1px solid rgba(148,163,184,0.3)",
-                            outlineOffset: 1.5,
-                          }}
-                        />
-                      ))}
-                    </div>
-
-                    <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1" />
-
-                    <button
-                      onClick={() => setObjs(objs.slice(0, -1))}
-                      disabled={!objs.length}
-                      title="Hoàn tác"
-                      className="inline-flex items-center gap-1 h-8 px-2 rounded-sm text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
-                    >
-                      <Undo2 className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" strokeWidth={1.75} />
-                      <span className="hidden sm:inline">Hoàn tác</span>
-                    </button>
-                    <button
-                      onClick={() => setObjs([])}
-                      disabled={!objs.length}
-                      title="Xóa tất cả nét vẽ"
-                      className="inline-flex items-center gap-1 h-8 px-2 rounded-sm text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                      <span className="hidden sm:inline">Xóa hết</span>
-                    </button>
-
-                    <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1" />
-                  </>
-                )}
-
-                {/* Điều hướng slide */}
-                <div className="flex items-center gap-1">
+              {/* Gợi ý khi chưa chiếu tài liệu */}
+              {isHost && (
+                <div className="mt-2 text-center text-xs text-slate-400">
                   <button
-                    onClick={() => go(index - 1)}
-                    disabled={!isHost || index === 0}
-                    className="flex h-8 w-8 items-center justify-center rounded-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
-                    title="Slide trước"
+                    onClick={() => setDocPickerOpen(true)}
+                    className="inline-flex items-center gap-1.5 text-teal-400 hover:text-teal-300 underline cursor-pointer"
                   >
-                    <ChevronLeft className="w-4 h-4" strokeWidth={1.75} />
-                  </button>
-                  <span className="px-2 text-xs font-medium font-mono tabular-nums text-slate-700 dark:text-slate-300">
-                    {index + 1} / {doc.slides.length}
-                  </span>
-                  <button
-                    onClick={() => go(index + 1)}
-                    disabled={!isHost || index === doc.slides.length - 1}
-                    className="flex h-8 w-8 items-center justify-center rounded-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
-                    title="Slide sau"
-                  >
-                    <ChevronRight className="w-4 h-4" strokeWidth={1.75} />
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Bấm vào đây để chọn tài liệu bài học từ Thư viện trình chiếu vào phòng</span>
                   </button>
                 </div>
-
-                <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1" />
-
-                {/* Các nút tương tác thêm của Permind */}
-                <button
-                  onClick={() => setTool("pen")}
-                  title="Bút dạ quang (Highlighter)"
-                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                >
-                  <Highlighter className="w-4 h-4" strokeWidth={1.75} />
-                </button>
-                <button
-                  onClick={() => setTool("text")}
-                  title="Ghi chú (StickyNote)"
-                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                >
-                  <StickyNote className="w-4 h-4" strokeWidth={1.75} />
-                </button>
-                <button
-                  onClick={() => send("✋ [Giơ tay] Xin phát biểu!")}
-                  title="Giơ tay phát biểu"
-                  className="flex h-8 w-8 items-center justify-center rounded-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
-                >
-                  <Hand className="w-4 h-4" strokeWidth={1.75} />
-                </button>
-                <button
-                  onClick={() => {
-                    if (!document.fullscreenElement) {
-                      document.documentElement.requestFullscreen?.();
-                    } else {
-                      document.exitFullscreen?.();
-                    }
-                  }}
-                  title="Toàn màn hình"
-                  className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                >
-                  <Maximize2 className="w-4 h-4" strokeWidth={1.75} />
-                </button>
-              </div>
-
-              {!isHost && (
-                <p className="absolute bottom-16 text-center text-xs text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs px-3 py-1 rounded-sharp border border-slate-200 dark:border-slate-800 shadow-2xs pointer-events-none">
-                  Bạn đang theo dõi bài trình bày của chủ phòng — slide và ghi chú vẽ đồng bộ theo thời gian thực.
-                </p>
               )}
             </div>
           )}
         </main>
 
-        {/* 4. Khung chat bên phải */}
-        <ChatPanel
+        {/* Khung chat bên phải */}
+        <ClassroomChatPanel
           open={chatOpen}
-          msgs={msgs}
-          members={members}
-          onSend={send}
+          messages={messages}
+          currentUserId={userId}
+          membersCount={roomState.members.length}
+          onClose={() => setChatOpen(false)}
           onOpenMembers={() => setMembersOpen(true)}
+          onSendMessage={handleSendMessage}
         />
       </div>
 
-      {picker && <DocPicker docs={docs} current={doc} onPick={pick} onClose={() => setPicker(false)} />}
+      {/* ─── 3. THANH ĐIỀU KHIỂN PHÍA DƯỚI (BOTTOM CONTROLS) ─────────────── */}
+      <ClassroomControls
+        isMicOn={isMicOn}
+        isCamOn={isCamOn}
+        isSharingScreen={isSharingScreen}
+        isScreenSharerActive={Boolean(roomState.screenSharerSocketId)}
+        canShareScreen={roomState.allowMemberScreenShare || isHost}
+        isHost={isHost}
+        hasActiveDocument={Boolean(roomState.activeDocument)}
+        unreadCount={unreadCount}
+        membersCount={roomState.members.length}
+        chatOpen={chatOpen}
+        membersOpen={membersOpen}
+        onToggleMic={toggleMic}
+        onToggleCam={toggleCam}
+        onToggleScreenShare={isSharingScreen ? stopScreenShare : startScreenShare}
+        onOpenDocPicker={() => setDocPickerOpen(true)}
+        onRaiseHand={handleRaiseHand}
+        onToggleChat={() => setChatOpen(!chatOpen)}
+        onToggleMembers={() => setMembersOpen(!membersOpen)}
+        onLeaveRoom={onLeave}
+      />
 
+      {/* ─── 4. MODALS: DANH SÁCH THÀNH VIÊN VÀ CHỌN TÀI LIỆU ───────────── */}
       <MembersModal
         open={membersOpen}
         onClose={() => setMembersOpen(false)}
-        members={members}
+        members={roomState.members}
+        currentSocketId={currentSocketId}
+        isHost={isHost}
+        allowMemberScreenShare={roomState.allowMemberScreenShare}
+        onMuteMember={handleMute}
+        onKickMember={handleKick}
+        onTransferHost={handleTransfer}
+        onToggleScreenSharePermission={handleToggleScreenSharePermission}
       />
+
+      {/* Popup chọn tài liệu Thư viện dành cho Chủ phòng */}
+      {docPickerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs"
+          onMouseDown={(e) => e.target === e.currentTarget && setDocPickerOpen(false)}
+        >
+          <div className="w-full max-w-md rounded-lg bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h2 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                Chọn tài liệu để trình chiếu
+              </h2>
+              <button
+                onClick={() => setDocPickerOpen(false)}
+                className="h-7 w-7 flex items-center justify-center rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-3 max-h-72 overflow-y-auto space-y-2 pr-1">
+              {docs.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400">
+                  Thư viện của bạn chưa có tài liệu nào. Hãy nhập tài liệu ở mục "Thư viện" trước.
+                </div>
+              ) : (
+                docs.map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => handleSelectDoc(d.id)}
+                    className="w-full flex items-center gap-3 p-3 rounded border border-slate-200 dark:border-slate-800 hover:bg-teal-50/50 dark:hover:bg-teal-950/30 hover:border-teal-400 text-left transition-colors cursor-pointer"
+                  >
+                    <div className="h-8 w-8 rounded flex items-center justify-center bg-teal-600 text-white font-bold text-xs shrink-0">
+                      {d.title.slice(0, 1)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
+                        {d.title}
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        {d.pagesContent?.length || d.slides?.length || 1} trang
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <button
+                onClick={() => setDocPickerOpen(false)}
+                className="h-8 px-4 rounded border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  );
+  )
 }
