@@ -108,9 +108,22 @@ export function sendChatMessage(roomCode: string, message: string) {
 /**
  * Chủ phòng: Chọn tài liệu để trình chiếu
  */
-export function selectDocument(roomCode: string, documentId: number) {
+export function selectDocument(
+  roomCode: string,
+  documentId: number,
+  docData?: { title: string; pagesContent: string[]; totalPages: number }
+) {
   if (socket.connected) {
-    socket.emit('DOC:SELECT', { roomCode, documentId })
+    socket.emit('DOC:SELECT', { roomCode, documentId, docData })
+  }
+}
+
+/**
+ * Chủ phòng: Dừng trình chiếu tài liệu
+ */
+export function stopDocument(roomCode: string) {
+  if (socket.connected) {
+    socket.emit('DOC:STOP', { roomCode })
   }
 }
 

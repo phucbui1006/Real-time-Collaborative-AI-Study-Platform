@@ -8,6 +8,7 @@ import type { RoomMember } from '../../types/classroom'
 interface VideoGridProps {
   members: RoomMember[]
   localSocketId?: string
+  currentUserId?: string
   localStream: MediaStream | null
   remoteStreams: Record<string, MediaStream>
   isPresentationMode?: boolean
@@ -16,16 +17,24 @@ interface VideoGridProps {
 export const VideoGrid: React.FC<VideoGridProps> = ({
   members,
   localSocketId,
+  currentUserId,
   localStream,
   remoteStreams,
   isPresentationMode = false,
 }) => {
+  const checkIsLocal = (member: RoomMember) => {
+    if (localSocketId && member.socketId === localSocketId) return true
+    if (member.socketId === 'local-me') return true
+    if (currentUserId && member.userId === currentUserId) return true
+    return false
+  }
+
   // Chế độ trình chiếu: hiển thị dải ngang thu nhỏ ở trên/dưới
   if (isPresentationMode) {
     return (
       <div className="w-full flex items-center justify-center gap-2 overflow-x-auto py-2 px-3 bg-slate-950/40 border-t border-slate-800/80 shrink-0">
         {members.map((member) => {
-          const isLocal = member.socketId === localSocketId
+          const isLocal = checkIsLocal(member)
           const stream = isLocal ? localStream : remoteStreams[member.socketId]
           return (
             <VideoTile
@@ -51,7 +60,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   return (
     <div className={`w-full h-full max-w-6xl max-h-[82vh] p-4 grid ${gridColsClass} gap-3 items-center justify-center`}>
       {members.map((member) => {
-        const isLocal = member.socketId === localSocketId
+        const isLocal = checkIsLocal(member)
         const stream = isLocal ? localStream : remoteStreams[member.socketId]
         return (
           <div key={member.socketId} className="w-full h-full aspect-[16/10] max-h-[380px]">

@@ -50,54 +50,58 @@ export default function ClassroomsPage({
 
         // 1. Tải từ Supabase (nếu đã đăng nhập)
         if (isValidUUID(userId)) {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from("documents")
-            .select("id, title, original_name, filename, subject, pages_content")
-            .eq("owner_user_id", userId);
+            .select("id, original_name, filename, subject, pages_content, total_pages, created_at")
+            .eq("owner_user_id", userId)
+            .order("created_at", { ascending: false });
 
-          if (data && Array.isArray(data)) {
+          if (!error && data && Array.isArray(data)) {
             data.forEach((d) => {
-              const pages: string[] = Array.isArray(d.pages_content) ? d.pages_content : [];
-              if (pages.length > 0) {
-                const slides: SlideItem[] = pages.map((pageText, idx) => {
-                  const imgMatch = typeof pageText === "string" ? pageText.match(/!\[(.*?)\]\((.*?)\)/) : null;
-                  const imageUrl = imgMatch ? imgMatch[2] : undefined;
-                  const cleanText = typeof pageText === "string" ? pageText.replace(/!\[.*?\]\(.*?\)/g, "").trim() : "";
-                  const lines = cleanText.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
-                  const title = lines[0]?.replace(/^#+\s*/, "") || `Trang ${idx + 1}`;
-                  return {
-                    title,
-                    points: lines.slice(1, 5),
-                    imageUrl,
-                  };
-                });
-                loaded.push({
-                  id: d.id,
-                  title: d.title || d.original_name || d.filename || "Tài liệu",
-                  color: "#0b7a75",
-                  slides,
-                });
-              }
+              const docTitle = d.original_name || d.filename || "Tài liệu";
+              const rawPages: string[] = Array.isArray(d.pages_content) ? d.pages_content : [];
+              const safePages = rawPages.length > 0 ? rawPages : [`# ${docTitle}\n\nTài liệu học tập.`];
+              const slides: SlideItem[] = safePages.map((pageText, idx) => {
+                const imgMatch = typeof pageText === "string" ? pageText.match(/!\[(.*?)\]\((.*?)\)/) : null;
+                const imageUrl = imgMatch ? imgMatch[2] : undefined;
+                const cleanText = typeof pageText === "string" ? pageText.replace(/!\[.*?\]\(.*?\)/g, "").trim() : "";
+                const lines = cleanText.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+                const title = lines[0]?.replace(/^#+\s*/, "") || `Trang ${idx + 1}`;
+                return {
+                  title,
+                  points: lines.slice(1, 5),
+                  imageUrl,
+                };
+              });
+              loaded.push({
+                id: d.id,
+                title: docTitle,
+                color: "#0b7a75",
+                slides,
+                pagesContent: safePages,
+              });
             });
           }
         }
 
         // 2. Tải thêm từ bộ nhớ cục bộ (Khách hoặc Offline cache)
-        const docKey = `permind_docs_${userId || "guest"}`;
-        const stored = localStorage.getItem(docKey);
-        if (stored) {
+        const localKeys = [`permind_docs_${userId || "guest"}`, "permind_docs_guest", "peermind_docs_guest"];
+        localKeys.forEach((key) => {
           try {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed)) {
-              parsed.forEach((d: any) => {
-                if (!loaded.some((x) => x.id === d.id)) {
-                  const pages: string[] = Array.isArray(d.pagesContent)
-                    ? d.pagesContent
-                    : Array.isArray(d.pages_content)
-                    ? d.pages_content
-                    : [];
-                  if (pages.length > 0) {
-                    const slides: SlideItem[] = pages.map((pageText, idx) => {
+            const stored = localStorage.getItem(key);
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              if (Array.isArray(parsed)) {
+                parsed.forEach((d: any) => {
+                  if (!loaded.some((x) => x.id === d.id)) {
+                    const docTitle = d.title || d.original_name || d.filename || "Tài liệu";
+                    const rawPages: string[] = Array.isArray(d.pagesContent)
+                      ? d.pagesContent
+                      : Array.isArray(d.pages_content)
+                      ? d.pages_content
+                      : [];
+                    const safePages = rawPages.length > 0 ? rawPages : [`# ${docTitle}\n\nTài liệu học tập.`];
+                    const slides: SlideItem[] = safePages.map((pageText, idx) => {
                       const imgMatch = typeof pageText === "string" ? pageText.match(/!\[(.*?)\]\((.*?)\)/) : null;
                       const imageUrl = imgMatch ? imgMatch[2] : undefined;
                       const cleanText = typeof pageText === "string" ? pageText.replace(/!\[.*?\]\(.*?\)/g, "").trim() : "";
@@ -111,16 +115,17 @@ export default function ClassroomsPage({
                     });
                     loaded.push({
                       id: d.id,
-                      title: d.title || d.original_name || d.filename || "Tài liệu",
+                      title: docTitle,
                       color: d.color || "#0ea5e9",
                       slides,
+                      pagesContent: safePages,
                     });
                   }
-                }
-              });
+                });
+              }
             }
           } catch {}
-        }
+        });
 
         if (loaded.length > 0) {
           setLibraryDocs([...loaded, ...DOCS]);

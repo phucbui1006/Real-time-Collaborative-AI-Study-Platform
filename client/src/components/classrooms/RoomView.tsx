@@ -1,7 +1,7 @@
 // client/src/components/classrooms/RoomView.tsx
 // Giao diện phòng học nhóm trực tuyến PeerMind — Chuẩn Google Meet kết hợp trình chiếu & sửa tài liệu realtime
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   ArrowLeft,
   Copy,
@@ -15,6 +15,9 @@ import {
   LogOut,
   Maximize2,
   Minimize2,
+  BookOpen,
+  StopCircle,
+  RefreshCw,
 } from 'lucide-react'
 import {
   socket,
@@ -22,6 +25,7 @@ import {
   leaveRoom,
   sendChatMessage,
   selectDocument,
+  stopDocument,
   changeDocumentPage,
   editDocumentPage,
   muteMember,
@@ -31,6 +35,8 @@ import {
   closeRoom,
 } from '../../services/socket'
 import { useRoomRTC } from '../../hooks/useRoomRTC'
+import { supabase } from '../../services/supabaseClient'
+import { isValidUUID } from '../../utils'
 import { VideoGrid } from './VideoGrid'
 import { ClassroomControls } from './ClassroomControls'
 import { ClassroomChatPanel } from './ClassroomChatPanel'
@@ -68,6 +74,10 @@ export const DOCS: DocItem[] = [
       ['Tích phân bội', ['Định nghĩa tích phân kép', 'Tính chất cơ bản', 'Đổi biến số']],
       ['Tích phân kép trên miền chữ nhật', ['Định lý Fubini', 'Ví dụ minh hoạ', 'Bài tập áp dụng']],
     ],
+    pagesContent: [
+      '# Tích phân bội\n- Định nghĩa tích phân kép\n- Tính chất cơ bản\n- Đổi biến số',
+      '# Tích phân kép trên miền chữ nhật\n- Định lý Fubini\n- Ví dụ minh hoạ\n- Bài tập áp dụng',
+    ],
   },
   {
     id: 2,
@@ -75,6 +85,9 @@ export const DOCS: DocItem[] = [
     color: '#8b5cf6',
     slides: [
       ['Present Perfect', ['have/has + V3', 'Kinh nghiệm & kết quả', 'for / since']],
+    ],
+    pagesContent: [
+      '# Present Perfect Tense\n- have/has + V3\n- Diễn tả kinh nghiệm & kết quả\n- Dấu hiệu: for, since, already, yet',
     ],
   },
 ]
@@ -96,6 +109,47 @@ interface RoomViewProps {
   onLeave: () => void
 }
 
+/**
+ * Component hiển thị Video Stream an toàn với AutoPlay, PlaysInline và Cleanup
+ */
+function MediaVideo({
+  stream,
+  muted = false,
+  className = 'w-full h-full object-contain',
+}: {
+  stream: MediaStream | null
+  muted?: boolean
+  className?: string
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    const videoEl = videoRef.current
+    if (!videoEl) return
+
+    if (stream) {
+      videoEl.srcObject = stream
+      videoEl.play().catch((err) => {
+        if (err.name !== 'AbortError') {
+          console.warn('[Video] Tự động phát bị chặn hoặc chờ tương tác:', err)
+        }
+      })
+    } else {
+      videoEl.srcObject = null
+    }
+  }, [stream])
+
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      muted={muted}
+      className={className}
+    />
+  )
+}
+
 export default function RoomView({
   room,
   isHost: initialIsHost = false,
@@ -104,6 +158,32 @@ export default function RoomView({
   docs = [],
   onLeave,
 }: RoomViewProps) {
+  // Socket ID phản ứng tức thì theo trạng thái kết nối
+  const [currentSocketId, setCurrentSocketId] = useState<string>(() => socket.id || '')
+
+  useEffect(() => {
+    const handleConnect = () => {
+      console.log('🔌 Socket connected:', socket.id)
+      setCurrentSocketId(socket.id || '')
+    }
+    const handleDisconnect = () => {
+      console.log('🔌 Socket disconnected')
+      setCurrentSocketId('')
+    }
+
+    if (socket.connected && socket.id) {
+      setCurrentSocketId(socket.id)
+    }
+
+    socket.on('connect', handleConnect)
+    socket.on('disconnect', handleDisconnect)
+
+    return () => {
+      socket.off('connect', handleConnect)
+      socket.off('disconnect', handleDisconnect)
+    }
+  }, [])
+
   // Trạng thái phòng từ Socket.io Server
   const [roomState, setRoomState] = useState<RoomState>({
     code: room.code,
@@ -121,13 +201,13 @@ export default function RoomView({
   const [chatOpen, setChatOpen] = useState(false)
   const [membersOpen, setMembersOpen] = useState(false)
   const [docPickerOpen, setDocPickerOpen] = useState(false)
+  const [pickerDocs, setPickerDocs] = useState<DocPickerItem[]>(docs.length > 0 ? docs : DOCS)
+  const [loadingDocs, setLoadingDocs] = useState(false)
+  const [docsLoadError, setDocsLoadError] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
-
-  // Socket ID của client hiện tại
-  const currentSocketId = socket.id
 
   // Xác định người dùng có phải là Host không
   const isHost = useMemo(() => {
@@ -158,6 +238,44 @@ export default function RoomView({
     members: roomState.members,
     onPermissionError: (msg) => setErrorMessage(msg),
   })
+
+  // Optimistic Member đại diện cho chính người dùng hiện tại (tránh badge = 0 và màn hình đen)
+  const mySelfMember = useMemo<RoomMember>(() => ({
+    socketId: currentSocketId || 'local-me',
+    userId,
+    userName: userName || 'Chủ phòng',
+    role: initialIsHost ? 'host' : 'member',
+    avatarColor: '#0ea5e9',
+    isMicOn,
+    isCamOn,
+    isScreenSharing: isSharingScreen,
+    isSpeaking: false,
+    joinedAt: Date.now(),
+  }), [currentSocketId, userId, userName, initialIsHost, isMicOn, isCamOn, isSharingScreen])
+
+  // Danh sách thành viên hiệu dụng luôn có ít nhất bản thân người dùng
+  const effectiveMembers = useMemo<RoomMember[]>(() => {
+    if (roomState.members.length === 0) {
+      return [mySelfMember]
+    }
+    const hasMe = roomState.members.some(
+      (m) => (currentSocketId && m.socketId === currentSocketId) || (userId && m.userId === userId)
+    )
+    if (!hasMe) {
+      return [mySelfMember, ...roomState.members]
+    }
+    return roomState.members.map((m) => {
+      if ((currentSocketId && m.socketId === currentSocketId) || (userId && m.userId === userId)) {
+        return {
+          ...m,
+          isMicOn,
+          isCamOn,
+          isScreenSharing: isSharingScreen,
+        }
+      }
+      return m
+    })
+  }, [roomState.members, mySelfMember, currentSocketId, userId, isMicOn, isCamOn, isSharingScreen])
 
   // ─── 1. KẾT NỐI SOCKET VÀ LẮNG NGHE SỰ KIỆN PHÒNG HỌC ───────────────────
   useEffect(() => {
@@ -313,6 +431,101 @@ export default function RoomView({
     if (chatOpen) setUnreadCount(0)
   }, [chatOpen])
 
+  // Nạp danh sách tài liệu từ Database Supabase & LocalStorage khi mở modal chọn tài liệu
+  useEffect(() => {
+    if (!docPickerOpen) return
+
+    let isMounted = true
+    async function fetchPickerDocs() {
+      setLoadingDocs(true)
+      setDocsLoadError(null)
+      try {
+        const list: DocPickerItem[] = []
+
+        // 1. Tải từ Supabase (nếu đã đăng nhập với tài khoản thật)
+        if (isValidUUID(userId)) {
+          const { data, error } = await supabase
+            .from('documents')
+            .select('id, original_name, filename, subject, pages_content, total_pages, created_at')
+            .eq('owner_user_id', userId)
+            .order('created_at', { ascending: false })
+
+          if (error) {
+            console.warn('Lỗi query documents từ Supabase:', error.message)
+          } else if (data && Array.isArray(data)) {
+            data.forEach((d) => {
+              const docTitle = d.original_name || d.filename || 'Tài liệu'
+              const rawPages = Array.isArray(d.pages_content) ? d.pages_content : []
+              const safePages = rawPages.length > 0 ? rawPages : [`# ${docTitle}\n\nTài liệu học tập.`]
+              list.push({
+                id: d.id,
+                title: docTitle,
+                color: '#0b7a75',
+                pagesContent: safePages,
+              })
+            })
+          }
+        }
+
+        // 2. Tải thêm từ localStorage (Khách / Demo / Cache)
+        const localKeys = [`permind_docs_${userId || 'guest'}`, 'permind_docs_guest', 'peermind_docs_guest']
+        localKeys.forEach((key) => {
+          try {
+            const stored = localStorage.getItem(key)
+            if (stored) {
+              const parsed = JSON.parse(stored)
+              if (Array.isArray(parsed)) {
+                parsed.forEach((d: any) => {
+                  if (!list.some((x) => x.id === d.id)) {
+                    const docTitle = d.title || d.original_name || d.filename || 'Tài liệu'
+                    const rawPages = Array.isArray(d.pagesContent)
+                      ? d.pagesContent
+                      : Array.isArray(d.pages_content)
+                      ? d.pages_content
+                      : []
+                    const safePages = rawPages.length > 0 ? rawPages : [`# ${docTitle}\n\nTài liệu học tập.`]
+                    list.push({
+                      id: d.id,
+                      title: docTitle,
+                      color: d.color || '#0ea5e9',
+                      pagesContent: safePages,
+                    })
+                  }
+                })
+              }
+            }
+          } catch {}
+        })
+
+        // 3. Nếu chưa có tài liệu nào, bổ sung tài liệu mẫu mặc định
+        if (list.length === 0 && docs.length > 0) {
+          list.push(...docs)
+        } else if (list.length === 0) {
+          list.push(...DOCS)
+        }
+
+        if (isMounted) {
+          setPickerDocs(list)
+        }
+      } catch (err: any) {
+        console.error('Lỗi khi nạp danh sách tài liệu:', err)
+        if (isMounted) {
+          setDocsLoadError('Không thể nạp danh sách tài liệu. Vui lòng thử lại.')
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingDocs(false)
+        }
+      }
+    }
+
+    fetchPickerDocs()
+
+    return () => {
+      isMounted = false
+    }
+  }, [docPickerOpen, userId, docs])
+
   // Sao chép mã phòng
   const handleCopyCode = () => {
     if (navigator.clipboard) {
@@ -332,10 +545,47 @@ export default function RoomView({
     handleSendMessage('✋ [Giơ tay phát biểu]')
   }
 
-  // Chọn tài liệu trình chiếu
-  const handleSelectDoc = (docId: number) => {
-    selectDocument(room.code, docId)
+  // Chọn tài liệu trình chiếu (0ms Optimistic Update trên máy Host)
+  const handleSelectDoc = (selectedDoc: DocPickerItem) => {
+    const rawPages = selectedDoc.pagesContent && selectedDoc.pagesContent.length > 0
+      ? selectedDoc.pagesContent
+      : selectedDoc.slides
+      ? selectedDoc.slides.map((s: any) => (Array.isArray(s) ? s[0] : s.title))
+      : ['Trang 1']
+
+    const docData: RoomDocumentData = {
+      id: selectedDoc.id,
+      originalDocumentId: typeof selectedDoc.id === 'number' && selectedDoc.id > 0 ? selectedDoc.id : null,
+      title: selectedDoc.title,
+      totalPages: rawPages.length,
+      pagesContent: rawPages,
+      currentPage: 0,
+      updatedAt: new Date().toISOString(),
+    }
+
+    // Hiển thị ngay trên sân khấu của Host
+    setRoomState((prev) => ({
+      ...prev,
+      activeDocument: docData,
+    }))
+
+    // Gửi sự kiện Socket để đồng bộ cho toàn bộ phòng
+    selectDocument(room.code, selectedDoc.id, {
+      title: docData.title,
+      pagesContent: docData.pagesContent,
+      totalPages: docData.totalPages,
+    })
+
     setDocPickerOpen(false)
+  }
+
+  // Host dừng trình chiếu tài liệu
+  const handleStopDocPresentation = () => {
+    stopDocument(room.code)
+    setRoomState((prev) => ({
+      ...prev,
+      activeDocument: null,
+    }))
   }
 
   // Lật trang tài liệu
@@ -365,11 +615,24 @@ export default function RoomView({
     }
   }
 
+  // Trạng thái chia sẻ màn hình
+  const isLocalSharing = Boolean(isSharingScreen && screenStream)
+  const activeScreenSharerSocketId = roomState.screenSharerSocketId
+  const isRemoteSharing = Boolean(
+    activeScreenSharerSocketId &&
+    activeScreenSharerSocketId !== currentSocketId &&
+    remoteStreams[activeScreenSharerSocketId]
+  )
+  const isSomeoneSharing = isLocalSharing || Boolean(activeScreenSharerSocketId)
+
   // Xác định người đang chia sẻ màn hình
   const screenSharerMember = useMemo(() => {
-    if (!roomState.screenSharerSocketId) return null
-    return roomState.members.find((m) => m.socketId === roomState.screenSharerSocketId)
-  }, [roomState.screenSharerSocketId, roomState.members])
+    if (isLocalSharing) {
+      return mySelfMember
+    }
+    if (!activeScreenSharerSocketId) return null
+    return roomState.members.find((m) => m.socketId === activeScreenSharerSocketId)
+  }, [isLocalSharing, mySelfMember, activeScreenSharerSocketId, roomState.members])
 
   return (
     <div className="fixed inset-0 z-50 flex h-screen w-screen flex-col overflow-hidden bg-slate-950 text-slate-100 font-sans">
@@ -426,7 +689,7 @@ export default function RoomView({
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
 
-          {/* Nút Host chọn tài liệu */}
+          {/* Nút Host chọn tài liệu hoặc Đổi tài liệu */}
           {isHost && (
             <button
               onClick={() => setDocPickerOpen(true)}
@@ -434,6 +697,18 @@ export default function RoomView({
             >
               <Presentation className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{roomState.activeDocument ? 'Đổi tài liệu' : 'Chiếu tài liệu'}</span>
+            </button>
+          )}
+
+          {/* Nút Dừng chiếu tài liệu (khi đang chiếu) */}
+          {isHost && roomState.activeDocument && (
+            <button
+              onClick={handleStopDocPresentation}
+              className="inline-flex items-center gap-1 h-8 px-2.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors cursor-pointer"
+              title="Dừng trình chiếu tài liệu"
+            >
+              <StopCircle className="w-3.5 h-3.5 text-rose-400" />
+              <span className="hidden md:inline">Dừng chiếu</span>
             </button>
           )}
 
@@ -471,28 +746,20 @@ export default function RoomView({
       {/* ─── 2. VÙNG TRUNG TÂM (STAGE + CHAT SIDEBAR) ────────────────────── */}
       <div className="flex min-h-0 flex-1 overflow-hidden relative">
         <main className="flex-1 flex flex-col items-center justify-center p-3 sm:p-4 overflow-hidden relative">
-          {/* TRƯỜNG HỢP A: ĐANG CHIA SẺ MÀN HÌNH */}
-          {roomState.screenSharerSocketId ? (
+          {/* TRƯỜNG HỢP A: ĐANG CÓ CHIA SẺ MÀN HÌNH (CỦA MÌNH HOẶC THÀNH VIÊN KHÁC) */}
+          {isSomeoneSharing ? (
             <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden">
               <div className="w-full flex-1 rounded-md overflow-hidden bg-black flex items-center justify-center relative shadow-2xl">
-                {roomState.screenSharerSocketId === currentSocketId && screenStream ? (
-                  <video
-                    autoPlay
-                    playsInline
-                    muted
-                    ref={(el) => {
-                      if (el && screenStream) el.srcObject = screenStream
-                    }}
+                {isLocalSharing ? (
+                  <MediaVideo
+                    stream={screenStream}
+                    muted={true}
                     className="w-full h-full object-contain"
                   />
-                ) : remoteStreams[roomState.screenSharerSocketId] ? (
-                  <video
-                    autoPlay
-                    playsInline
-                    ref={(el) => {
-                      const st = remoteStreams[roomState.screenSharerSocketId!]
-                      if (el && st) el.srcObject = st
-                    }}
+                ) : isRemoteSharing && activeScreenSharerSocketId ? (
+                  <MediaVideo
+                    stream={remoteStreams[activeScreenSharerSocketId]}
+                    muted={false}
                     className="w-full h-full object-contain"
                   />
                 ) : (
@@ -501,15 +768,21 @@ export default function RoomView({
                     <span>Đang kết nối tín hiệu màn hình từ {screenSharerMember?.userName || 'thành viên'}…</span>
                   </div>
                 )}
-                <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur px-3 py-1 rounded text-xs text-white">
-                  Màn hình chia sẻ của <span className="font-bold text-teal-400">{screenSharerMember?.userName}</span>
+                <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur px-3 py-1 rounded text-xs text-white border border-slate-700/50 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
+                  <span>
+                    {isLocalSharing
+                      ? 'Màn hình của bạn (Đang chia sẻ vào phòng)'
+                      : `Màn hình chia sẻ của ${screenSharerMember?.userName || 'thành viên'}`}
+                  </span>
                 </div>
               </div>
 
               {/* Dải Camera thu nhỏ phía dưới */}
               <VideoGrid
-                members={roomState.members}
+                members={effectiveMembers}
                 localSocketId={currentSocketId}
+                currentUserId={userId}
                 localStream={localStream}
                 remoteStreams={remoteStreams}
                 isPresentationMode={true}
@@ -530,8 +803,9 @@ export default function RoomView({
 
               {/* Dải Camera thu nhỏ phía dưới */}
               <VideoGrid
-                members={roomState.members}
+                members={effectiveMembers}
                 localSocketId={currentSocketId}
+                currentUserId={userId}
                 localStream={localStream}
                 remoteStreams={remoteStreams}
                 isPresentationMode={true}
@@ -541,8 +815,9 @@ export default function RoomView({
             /* TRƯỜNG HỢP C: CHẾ ĐỘ CUỘC HỌP THUẦN (GOOGLE MEET VIDEO GRID) */
             <div className="w-full h-full flex flex-col items-center justify-center">
               <VideoGrid
-                members={roomState.members}
+                members={effectiveMembers}
                 localSocketId={currentSocketId}
+                currentUserId={userId}
                 localStream={localStream}
                 remoteStreams={remoteStreams}
                 isPresentationMode={false}
@@ -569,7 +844,7 @@ export default function RoomView({
           open={chatOpen}
           messages={messages}
           currentUserId={userId}
-          membersCount={roomState.members.length}
+          membersCount={effectiveMembers.length}
           onClose={() => setChatOpen(false)}
           onOpenMembers={() => setMembersOpen(true)}
           onSendMessage={handleSendMessage}
@@ -586,7 +861,7 @@ export default function RoomView({
         isHost={isHost}
         hasActiveDocument={Boolean(roomState.activeDocument)}
         unreadCount={unreadCount}
-        membersCount={roomState.members.length}
+        membersCount={effectiveMembers.length}
         chatOpen={chatOpen}
         membersOpen={membersOpen}
         onToggleMic={toggleMic}
@@ -603,7 +878,7 @@ export default function RoomView({
       <MembersModal
         open={membersOpen}
         onClose={() => setMembersOpen(false)}
-        members={roomState.members}
+        members={effectiveMembers}
         currentSocketId={currentSocketId}
         isHost={isHost}
         allowMemberScreenShare={roomState.allowMemberScreenShare}
@@ -619,11 +894,14 @@ export default function RoomView({
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs"
           onMouseDown={(e) => e.target === e.currentTarget && setDocPickerOpen(false)}
         >
-          <div className="w-full max-w-md rounded-lg bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 shadow-2xl">
+          <div className="w-full max-w-lg rounded-lg bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="font-bold text-sm text-slate-900 dark:text-slate-100">
-                Chọn tài liệu để trình chiếu
-              </h2>
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                <h2 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                  Chọn tài liệu Thư viện để trình chiếu
+                </h2>
+              </div>
               <button
                 onClick={() => setDocPickerOpen(false)}
                 className="h-7 w-7 flex items-center justify-center rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
@@ -632,29 +910,55 @@ export default function RoomView({
               </button>
             </div>
 
-            <div className="mt-3 max-h-72 overflow-y-auto space-y-2 pr-1">
-              {docs.length === 0 ? (
-                <div className="py-8 text-center text-xs text-slate-400">
-                  Thư viện của bạn chưa có tài liệu nào. Hãy nhập tài liệu ở mục "Thư viện" trước.
+            {/* Nội dung danh sách tài liệu */}
+            <div className="mt-3 max-h-80 overflow-y-auto space-y-2 pr-1">
+              {loadingDocs ? (
+                <div className="py-10 text-center text-xs text-slate-400 flex flex-col items-center justify-center gap-2">
+                  <Sparkles className="w-5 h-5 animate-spin text-teal-500" />
+                  <span>Đang tải danh sách tài liệu từ kho lưu trữ...</span>
+                </div>
+              ) : docsLoadError ? (
+                <div className="py-6 text-center text-xs text-rose-500 flex flex-col items-center justify-center gap-2">
+                  <p>{docsLoadError}</p>
+                  <button
+                    onClick={() => {
+                      setDocsLoadError(null)
+                      setDocPickerOpen(false)
+                      setTimeout(() => setDocPickerOpen(true), 50)
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs hover:bg-slate-200 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Thử lại</span>
+                  </button>
+                </div>
+              ) : pickerDocs.length === 0 ? (
+                <div className="py-10 text-center text-xs text-slate-400 flex flex-col items-center justify-center">
+                  <FileText className="w-8 h-8 mb-2 text-slate-400 opacity-60" />
+                  <p className="font-semibold text-slate-800 dark:text-slate-200">Chưa có tài liệu nào trong Thư viện</p>
+                  <p className="mt-1 text-slate-400">Bạn vui lòng nhập tài liệu (PDF/DOCX) ở mục Thư viện trước nhé.</p>
                 </div>
               ) : (
-                docs.map((d) => (
+                pickerDocs.map((d) => (
                   <button
                     key={d.id}
-                    onClick={() => handleSelectDoc(d.id)}
-                    className="w-full flex items-center gap-3 p-3 rounded border border-slate-200 dark:border-slate-800 hover:bg-teal-50/50 dark:hover:bg-teal-950/30 hover:border-teal-400 text-left transition-colors cursor-pointer"
+                    onClick={() => handleSelectDoc(d)}
+                    className="w-full flex items-center gap-3 p-3 rounded-md border border-slate-200 dark:border-slate-800 hover:bg-teal-50/50 dark:hover:bg-teal-950/30 hover:border-teal-500 text-left transition-colors cursor-pointer group"
                   >
-                    <div className="h-8 w-8 rounded flex items-center justify-center bg-teal-600 text-white font-bold text-xs shrink-0">
-                      {d.title.slice(0, 1)}
+                    <div className="h-9 w-9 rounded flex items-center justify-center bg-teal-600 text-white font-bold text-xs shrink-0 shadow-sm">
+                      {d.title.slice(0, 1).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
+                      <div className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-teal-600 dark:group-hover:text-teal-400">
                         {d.title}
                       </div>
-                      <div className="text-[11px] text-slate-400">
-                        {d.pagesContent?.length || d.slides?.length || 1} trang
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        {d.pagesContent?.length || d.slides?.length || 1} trang tài liệu
                       </div>
                     </div>
+                    <span className="text-[11px] text-teal-600 dark:text-teal-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      Chiếu ngay →
+                    </span>
                   </button>
                 ))
               )}

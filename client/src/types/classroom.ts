@@ -86,7 +86,8 @@ export interface ClientToServerEvents {
   'CHAT:SEND': (payload: { roomCode: string; message: string }) => void;
 
   // Điều khiển tài liệu bài học (Host)
-  'DOC:SELECT': (payload: { roomCode: string; documentId: number }) => void;
+  'DOC:SELECT': (payload: { roomCode: string; documentId: number; docData?: { title: string; pagesContent: string[]; totalPages: number } }) => void;
+  'DOC:STOP': (payload: { roomCode: string }) => void;
   'DOC:CHANGE_PAGE': (payload: { roomCode: string; pageIndex: number }) => void;
   'DOC:EDIT_PAGE': (payload: { roomCode: string; pageIndex: number; content: string }) => void;
 

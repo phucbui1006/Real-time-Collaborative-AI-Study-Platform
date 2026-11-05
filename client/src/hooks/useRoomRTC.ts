@@ -158,6 +158,15 @@ export function useRoomRTC({ roomCode, currentSocketId, members, onPermissionErr
             ...prev,
             [targetSocketId]: incomingStream,
           }))
+        } else if (event.track) {
+          setRemoteStreams((prev) => {
+            const existing = prev[targetSocketId] || new MediaStream()
+            existing.addTrack(event.track)
+            return {
+              ...prev,
+              [targetSocketId]: existing,
+            }
+          })
         }
       }
 
@@ -405,39 +414,50 @@ export function useRoomRTC({ roomCode, currentSocketId, members, onPermissionErr
   // ─── 7. CHIA SẺ MÀN HÌNH (SCREEN SHARE) ──────────────────────────────────
   const startScreenShare = useCallback(async () => {
     try {
+      console.log('[WebRTC] Bắt đầu gọi getDisplayMedia để chia sẻ màn hình...')
       const sStream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: { ideal: 30 } },
         audio: true,
       })
 
+      console.log('[WebRTC] Đã nhận được screen stream:', sStream.id, sStream.getTracks().map(t => `${t.kind}:${t.readyState}`))
       screenStreamRef.current = sStream
       setScreenStream(sStream)
       setIsSharingScreen(true)
       emitStartShare(roomCode)
 
       const screenVideoTrack = sStream.getVideoTracks()[0]
+      if (screenVideoTrack) {
+        // Thay thế hoặc thêm video track vào các peer connection hiện có
+        peersRef.current.forEach((peer, targetSocketId) => {
+          const senders = peer.pc.getSenders()
+          const videoSender = senders.find((s) => s.track && s.track.kind === 'video')
+          if (videoSender) {
+            console.log(`[WebRTC] Thay thế track video cho peer ${targetSocketId}`)
+            videoSender.replaceTrack(screenVideoTrack)
+          } else {
+            console.log(`[WebRTC] Thêm track màn hình mới cho peer ${targetSocketId}`)
+            peer.pc.addTrack(screenVideoTrack, sStream)
+          }
+        })
 
-      // Thay thế hoặc thêm video track vào các peer connection hiện có
-      peersRef.current.forEach((peer) => {
-        const senders = peer.pc.getSenders()
-        const videoSender = senders.find((s) => s.track && s.track.kind === 'video')
-        if (videoSender) {
-          videoSender.replaceTrack(screenVideoTrack)
-        } else {
-          peer.pc.addTrack(screenVideoTrack, sStream)
+        // Lắng nghe khi người dùng dừng chia sẻ từ thanh điều khiển của trình duyệt
+        screenVideoTrack.onended = () => {
+          console.log('[WebRTC] Người dùng bấm dừng chia sẻ từ thanh trình duyệt')
+          stopScreenShare()
         }
-      })
-
-      // Lắng nghe khi người dùng dừng chia sẻ từ thanh điều khiển của trình duyệt
-      screenVideoTrack.onended = () => {
-        stopScreenShare()
       }
     } catch (err: any) {
-      if (err.name !== 'NotAllowedError') {
-        console.error('Lỗi khi chia sẻ màn hình:', err)
+      if (err.name === 'NotAllowedError') {
+        console.info('[WebRTC] Người dùng đã từ chối/hủy chia sẻ màn hình.')
+      } else if (err.name === 'AbortError') {
+        console.info('[WebRTC] Thao tác chia sẻ màn hình bị hủy.')
+      } else {
+        console.error('[WebRTC] Lỗi khi chia sẻ màn hình:', err)
+        onPermissionError?.(`Không thể chia sẻ màn hình: ${err.message || 'Lỗi không xác định'}`)
       }
     }
-  }, [roomCode])
+  }, [roomCode, onPermissionError])
 
   const stopScreenShare = useCallback(() => {
     if (screenStreamRef.current) {
