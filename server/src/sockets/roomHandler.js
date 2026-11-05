@@ -43,6 +43,7 @@ function formatRoomState(room) {
     hostSocketId: room.hostSocketId,
     members: Array.from(room.members.values()),
     activeDocument: room.activeDocument,
+    annotationsByPage: room.annotationsByPage || {},
     screenSharerSocketId: room.screenSharerSocketId,
     allowMemberScreenShare: room.allowMemberScreenShare,
     maxMembers: room.maxMembers,
@@ -583,6 +584,7 @@ function roomHandler(io, socket) {
       return socket.emit('ERROR', { message: 'Chỉ chủ phòng mới có quyền dừng trình chiếu tài liệu.' })
     }
     room.activeDocument = null
+    room.annotationsByPage = {}
     io.to(roomCode).emit('DOC:SYNC', null)
     io.to(roomCode).emit('ROOM:STATE', formatRoomState(room))
   })
@@ -667,6 +669,54 @@ function roomHandler(io, socket) {
       }
     }, 500)
     docSaveTimers.set(saveKey, timer)
+  })
+
+  // Host vẽ/khoanh vùng/chú thích trên tài liệu (In-Memory chỉ lưu trong phòng học, không lưu DB)
+  socket.on('DOC:ANNOTATE', ({ roomCode, pageIndex, annotations }) => {
+    const room = activeRooms.get(roomCode)
+    if (!room) return
+
+    const currentUserId = socket.user?.id || socket.id
+    const isHost = room.hostSocketId === socket.id || (room.hostUserId && room.hostUserId === currentUserId)
+    if (!isHost) {
+      return socket.emit('ERROR', { message: 'Chỉ chủ phòng mới có quyền chú thích lên tài liệu.' })
+    }
+    room.hostSocketId = socket.id
+
+    if (!room.annotationsByPage) {
+      room.annotationsByPage = {}
+    }
+    const idx = Number(pageIndex) || 0
+    room.annotationsByPage[idx] = Array.isArray(annotations) ? annotations : []
+
+    // Đồng bộ tức thì tới tất cả thành viên trong phòng
+    io.to(roomCode).emit('DOC:ANNOTATE', {
+      pageIndex: idx,
+      annotations: room.annotationsByPage[idx],
+      by: socket.id,
+    })
+  })
+
+  // Host xóa chú thích trên trang (hoặc toàn bộ)
+  socket.on('DOC:CLEAR_ANNOTATIONS', ({ roomCode, pageIndex }) => {
+    const room = activeRooms.get(roomCode)
+    if (!room) return
+
+    const currentUserId = socket.user?.id || socket.id
+    const isHost = room.hostSocketId === socket.id || (room.hostUserId && room.hostUserId === currentUserId)
+    if (!isHost) return
+    room.hostSocketId = socket.id
+
+    if (!room.annotationsByPage) {
+      room.annotationsByPage = {}
+    }
+    if (pageIndex !== undefined && pageIndex !== null) {
+      delete room.annotationsByPage[Number(pageIndex)]
+      io.to(roomCode).emit('DOC:CLEAR_ANNOTATIONS', { pageIndex: Number(pageIndex) })
+    } else {
+      room.annotationsByPage = {}
+      io.to(roomCode).emit('DOC:CLEAR_ANNOTATIONS', {})
+    }
   })
 
   // Hỗ trợ backward compatibility cho sự kiện cũ

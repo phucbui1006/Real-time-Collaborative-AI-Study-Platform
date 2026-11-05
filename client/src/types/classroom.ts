@@ -19,6 +19,23 @@ export interface RoomMember {
 }
 
 /**
+ * Chú thích / Khoanh vùng vẽ trực quan trên trang tài liệu
+ */
+export interface DocumentAnnotation {
+  id: string;
+  type: 'rect' | 'highlight' | 'text';
+  x: number;      // Tọa độ X tương đối (%) (0 -> 100)
+  y: number;      // Tọa độ Y tương đối (%) (0 -> 100)
+  width: number;  // Chiều rộng tương đối (%) (0 -> 100)
+  height: number; // Chiều cao tương đối (%) (0 -> 100)
+  color: string;  // Màu viền hoặc màu highlight (hex/rgba)
+  text?: string;  // Nội dung ghi chú (nếu type === 'text')
+  createdAt: number;
+}
+
+export type AnnotationsByPage = Record<number, DocumentAnnotation[]>;
+
+/**
  * Bản sao tài liệu đang được trình chiếu trong phòng học
  */
 export interface RoomDocumentData {
@@ -41,6 +58,7 @@ export interface RoomState {
   hostSocketId: string;                  // Socket ID hiện tại của Chủ phòng
   members: RoomMember[];                 // Danh sách thành viên đang có mặt trong phòng
   activeDocument: RoomDocumentData | null;// Tài liệu đang được trình chiếu (hoặc null nếu chưa chiếu)
+  annotationsByPage?: AnnotationsByPage; // Danh sách ghi chú khoanh vùng theo từng trang (In-Memory)
   screenSharerSocketId: string | null;   // Socket ID của người đang chia sẻ màn hình
   allowMemberScreenShare: boolean;       // Cho phép thành viên thường chia sẻ màn hình hay không
   maxMembers: number;                    // Số lượng người tham gia tối đa (mặc định 6 cho WebRTC Mesh)
@@ -90,6 +108,8 @@ export interface ClientToServerEvents {
   'DOC:STOP': (payload: { roomCode: string }) => void;
   'DOC:CHANGE_PAGE': (payload: { roomCode: string; pageIndex: number }) => void;
   'DOC:EDIT_PAGE': (payload: { roomCode: string; pageIndex: number; content: string }) => void;
+  'DOC:ANNOTATE': (payload: { roomCode: string; pageIndex: number; annotations: DocumentAnnotation[] }) => void;
+  'DOC:CLEAR_ANNOTATIONS': (payload: { roomCode: string; pageIndex?: number }) => void;
 
   // WebRTC Signaling: chuyển tiếp Offer, Answer và ICE Candidate
   'WEBRTC:OFFER': (payload: { roomCode: string; targetSocketId: string; offer: RTCSessionDescriptionInit }) => void;
@@ -129,6 +149,9 @@ export interface ServerToClientEvents {
   'DOC:PAGE_CHANGED': (data: { pageIndex: number; by: string }) => void;
   // Nội dung trang tài liệu được Chủ phòng chỉnh sửa realtime
   'DOC:PAGE_UPDATED': (data: { pageIndex: number; content: string; by: string }) => void;
+  // Đồng bộ chú thích / khoanh vùng trên trang tài liệu
+  'DOC:ANNOTATE': (data: { pageIndex: number; annotations: DocumentAnnotation[]; by: string }) => void;
+  'DOC:CLEAR_ANNOTATIONS': (data: { pageIndex?: number }) => void;
 
   // Tín hiệu kết nối WebRTC Mesh
   'WEBRTC:OFFER': (data: { fromSocketId: string; offer: RTCSessionDescriptionInit }) => void;

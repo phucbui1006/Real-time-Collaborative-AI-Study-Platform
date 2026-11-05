@@ -1,53 +1,77 @@
 // client/src/components/classrooms/DocumentCollaborativeViewer.tsx
-// Trình chiếu tài liệu nhóm, đồng bộ lật trang, chế độ Xem tự do, chỉnh sửa văn bản realtime và Lưu về thư viện
+// Trình chiếu tài liệu nhóm kết hợp công cụ ghi chú trực quan (Khoanh hình chữ nhật, Highlight, Gõ text) realtime trong phòng học
 
 import React, { useState, useEffect, useRef } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
-  Edit3,
-  Check,
-  BookmarkCheck,
+  MousePointer,
+  Square,
+  Highlighter,
+  Type,
+  Undo2,
+  Trash2,
   RotateCcw,
   Sparkles,
   Eye,
   FileText,
+  X,
+  Plus,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
-import { supabase } from '../../services/supabaseClient'
-import type { RoomDocumentData } from '../../types/classroom'
+import type { RoomDocumentData, DocumentAnnotation } from '../../types/classroom'
+
+export type AnnotationTool = 'select' | 'rect' | 'highlight' | 'text'
+
+const ANNOTATION_COLORS = [
+  { id: 'red', hex: '#ef4444', label: 'Đỏ khoanh vùng' },
+  { id: 'yellow', hex: '#eab308', label: 'Vàng highlight' },
+  { id: 'teal', hex: '#0d9488', label: 'Xanh ngọc' },
+  { id: 'blue', hex: '#3b82f6', label: 'Xanh dương' },
+]
 
 interface DocumentCollaborativeViewerProps {
   document: RoomDocumentData
   isHost: boolean
   currentUserId?: string
+  annotations?: DocumentAnnotation[]
   onPageChange: (pageIndex: number) => void
-  onEditPage: (pageIndex: number, newContent: string) => void
-  onSaveToLibrary?: () => void
+  onUpdateAnnotations?: (pageIndex: number, annotations: DocumentAnnotation[]) => void
+  onClearAnnotations?: (pageIndex?: number) => void
 }
 
 export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerProps> = ({
   document,
   isHost,
-  currentUserId,
+  annotations = [],
   onPageChange,
-  onEditPage,
+  onUpdateAnnotations,
+  onClearAnnotations,
 }) => {
   const hostPage = document.currentPage || 0
   const [localPage, setLocalPage] = useState<number>(hostPage)
   const [isFreeView, setIsFreeView] = useState<boolean>(false)
-  const [isEditing, setIsEditing] = useState<boolean>(false)
-  const [editingContent, setEditingContent] = useState<string>('')
-  const [saveSuccess, setSaveSuccess] = useState<boolean>(false)
-  const [saving, setSaving] = useState<boolean>(false)
 
-  const editDebounceTimer = useRef<number | null>(null)
+  // Trạng thái công cụ ghi chú
+  const [activeTool, setActiveTool] = useState<AnnotationTool>('select')
+  const [activeColor, setActiveColor] = useState<string>('#ef4444')
 
-  // Khi Host lật trang: nếu không bật chế độ Xem tự do thì tự động theo sát trang của Host
+  // Trạng thái vẽ kéo thả (Drag drawing)
+  const [isDrawing, setIsDrawing] = useState<boolean>(false)
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
+  const [draftBox, setDraftBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+
+  // Trạng thái gõ Text Note nổi
+  const [textInputPos, setTextInputPos] = useState<{ x: number; y: number } | null>(null)
+  const [textInputValue, setTextInputValue] = useState<string>('')
+
+  const contentWrapperRef = useRef<HTMLDivElement>(null)
+
+  // Tự động theo sát trang của Host nếu không bật Chế độ xem tự do
   useEffect(() => {
     if (!isFreeView) {
       setLocalPage(hostPage)
@@ -56,11 +80,6 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
 
   const totalPages = Math.max(1, document.totalPages || 0, document.pagesContent?.length || 0)
   const currentPageContent = document.pagesContent?.[localPage] || ''
-
-  // Cập nhật nội dung editor khi đổi trang
-  useEffect(() => {
-    setEditingContent(currentPageContent)
-  }, [localPage, currentPageContent])
 
   // Xử lý chuyển trang
   const handlePrevPage = () => {
@@ -88,64 +107,243 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
     setLocalPage(hostPage)
   }
 
-  // Host gõ văn bản chỉnh sửa với debounce 400ms
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value
-    setEditingContent(val)
-
-    if (editDebounceTimer.current) {
-      window.clearTimeout(editDebounceTimer.current)
-    }
-    editDebounceTimer.current = window.setTimeout(() => {
-      onEditPage(localPage, val)
-    }, 400)
+  // Chuyển đổi tọa độ chuột sang % tương đối theo kích thước contentWrapper
+  const getRelativeCoords = (e: React.MouseEvent) => {
+    const el = contentWrapperRef.current
+    if (!el) return { x: 0, y: 0 }
+    const rect = el.getBoundingClientRect()
+    const pxX = e.clientX - rect.left
+    const pxY = e.clientY - rect.top
+    const width = el.offsetWidth || rect.width || 1
+    const height = el.offsetHeight || rect.height || 1
+    const x = Math.max(0, Math.min(100, (pxX / width) * 100))
+    const y = Math.max(0, Math.min(100, (pxY / height) * 100))
+    return { x, y }
   }
 
-  // Lưu tài liệu đã sửa về Thư viện cá nhân
-  const handleSaveToPersonalLibrary = async () => {
-    if (saving) return
-    setSaving(true)
-    try {
-      const copyTitle = `${document.title} (Bản học nhóm)`
-      const { error } = await supabase.from('documents').insert({
-        title: copyTitle,
-        original_name: copyTitle,
-        filename: `${copyTitle}.md`,
-        total_pages: totalPages,
-        pages_content: document.pagesContent,
-        owner_user_id: currentUserId || null,
-        created_at: new Date().toISOString(),
-      })
+  // ─── XỬ LÝ VẼ KHOANH HÌNH CHỮ NHẬT VÀ HIGHLIGHT (HOST) ────────────────────
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!isHost || activeTool === 'select') return
 
-      if (!error) {
-        setSaveSuccess(true)
-        setTimeout(() => setSaveSuccess(false), 3000)
-      } else {
-        alert('Không thể lưu tài liệu: ' + error.message)
-      }
-    } catch (err: any) {
-      alert('Lỗi lưu tài liệu: ' + err.message)
-    } finally {
-      setSaving(false)
+    if (activeTool === 'text') {
+      const coords = getRelativeCoords(e)
+      setTextInputPos(coords)
+      setTextInputValue('')
+      return
     }
+
+    if (activeTool === 'rect' || activeTool === 'highlight') {
+      const coords = getRelativeCoords(e)
+      setIsDrawing(true)
+      setDragStart(coords)
+      setDraftBox({ x: coords.x, y: coords.y, width: 0, height: 0 })
+    }
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDrawing || !dragStart || !isHost) return
+
+    const current = getRelativeCoords(e)
+    const x = Math.min(dragStart.x, current.x)
+    const y = Math.min(dragStart.y, current.y)
+    const width = Math.abs(current.x - dragStart.x)
+    const height = Math.abs(current.y - dragStart.y)
+
+    setDraftBox({ x, y, width, height })
+  }
+
+  const handleMouseUp = () => {
+    if (!isDrawing || !draftBox || !isHost) {
+      setIsDrawing(false)
+      setDragStart(null)
+      setDraftBox(null)
+      return
+    }
+
+    // Nếu hình vẽ đủ lớn (tránh cú click chuột vô tình)
+    if (draftBox.width > 0.8 && draftBox.height > 0.8) {
+      const newAnno: DocumentAnnotation = {
+        id: `anno_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        type: activeTool === 'highlight' ? 'highlight' : 'rect',
+        x: Number(draftBox.x.toFixed(2)),
+        y: Number(draftBox.y.toFixed(2)),
+        width: Number(draftBox.width.toFixed(2)),
+        height: Number(draftBox.height.toFixed(2)),
+        color: activeColor,
+        createdAt: Date.now(),
+      }
+      onUpdateAnnotations?.(localPage, [...annotations, newAnno])
+    }
+
+    setIsDrawing(false)
+    setDragStart(null)
+    setDraftBox(null)
+  }
+
+  // ─── XỬ LÝ GÕ TEXT NOTE ──────────────────────────────────────────────────
+  const handleAddTextAnnotation = () => {
+    if (!textInputPos || !textInputValue.trim()) {
+      setTextInputPos(null)
+      return
+    }
+
+    const newAnno: DocumentAnnotation = {
+      id: `anno_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      type: 'text',
+      x: Number(textInputPos.x.toFixed(2)),
+      y: Number(textInputPos.y.toFixed(2)),
+      width: 0,
+      height: 0,
+      color: activeColor,
+      text: textInputValue.trim(),
+      createdAt: Date.now(),
+    }
+
+    onUpdateAnnotations?.(localPage, [...annotations, newAnno])
+    setTextInputPos(null)
+    setTextInputValue('')
+  }
+
+  // Hoàn tác nét gần nhất
+  const handleUndo = () => {
+    if (annotations.length === 0) return
+    onUpdateAnnotations?.(localPage, annotations.slice(0, -1))
+  }
+
+  // Xóa toàn bộ chú thích trang này
+  const handleClearAll = () => {
+    if (annotations.length === 0) return
+    onClearAnnotations?.(localPage)
+  }
+
+  // Xóa một chú thích cụ thể
+  const handleDeleteAnnotation = (id: string) => {
+    if (!isHost) return
+    onUpdateAnnotations?.(localPage, annotations.filter((a) => a.id !== id))
   }
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
-      {/* Header thanh tài liệu */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 shrink-0">
+    <div className="relative w-full h-full flex flex-col bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden select-none">
+      {/* ─── 1. HEADER: TÊN TÀI LIỆU & THANH CÔNG CỤ CHÚ THÍCH (ANNOTATION TOOLBAR) ─── */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 shrink-0">
+        {/* Tên tài liệu và số trang */}
         <div className="flex items-center gap-2 min-w-0">
           <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
-          <span className="font-semibold text-xs text-slate-800 dark:text-slate-100 truncate max-w-[200px] sm:max-w-xs">
+          <span className="font-semibold text-xs text-slate-800 dark:text-slate-100 truncate max-w-[160px] sm:max-w-xs">
             {document.title}
           </span>
-          <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
+          <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono shrink-0">
             (Trang {localPage + 1}/{totalPages})
           </span>
         </div>
 
-        {/* Thanh trạng thái Xem tự do / Đồng bộ Host */}
-        <div className="flex items-center gap-2">
+        {/* Cụm công cụ chú thích (Chủ phòng điều khiển, thành viên xem) */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {isHost ? (
+            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-md border border-slate-200 dark:border-slate-800 shadow-xs">
+              {/* Con trỏ bình thường */}
+              <button
+                onClick={() => setActiveTool('select')}
+                className={`h-7 px-2 rounded flex items-center gap-1 text-xs font-medium transition-colors cursor-pointer ${
+                  activeTool === 'select'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+                title="Chuột trỏ (Đọc tài liệu bình thường)"
+              >
+                <MousePointer className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Trỏ</span>
+              </button>
+
+              {/* Khoanh hình chữ nhật */}
+              <button
+                onClick={() => setActiveTool('rect')}
+                className={`h-7 px-2 rounded flex items-center gap-1 text-xs font-medium transition-colors cursor-pointer ${
+                  activeTool === 'rect'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+                title="Khoanh vùng bằng hình chữ nhật kéo thả"
+              >
+                <Square className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Khoanh vùng</span>
+              </button>
+
+              {/* Bút Highlight */}
+              <button
+                onClick={() => setActiveTool('highlight')}
+                className={`h-7 px-2 rounded flex items-center gap-1 text-xs font-medium transition-colors cursor-pointer ${
+                  activeTool === 'highlight'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+                title="Tô màu highlight đánh dấu văn bản"
+              >
+                <Highlighter className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Highlight</span>
+              </button>
+
+              {/* Gõ chữ ghi chú */}
+              <button
+                onClick={() => setActiveTool('text')}
+                className={`h-7 px-2 rounded flex items-center gap-1 text-xs font-medium transition-colors cursor-pointer ${
+                  activeTool === 'text'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+                title="Click vào trang để thêm chữ ghi chú"
+              >
+                <Type className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Ghi chú</span>
+              </button>
+
+              <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-0.5" />
+
+              {/* Bảng chọn màu nét */}
+              <div className="flex items-center gap-1 px-1">
+                {ANNOTATION_COLORS.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setActiveColor(c.hex)}
+                    className={`h-4 w-4 rounded-full transition-transform cursor-pointer ${
+                      activeColor === c.hex ? 'scale-125 ring-2 ring-teal-500 ring-offset-1 dark:ring-offset-slate-900' : 'hover:scale-110 opacity-80'
+                    }`}
+                    style={{ backgroundColor: c.hex }}
+                    title={c.label}
+                  />
+                ))}
+              </div>
+
+              <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-0.5" />
+
+              {/* Hoàn tác (Undo) */}
+              <button
+                onClick={handleUndo}
+                disabled={annotations.length === 0}
+                className="h-7 w-7 rounded flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                title="Hoàn tác nét gần nhất (Ctrl + Z)"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Xóa tất cả nét trang này */}
+              <button
+                onClick={handleClearAll}
+                disabled={annotations.length === 0}
+                className="h-7 w-7 rounded flex items-center justify-center text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                title="Xóa toàn bộ chú thích trên trang này"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 text-xs border border-teal-200 dark:border-teal-800">
+              <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+              <span>Chế độ xem chú thích trực tiếp từ Chủ phòng</span>
+            </div>
+          )}
+
+          {/* Nút quay lại trang của Host cho thành viên đang xem tự do */}
           {!isHost && isFreeView && (
             <button
               onClick={handleBackToHostPage}
@@ -156,63 +354,22 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
               <span>Về trang Host (Trang {hostPage + 1})</span>
             </button>
           )}
-
-          {/* Nút Host Bật/Tắt chế độ Chỉnh sửa văn bản */}
-          {isHost && (
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer border ${
-                isEditing
-                  ? 'bg-teal-600 text-white border-teal-600'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-              }`}
-            >
-              {isEditing ? (
-                <>
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Xong sửa</span>
-                </>
-              ) : (
-                <>
-                  <Edit3 className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-                  <span>Sửa trang này</span>
-                </>
-              )}
-            </button>
-          )}
-
-          {/* Nút Lưu về thư viện cá nhân */}
-          <button
-            onClick={handleSaveToPersonalLibrary}
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
-            title="Lưu bản sao tài liệu hiện tại (bao gồm các nội dung đã sửa) vào Thư viện cá nhân"
-          >
-            <BookmarkCheck className={`w-3.5 h-3.5 ${saveSuccess ? 'text-emerald-500' : 'text-slate-500 dark:text-slate-400'}`} />
-            <span>{saveSuccess ? 'Đã lưu!' : saving ? 'Đang lưu…' : 'Lưu vào thư viện'}</span>
-          </button>
         </div>
       </div>
 
-      {/* Vùng nội dung trang: Markdown Reader hoặc Editor */}
-      <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">
-        {isEditing && isHost ? (
-          <div className="flex flex-col h-full gap-2">
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pb-1 border-b border-slate-100 dark:border-slate-800">
-              <span className="font-semibold text-teal-600 dark:text-teal-400">
-                ✍️ Trình soạn thảo văn bản (Markdown & LaTeX Math)
-              </span>
-              <span>Các thay đổi được tự động đồng bộ tới mọi người trong phòng</span>
-            </div>
-            <textarea
-              value={editingContent}
-              onChange={handleTextChange}
-              placeholder="Nhập nội dung slide/trang bài học tại đây (hỗ trợ Markdown, công thức $math$)..."
-              className="w-full flex-1 min-h-[300px] p-4 text-sm font-mono rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 resize-none leading-relaxed"
-            />
-          </div>
-        ) : (
-          <div className="prose dark:prose-invert max-w-none text-sm sm:text-base leading-relaxed">
+      {/* ─── 2. VÙNG NỘI DUNG TÀI LIỆU VÀ LỚP PHỦ CHÚ THÍCH TRỰC QUAN ─────────── */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+        <div
+          ref={contentWrapperRef}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          className={`relative min-h-full max-w-4xl mx-auto ${
+            isHost && activeTool !== 'select' ? 'cursor-crosshair' : 'cursor-default'
+          }`}
+        >
+          {/* Nội dung bài học Markdown */}
+          <div className="prose dark:prose-invert max-w-none text-sm sm:text-base leading-relaxed select-text">
             {currentPageContent ? (
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}
@@ -230,16 +387,146 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
                 {currentPageContent}
               </ReactMarkdown>
             ) : (
-              <div className="py-16 text-center text-slate-400 dark:text-slate-500">
+              <div className="py-20 text-center text-slate-400 dark:text-slate-500">
                 <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-40 text-teal-500" />
                 <p>Trang này hiện chưa có nội dung văn bản.</p>
               </div>
             )}
           </div>
-        )}
+
+          {/* ─── 3. LỚP PHỦ SVG & HTML HIỂN THỊ CÁC CHÚ THÍCH / KHOANH VÙNG ─── */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-visible">
+            {/* 1. Các nét khoanh vùng hình chữ nhật & highlight đã lưu */}
+            {annotations.map((anno) => {
+              if (anno.type === 'rect') {
+                return (
+                  <rect
+                    key={anno.id}
+                    x={`${anno.x}%`}
+                    y={`${anno.y}%`}
+                    width={`${anno.width}%`}
+                    height={`${anno.height}%`}
+                    fill={`${anno.color}15`}
+                    stroke={anno.color}
+                    strokeWidth="2.5"
+                    strokeDasharray="none"
+                    rx="4"
+                    className="transition-all"
+                  />
+                )
+              }
+              if (anno.type === 'highlight') {
+                return (
+                  <rect
+                    key={anno.id}
+                    x={`${anno.x}%`}
+                    y={`${anno.y}%`}
+                    width={`${anno.width}%`}
+                    height={`${anno.height}%`}
+                    fill={`${anno.color}50`}
+                    stroke={anno.color}
+                    strokeWidth="1"
+                    rx="3"
+                    className="mix-blend-multiply dark:mix-blend-screen"
+                  />
+                )
+              }
+              return null
+            })}
+
+            {/* 2. Hình chữ nhật / highlight nháp đang kéo chuột (Draft Preview) */}
+            {isDrawing && draftBox && (
+              <rect
+                x={`${draftBox.x}%`}
+                y={`${draftBox.y}%`}
+                width={`${draftBox.width}%`}
+                height={`${draftBox.height}%`}
+                fill={activeTool === 'highlight' ? `${activeColor}40` : `${activeColor}20`}
+                stroke={activeColor}
+                strokeWidth="2"
+                strokeDasharray={activeTool === 'rect' ? '4 2' : 'none'}
+                rx="4"
+              />
+            )}
+          </svg>
+
+          {/* ─── 4. CÁC HỘP CHỮ GHI CHÚ (TEXT NOTES) ĐẶT TRÊN TRANG ─────────── */}
+          {annotations.map((anno) => {
+            if (anno.type !== 'text' || !anno.text) return null
+            return (
+              <div
+                key={anno.id}
+                style={{
+                  left: `${anno.x}%`,
+                  top: `${anno.y}%`,
+                  borderColor: anno.color,
+                }}
+                className="absolute z-20 -translate-x-2 -translate-y-2 max-w-xs group"
+              >
+                <div
+                  style={{ backgroundColor: `${anno.color}20`, borderLeftColor: anno.color }}
+                  className="px-2.5 py-1.5 rounded-r bg-white/95 dark:bg-slate-900/95 shadow-md border-l-4 border text-xs text-slate-800 dark:text-slate-100 font-sans flex items-start gap-1.5 backdrop-blur-xs"
+                >
+                  <span className="flex-1 whitespace-pre-wrap leading-relaxed">{anno.text}</span>
+                  {isHost && (
+                    <button
+                      onClick={() => handleDeleteAnnotation(anno.id)}
+                      className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-opacity p-0.5 cursor-pointer"
+                      title="Xóa ghi chú này"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+
+          {/* Ô nhập Text Note nổi khi Host bấm tool 'text' */}
+          {textInputPos && isHost && (
+            <div
+              style={{ left: `${textInputPos.x}%`, top: `${textInputPos.y}%` }}
+              className="absolute z-30 -translate-x-2 -translate-y-2 p-2 rounded-md bg-white dark:bg-slate-900 border border-teal-500 shadow-2xl flex flex-col gap-1.5 w-64"
+            >
+              <textarea
+                autoFocus
+                value={textInputValue}
+                onChange={(e) => setTextInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleAddTextAnnotation()
+                  } else if (e.key === 'Escape') {
+                    setTextInputPos(null)
+                  }
+                }}
+                placeholder="Nhập ghi chú tại đây (Enter để lưu, Esc để hủy)..."
+                className="w-full h-16 p-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 focus:outline-none resize-none"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-slate-400">Enter để xong</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setTextInputPos(null)}
+                    className="h-6 px-2 rounded text-[11px] text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={handleAddTextAnnotation}
+                    className="h-6 px-2.5 rounded bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-medium flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Lưu</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Footer điều khiển lật trang */}
+      {/* ─── 5. FOOTER: THANH CHUYỂN TRANG ────────────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 shrink-0">
         <div className="flex items-center gap-1.5">
           <button

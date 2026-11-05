@@ -27,7 +27,8 @@ import {
   selectDocument,
   stopDocument,
   changeDocumentPage,
-  editDocumentPage,
+  sendDocumentAnnotations,
+  clearDocumentAnnotations,
   muteMember,
   kickMember,
   transferHost,
@@ -47,6 +48,8 @@ import type {
   RoomMember,
   ChatMessage,
   RoomDocumentData,
+  AnnotationsByPage,
+  DocumentAnnotation,
 } from '../../types/classroom'
 
 export type SlideItem =
@@ -204,6 +207,7 @@ export default function RoomView({
   const [pickerDocs, setPickerDocs] = useState<DocPickerItem[]>(docs.length > 0 ? docs : DOCS)
   const [loadingDocs, setLoadingDocs] = useState(false)
   const [docsLoadError, setDocsLoadError] = useState<string | null>(null)
+  const [annotationsByPage, setAnnotationsByPage] = useState<AnnotationsByPage>({})
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -289,6 +293,9 @@ export default function RoomView({
     // Đồng bộ snapshot phòng
     const onRoomState = (state: RoomState) => {
       setRoomState(state)
+      if (state.annotationsByPage) {
+        setAnnotationsByPage(state.annotationsByPage)
+      }
     }
 
     // Thành viên mới vào
@@ -377,6 +384,26 @@ export default function RoomView({
       })
     }
 
+    // Đồng bộ chú thích trực quan trên trang tài liệu (In-Memory)
+    const onDocAnnotate = ({ pageIndex, annotations }: { pageIndex: number; annotations: DocumentAnnotation[] }) => {
+      setAnnotationsByPage((prev) => ({
+        ...prev,
+        [pageIndex]: annotations,
+      }))
+    }
+
+    const onDocClearAnnotations = ({ pageIndex }: { pageIndex?: number }) => {
+      if (pageIndex !== undefined) {
+        setAnnotationsByPage((prev) => {
+          const next = { ...prev }
+          delete next[pageIndex]
+          return next
+        })
+      } else {
+        setAnnotationsByPage({})
+      }
+    }
+
     // Bị Host mời ra hoặc Phòng bị đóng
     const onKicked = ({ reason }: { reason: string }) => {
       alert(reason || 'Bạn đã bị mời ra khỏi phòng học.')
@@ -404,6 +431,8 @@ export default function RoomView({
     socket.on('DOC:SYNC', onDocSync)
     socket.on('DOC:PAGE_CHANGED', onDocPageChanged)
     socket.on('DOC:PAGE_UPDATED', onDocPageUpdated)
+    socket.on('DOC:ANNOTATE', onDocAnnotate)
+    socket.on('DOC:CLEAR_ANNOTATIONS', onDocClearAnnotations)
     socket.on('ROOM:KICKED', onKicked)
     socket.on('ROOM:CLOSED', onClosed)
     socket.on('ERROR', onError)
@@ -420,6 +449,8 @@ export default function RoomView({
       socket.off('DOC:SYNC', onDocSync)
       socket.off('DOC:PAGE_CHANGED', onDocPageChanged)
       socket.off('DOC:PAGE_UPDATED', onDocPageUpdated)
+      socket.off('DOC:ANNOTATE', onDocAnnotate)
+      socket.off('DOC:CLEAR_ANNOTATIONS', onDocClearAnnotations)
       socket.off('ROOM:KICKED', onKicked)
       socket.off('ROOM:CLOSED', onClosed)
       socket.off('ERROR', onError)
@@ -609,6 +640,7 @@ export default function RoomView({
       ...prev,
       activeDocument: docData,
     }))
+    setAnnotationsByPage({})
 
     // Gửi sự kiện Socket để đồng bộ cho toàn bộ phòng
     selectDocument(room.code, selectedDoc.id, {
@@ -627,6 +659,7 @@ export default function RoomView({
       ...prev,
       activeDocument: null,
     }))
+    setAnnotationsByPage({})
   }
 
   // Lật trang tài liệu (Cập nhật tức thì 0ms trên máy Host và gửi Socket)
@@ -644,21 +677,27 @@ export default function RoomView({
     changeDocumentPage(room.code, pageIndex)
   }
 
-  // Sửa văn bản trang tài liệu (Cập nhật tức thì 0ms trên máy Host và gửi Socket)
-  const handleEditPage = (pageIndex: number, newContent: string) => {
-    setRoomState((prev) => {
-      if (!prev.activeDocument) return prev
-      const pages = [...(prev.activeDocument.pagesContent || [])]
-      pages[pageIndex] = newContent
-      return {
-        ...prev,
-        activeDocument: {
-          ...prev.activeDocument,
-          pagesContent: pages,
-        },
-      }
-    })
-    editDocumentPage(room.code, pageIndex, newContent)
+  // Cập nhật chú thích trực quan trên trang tài liệu (Khoanh vùng / Highlight / Text)
+  const handleUpdateAnnotations = (pageIndex: number, newAnnotations: DocumentAnnotation[]) => {
+    setAnnotationsByPage((prev) => ({
+      ...prev,
+      [pageIndex]: newAnnotations,
+    }))
+    sendDocumentAnnotations(room.code, pageIndex, newAnnotations)
+  }
+
+  // Xóa chú thích trên trang (hoặc toàn bộ)
+  const handleClearAnnotations = (pageIndex?: number) => {
+    if (pageIndex !== undefined) {
+      setAnnotationsByPage((prev) => {
+        const next = { ...prev }
+        delete next[pageIndex]
+        return next
+      })
+    } else {
+      setAnnotationsByPage({})
+    }
+    clearDocumentAnnotations(room.code, pageIndex)
   }
 
   // Quản trị thành viên (Host)
@@ -859,8 +898,10 @@ export default function RoomView({
                   document={roomState.activeDocument}
                   isHost={isHost}
                   currentUserId={userId}
+                  annotations={annotationsByPage[roomState.activeDocument.currentPage || 0] || []}
                   onPageChange={handlePageChange}
-                  onEditPage={handleEditPage}
+                  onUpdateAnnotations={handleUpdateAnnotations}
+                  onClearAnnotations={handleClearAnnotations}
                 />
               </div>
 

@@ -3,7 +3,7 @@
 
 import { io, Socket } from 'socket.io-client'
 import { supabase } from './supabaseClient'
-import type { ClientToServerEvents, ServerToClientEvents } from '../types/classroom'
+import type { ClientToServerEvents, ServerToClientEvents, DocumentAnnotation } from '../types/classroom'
 
 const SOCKET_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -142,6 +142,24 @@ export function changeDocumentPage(roomCode: string, pageIndex: number) {
 export function editDocumentPage(roomCode: string, pageIndex: number, content: string) {
   if (socket.connected) {
     socket.emit('DOC:EDIT_PAGE', { roomCode, pageIndex, content })
+  }
+}
+
+/**
+ * Chủ phòng: Đồng bộ chú thích / khoanh vùng trên trang tài liệu
+ */
+export function sendDocumentAnnotations(roomCode: string, pageIndex: number, annotations: DocumentAnnotation[]) {
+  if (socket.connected) {
+    socket.emit('DOC:ANNOTATE', { roomCode, pageIndex, annotations })
+  }
+}
+
+/**
+ * Chủ phòng: Xóa chú thích trên trang (hoặc tất cả các trang)
+ */
+export function clearDocumentAnnotations(roomCode: string, pageIndex?: number) {
+  if (socket.connected) {
+    socket.emit('DOC:CLEAR_ANNOTATIONS', { roomCode, pageIndex })
   }
 }
 
