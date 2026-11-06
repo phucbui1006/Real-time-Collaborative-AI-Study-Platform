@@ -9,6 +9,7 @@ export type RoomItem = {
   lastVisit: string;
   color: string;
   documentId?: number | null;
+  onlineCount?: number;
 };
 
 export const INITIAL_HISTORY: RoomItem[] = [
@@ -85,6 +86,20 @@ export async function fetchRoomsApi(userId?: string): Promise<RoomItem[]> {
   } catch (err) {
     console.warn("Lỗi tải phòng từ Supabase:", err);
     return isValidUUID(userId) ? [] : INITIAL_HISTORY;
+  }
+}
+
+/**
+ * Lấy số lượng người dùng đang online thực tế trong các phòng từ máy chủ API
+ */
+export async function fetchActiveRoomCountsApi(): Promise<Record<string, number>> {
+  try {
+    const res = await fetch("/api/rooms/active-counts");
+    if (!res.ok) return {};
+    const json = await res.json();
+    return json.counts || {};
+  } catch {
+    return {};
   }
 }
 

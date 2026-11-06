@@ -2,10 +2,13 @@
 
 const express = require('express')
 const router = express.Router()
-const { createRoom, verifyRoom, getRooms } = require('../controllers/roomController')
+const { createRoom, verifyRoom, getRooms, getActiveCounts } = require('../controllers/roomController')
 
 // GET  /api/rooms               — Danh sách các phòng học
 router.get('/', getRooms)
+
+// GET  /api/rooms/active-counts — Số lượng người đang online thực tế trong các phòng
+router.get('/active-counts', getActiveCounts)
 
 // POST /api/rooms/create        — Tạo phòng học mới, trả về mã 6 số
 router.post('/create', createRoom)

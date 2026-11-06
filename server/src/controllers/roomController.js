@@ -121,4 +121,20 @@ async function getRooms(_req, res, next) {
   }
 }
 
-module.exports = { createRoom, verifyRoom, getRooms }
+/** GET /api/rooms/active-counts — Lấy số lượng người đang online thực tế trong các phòng từ RAM */
+async function getActiveCounts(_req, res, next) {
+  try {
+    const activeRooms = getActiveRooms()
+    const counts = {}
+    if (activeRooms) {
+      for (const [code, room] of activeRooms.entries()) {
+        counts[code] = room.members ? room.members.size : 0
+      }
+    }
+    res.json({ success: true, counts })
+  } catch (err) {
+    next(err)
+  }
+}
+
+module.exports = { createRoom, verifyRoom, getRooms, getActiveCounts }

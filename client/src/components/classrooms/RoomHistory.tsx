@@ -79,7 +79,7 @@ export function RoomHistory({
       if (!matchesSearch) return false;
 
       if (currentFilter === "all") return true;
-      if (currentFilter === "online") return idx % 2 === 0; // mẫu: phòng chẵn có người online
+      if (currentFilter === "online") return (r.onlineCount || 0) > 0;
       const subject = getSubjectInfo(r.name, idx);
       if (currentFilter === "math") return subject.name === "Toán đại cương";
       if (currentFilter === "cs") return subject.name === "Khoa học máy tính";
@@ -216,7 +216,8 @@ export function RoomHistory({
             {filtered.map((r, idx) => {
               const subject = getSubjectInfo(r.name, idx);
               const SubjectIcon = subject.icon;
-              const isOnline = idx % 2 === 0;
+              const onlineCount = typeof r.onlineCount === 'number' ? r.onlineCount : 0;
+              const isOnline = onlineCount > 0;
 
               return (
                 <article
@@ -244,10 +245,10 @@ export function RoomHistory({
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-sharp bg-[#e1edff] dark:bg-[#242436] text-xs text-[#111118] dark:text-[#f0f6ff]">
                             <span
                               className={`w-2 h-2 rounded-full ${
-                                isOnline ? "bg-[#16ab59]" : "bg-slate-400"
+                                isOnline ? "bg-[#16ab59] animate-pulse" : "bg-slate-400"
                               }`}
                             />
-                            {isOnline ? "2 bạn đang học" : "Chưa có ai online"}
+                            {isOnline ? `${onlineCount} bạn đang học` : "Chưa có ai bên trong"}
                           </span>
                         </div>
                         <h2 className="text-xl font-normal text-[#111118] dark:text-[#f0f6ff] line-clamp-2 leading-snug">
@@ -295,25 +296,8 @@ export function RoomHistory({
                     </div>
                   </div>
 
-                  {/* Card Footer: Avatars thành viên & Nút vào phòng */}
-                  <div className="mt-5 pt-4 border-t border-[#e1edff] dark:border-[#2a2a3a] flex items-center justify-between gap-4">
-                    <div className="flex items-center">
-                      <div className="flex -space-x-2">
-                        <div className="w-8 h-8 rounded-full bg-[#91d8ec] text-[#111118] border-2 border-white dark:border-[#1b1b26] flex items-center justify-center text-xs shadow-[0_1px_0_0_#111118]">
-                          {userName.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div className="w-8 h-8 rounded-full bg-[#ffda00] text-[#111118] border-2 border-white dark:border-[#1b1b26] flex items-center justify-center text-xs shadow-[0_1px_0_0_#111118]">
-                          TD
-                        </div>
-                        <div className="w-8 h-8 rounded-full bg-[#ffbac4] text-[#111118] border-2 border-white dark:border-[#1b1b26] flex items-center justify-center text-xs shadow-[0_1px_0_0_#111118]">
-                          TT
-                        </div>
-                      </div>
-                      <span className="ml-3 text-xs text-[#111118]/70 dark:text-[#f0f6ff]/70">
-                        +3 bạn khác
-                      </span>
-                    </div>
-
+                  {/* Card Footer: Nút vào phòng căn phải gọn gàng */}
+                  <div className="mt-5 pt-4 border-t border-[#e1edff] dark:border-[#2a2a3a] flex items-center justify-end">
                     <button
                       onClick={() => onRejoin(r)}
                       className="inline-flex items-center gap-1.5 h-10 px-5 rounded-pill bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white text-sm font-normal border border-[#111118] shadow-[0_3px_0_0_#111118] dark:shadow-[0_3px_0_0_#000000] active:translate-y-[1px] transition-transform cursor-pointer"

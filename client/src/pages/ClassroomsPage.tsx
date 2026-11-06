@@ -9,6 +9,7 @@ import {
   joinRoomApi,
   createRoomApi,
   fetchRoomsApi,
+  fetchActiveRoomCountsApi,
   RoomItem,
 } from "../services/roomService";
 import { idleService } from "../services/idleService";
@@ -140,12 +141,23 @@ export default function ClassroomsPage({
 
   useEffect(() => {
     async function load() {
-      const data = await fetchRoomsApi(userId);
+      const [data, counts] = await Promise.all([
+        fetchRoomsApi(userId),
+        fetchActiveRoomCountsApi(),
+      ]);
+
+      const enrich = (list: RoomItem[]) =>
+        list.map((r) => ({
+          ...r,
+          onlineCount: counts[r.code] ?? 0,
+        }));
+
       if (isRealUser) {
         // Tài khoản thật: CHỈ lấy các phòng do user tạo trên Supabase hoặc phòng đã tham gia
-        setRooms(data);
+        const enriched = enrich(data);
+        setRooms(enriched);
         try {
-          localStorage.setItem(localKey, JSON.stringify(data));
+          localStorage.setItem(localKey, JSON.stringify(enriched));
         } catch {}
       } else {
         // Tài khoản demo: merge với INITIAL_HISTORY
@@ -157,15 +169,29 @@ export default function ClassroomsPage({
                 merged.push(p);
               }
             });
+            const enriched = enrich(merged);
             try {
-              localStorage.setItem(localKey, JSON.stringify(merged));
+              localStorage.setItem(localKey, JSON.stringify(enriched));
             } catch {}
-            return merged;
+            return enriched;
           });
         }
       }
     }
     load();
+
+    // Định kỳ làm mới số lượng người online thực tế mỗi 10 giây
+    const interval = setInterval(async () => {
+      const counts = await fetchActiveRoomCountsApi();
+      setRooms((prev) =>
+        prev.map((r) => ({
+          ...r,
+          onlineCount: counts[r.code] ?? 0,
+        }))
+      );
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, [userId, localKey, isRealUser]);
 
   // Trạng thái phòng hiện tại đang vào (nếu có)
