@@ -317,6 +317,7 @@ export default function RoomView({
     localStream,
     screenStream,
     remoteStreams,
+    remoteScreenStream,
     isMicOn,
     isCamOn,
     isSharingScreen,
@@ -405,11 +406,30 @@ export default function RoomView({
 
   // ─── ĐĂNG KÝ VÀ LẮNG NGHE SỰ KIỆN REALTIME SOCKET.IO ────────────────────
   useEffect(() => {
-    joinRoom(room.code, {
-      id: userId,
-      name: userName,
-      avatarColor: '#0ea5e9',
-    })
+    const doJoin = () => {
+      joinRoom(room.code, {
+        id: userId,
+        name: userName,
+        avatarColor: '#0ea5e9',
+      })
+    }
+
+    doJoin()
+
+    // Tự động tham gia lại phòng nếu kết nối socket bị ngắt rồi khôi phục lại
+    const handleConnect = () => {
+      console.log('🔄 [Socket.io] Khôi phục kết nối socket, tự động tham gia lại phòng học...')
+      setIsSocketConnected(true)
+      doJoin()
+    }
+
+    const handleDisconnect = () => {
+      console.warn('⚠️ [Socket.io] Mất kết nối tới máy chủ phòng học...')
+      setIsSocketConnected(false)
+    }
+
+    socket.on('connect', handleConnect)
+    socket.on('disconnect', handleDisconnect)
 
     const onRoomState = (state: RoomState) => {
       setRoomState((prev) => ({
@@ -583,6 +603,8 @@ export default function RoomView({
 
     return () => {
       leaveRoom(room.code)
+      socket.off('connect', handleConnect)
+      socket.off('disconnect', handleDisconnect)
       socket.off('ROOM:ROLE_CHANGED', onRoleChanged)
       socket.off('ROOM:STATE', onRoomState)
       socket.off('ROOM:MEMBER_JOINED', onMemberJoined)
@@ -987,9 +1009,10 @@ export default function RoomView({
   const activeScreenSharerSocketId = roomState.screenSharerSocketId
   const isSomeoneSharing = isLocalSharing || Boolean(activeScreenSharerSocketId)
 
-  // Luồng màn hình chia sẻ từ LiveKit SFU
+  // Luồng màn hình chia sẻ từ LiveKit SFU (ưu tiên trực tiếp từ remoteScreenStream của LiveKit, hoặc fallback qua remoteStreams)
   const remoteScreenStreamToDisplay =
-    activeScreenSharerSocketId ? remoteStreams[activeScreenSharerSocketId] : null
+    remoteScreenStream ||
+    (activeScreenSharerSocketId ? remoteStreams[activeScreenSharerSocketId] : null)
 
   const isRemoteSharing = Boolean(
     activeScreenSharerSocketId &&

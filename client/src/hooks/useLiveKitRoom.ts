@@ -41,6 +41,7 @@ export function useLiveKitRoom({
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({})
+  const [remoteScreenStream, setRemoteScreenStream] = useState<MediaStream | null>(null)
   const [isMicOn, setIsMicOn] = useState(false)
   const [isCamOn, setIsCamOn] = useState(false)
   const [isSharingScreen, setIsSharingScreen] = useState(false)
@@ -49,6 +50,7 @@ export function useLiveKitRoom({
   const [isReconnecting, setIsReconnecting] = useState(false)
 
   const roomRef = useRef<Room | null>(null)
+  const screenStreamRef = useRef<MediaStream | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const isUnmountedRef = useRef(false)
 
@@ -88,7 +90,14 @@ export function useLiveKitRoom({
         } catch {}
       })
     }
-    if (screenStream) {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((t) => {
+        try {
+          t.stop()
+        } catch {}
+      })
+      screenStreamRef.current = null
+    } else if (screenStream) {
       screenStream.getTracks().forEach((t) => {
         try {
           t.stop()
@@ -106,6 +115,7 @@ export function useLiveKitRoom({
     setLocalStream(null)
     setScreenStream(null)
     setRemoteStreams({})
+    setRemoteScreenStream(null)
     setIsMicOn(false)
     setIsCamOn(false)
     setIsSharingScreen(false)
@@ -188,7 +198,11 @@ export function useLiveKitRoom({
             const participantKey = participant.identity
             console.log(`📡 [LiveKit] Nhận track ${track.kind} (${track.source}) từ ${participantKey}`)
 
-            if (track.mediaStreamTrack) {
+            if (track.source === Track.Source.ScreenShare) {
+              if (track.mediaStreamTrack) {
+                setRemoteScreenStream(new MediaStream([track.mediaStreamTrack]))
+              }
+            } else if (track.mediaStreamTrack) {
               setRemoteStreams((prev) => {
                 const existing = prev[participantKey]
                 if (existing) {
@@ -212,23 +226,57 @@ export function useLiveKitRoom({
         room.on(
           RoomEvent.TrackUnsubscribed,
           (track: RemoteTrack, _pub: RemoteTrackPublication, participant: RemoteParticipant) => {
-            const participantKey = participant.identity
-            setRemoteStreams((prev) => {
-              const existing = prev[participantKey]
-              if (!existing) return prev
-              const remaining = existing.getTracks().filter((t) => t.id !== track.mediaStreamTrack?.id)
-              if (remaining.length === 0) {
-                const next = { ...prev }
-                delete next[participantKey]
-                return next
-              }
-              return {
-                ...prev,
-                [participantKey]: new MediaStream(remaining),
-              }
-            })
+            if (track.source === Track.Source.ScreenShare) {
+              setRemoteScreenStream(null)
+            } else {
+              const participantKey = participant.identity
+              setRemoteStreams((prev) => {
+                const existing = prev[participantKey]
+                if (!existing) return prev
+                const remaining = existing.getTracks().filter((t) => t.id !== track.mediaStreamTrack?.id)
+                if (remaining.length === 0) {
+                  const next = { ...prev }
+                  delete next[participantKey]
+                  return next
+                }
+                return {
+                  ...prev,
+                  [participantKey]: new MediaStream(remaining),
+                }
+              })
+            }
           }
         )
+
+        // Lắng nghe khi track cục bộ được publish (đồng bộ luồng chia sẻ màn hình của bản thân)
+        room.on(RoomEvent.LocalTrackPublished, (pub) => {
+          if (pub.source === Track.Source.ScreenShare && pub.track?.mediaStreamTrack) {
+            const mTrack = pub.track.mediaStreamTrack
+            const stream = new MediaStream([mTrack])
+            screenStreamRef.current = stream
+            setScreenStream(stream)
+            setIsSharingScreen(true)
+            mTrack.onended = () => {
+              stopScreenShare()
+            }
+          }
+        })
+
+        // Lắng nghe khi track cục bộ bị unpublish
+        room.on(RoomEvent.LocalTrackUnpublished, (pub) => {
+          if (pub.source === Track.Source.ScreenShare) {
+            if (screenStreamRef.current) {
+              screenStreamRef.current.getTracks().forEach((t) => {
+                try {
+                  t.stop()
+                } catch {}
+              })
+              screenStreamRef.current = null
+            }
+            setScreenStream(null)
+            setIsSharingScreen(false)
+          }
+        })
 
         // Kết nối phòng
         await room.connect(url, token)
@@ -330,7 +378,31 @@ export function useLiveKitRoom({
     }
   }, [isCamOn, isMicOn, roomCode, userRole, onPermissionError])
 
-  // ─── 5. CHIA SẺ MÀN HÌNH (BẬT / TẮT VỚI SIMULCAST) ─────────────────────
+  // ─── 5. CHIA SẺ MÀN HÌNH (BẬT / TẮT SFU CHUẨN ĐỘ PHÂN GIẢI GỐC) ─────────
+  const stopScreenShare = useCallback(async () => {
+    const room = roomRef.current
+    if (room) {
+      try {
+        await room.localParticipant.setScreenShareEnabled(false)
+      } catch (err) {
+        console.warn('[LiveKit] Lỗi khi tắt chia sẻ màn hình:', err)
+      }
+    }
+
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((t) => {
+        try {
+          t.stop()
+        } catch {}
+      })
+      screenStreamRef.current = null
+    }
+
+    setScreenStream(null)
+    setIsSharingScreen(false)
+    emitStopShare(roomCode)
+  }, [roomCode])
+
   const startScreenShare = useCallback(async () => {
     const room = roomRef.current
     if (!room) {
@@ -339,19 +411,23 @@ export function useLiveKitRoom({
     }
 
     try {
-      // Bật chia sẻ màn hình với Simulcast qua LiveKit SFU
-      const pub = await room.localParticipant.setScreenShareEnabled(true, undefined, {
-        simulcast: true,
+      // Bật chia sẻ màn hình qua LiveKit SFU (không dùng simulcast cho screenshare để tương thích 100% mọi trình duyệt)
+      const pub = await room.localParticipant.setScreenShareEnabled(true, {
+        audio: true, // Kèm âm thanh tab/hệ thống nếu người dùng chọn
       })
 
       setIsSharingScreen(true)
 
-      const screenTrack = pub?.track?.mediaStreamTrack
+      // Lấy track màn hình từ publication vừa tạo hoặc qua getTrackPublication
+      const trackPub = pub || room.localParticipant.getTrackPublication(Track.Source.ScreenShare)
+      const screenTrack = trackPub?.track?.mediaStreamTrack
+
       if (screenTrack) {
         const stream = new MediaStream([screenTrack])
+        screenStreamRef.current = stream
         setScreenStream(stream)
 
-        // Lắng nghe khi người dùng bấm "Dừng chia sẻ" trên thanh trình duyệt
+        // Lắng nghe khi người dùng bấm "Dừng chia sẻ" trên thanh trình duyệt (Chrome/Edge/Firefox)
         screenTrack.onended = () => {
           stopScreenShare()
         }
@@ -359,33 +435,16 @@ export function useLiveKitRoom({
 
       emitStartShare(roomCode)
     } catch (err: any) {
-      if (err.name !== 'NotAllowedError') {
-        console.warn('[LiveKit] Lỗi chia sẻ màn hình:', err)
-        onPermissionError?.('Không thể chia sẻ màn hình. Vui lòng thử lại.')
+      if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
+        console.log('[LiveKit] Người dùng đã hủy chọn cửa sổ chia sẻ.')
+        return
       }
-    }
-  }, [roomCode, onPermissionError])
 
-  const stopScreenShare = useCallback(async () => {
-    const room = roomRef.current
-    if (room) {
-      try {
-        await room.localParticipant.setScreenShareEnabled(false)
-      } catch {}
+      console.warn('[LiveKit] Lỗi chia sẻ màn hình:', err)
+      const detail = err?.message ? `: ${err.message}` : ''
+      onPermissionError?.(`Không thể chia sẻ màn hình${detail}. Vui lòng thử lại.`)
     }
-
-    if (screenStream) {
-      screenStream.getTracks().forEach((t) => {
-        try {
-          t.stop()
-        } catch {}
-      })
-    }
-
-    setScreenStream(null)
-    setIsSharingScreen(false)
-    emitStopShare(roomCode)
-  }, [roomCode, screenStream])
+  }, [roomCode, onPermissionError, stopScreenShare])
 
   // Lắng nghe sự kiện bị host tắt mic
   useEffect(() => {
@@ -407,6 +466,7 @@ export function useLiveKitRoom({
     localStream,
     screenStream,
     remoteStreams,
+    remoteScreenStream,
     isMicOn,
     isCamOn,
     isSharingScreen,
