@@ -64,6 +64,8 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
   const [isDrawing, setIsDrawing] = useState<boolean>(false)
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
   const [draftBox, setDraftBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+  const draftBoxRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   // Trạng thái gõ Text Note nổi (Lưu tọa độ pixel hiển thị chính xác + tỷ lệ % chuẩn hóa để đồng bộ)
   interface TextInputDraftState {
@@ -83,6 +85,10 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
     setActiveTool(tool)
     setTextInputState(null)
     setTextInputValue('')
+    setIsDrawing(false)
+    setDragStart(null)
+    setDraftBox(null)
+    draftBoxRef.current = null
   }
 
   // Tự động đóng và biến mất ô note nếu bấm ra ngoài vùng ghi chú khi chưa Enter/Lưu
@@ -145,8 +151,8 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
     setLocalPage(hostPage)
   }
 
-  // Chuyển đổi tọa độ chuột sang % tương đối theo kích thước contentWrapper
-  const getRelativeCoords = (e: React.MouseEvent) => {
+  // Chuyển đổi tọa độ chuột sang % tương đối theo kích thước contentWrapper (hỗ trợ cả React Event và Window Native Event)
+  const getRelativeCoords = (e: MouseEvent | React.MouseEvent) => {
     const el = contentWrapperRef.current
     if (!el) return { x: 0, y: 0 }
     const rect = el.getBoundingClientRect()
@@ -166,6 +172,14 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
     // Bỏ qua nếu click vào chính popup ghi chú hoặc các nút con bên trong
     if (notePopupRef.current && notePopupRef.current.contains(e.target as Node)) {
       return
+    }
+
+    // Bỏ qua nếu bấm vào thanh cuộn trình duyệt (khoảng mép phải container cuộn)
+    if (scrollContainerRef.current) {
+      const scrollRect = scrollContainerRef.current.getBoundingClientRect()
+      if (e.clientX >= scrollRect.right - 16) {
+        return
+      }
     }
 
     if (activeTool === 'text') {
@@ -200,52 +214,63 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
     }
 
     if (activeTool === 'rect' || activeTool === 'highlight') {
+      // Ngăn chặn sự kiện bôi đen chữ của trình duyệt khi bắt đầu kéo vẽ
+      e.preventDefault()
       const coords = getRelativeCoords(e)
       setIsDrawing(true)
       setDragStart(coords)
-      setDraftBox({ x: coords.x, y: coords.y, width: 0, height: 0 })
+      const box = { x: coords.x, y: coords.y, width: 0, height: 0 }
+      draftBoxRef.current = box
+      setDraftBox(box)
     }
   }
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  // Theo dõi sự kiện di chuyển và nhả chuột toàn cục (window) để nét kéo vẽ luôn mượt mà và không bị đứt đoạn
+  useEffect(() => {
     if (!isDrawing || !dragStart || !isHost) return
 
-    const current = getRelativeCoords(e)
-    const x = Math.min(dragStart.x, current.x)
-    const y = Math.min(dragStart.y, current.y)
-    const width = Math.abs(current.x - dragStart.x)
-    const height = Math.abs(current.y - dragStart.y)
+    const handlePointerMove = (e: MouseEvent) => {
+      const current = getRelativeCoords(e)
+      const x = Math.min(dragStart.x, current.x)
+      const y = Math.min(dragStart.y, current.y)
+      const width = Math.abs(current.x - dragStart.x)
+      const height = Math.abs(current.y - dragStart.y)
 
-    setDraftBox({ x, y, width, height })
-  }
+      const box = { x, y, width, height }
+      draftBoxRef.current = box
+      setDraftBox(box)
+    }
 
-  const handleMouseUp = () => {
-    if (!isDrawing || !draftBox || !isHost) {
+    const handlePointerUp = () => {
+      const box = draftBoxRef.current
+      if (box && box.width > 0.8 && box.height > 0.8) {
+        const newAnno: DocumentAnnotation = {
+          id: `anno_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          type: activeTool === 'highlight' ? 'highlight' : 'rect',
+          x: Number(box.x.toFixed(2)),
+          y: Number(box.y.toFixed(2)),
+          width: Number(box.width.toFixed(2)),
+          height: Number(box.height.toFixed(2)),
+          color: activeColor,
+          createdAt: Date.now(),
+        }
+        onUpdateAnnotations?.(localPage, [...annotations, newAnno])
+      }
+
       setIsDrawing(false)
       setDragStart(null)
       setDraftBox(null)
-      return
+      draftBoxRef.current = null
     }
 
-    // Nếu hình vẽ đủ lớn (tránh cú click chuột vô tình)
-    if (draftBox.width > 0.8 && draftBox.height > 0.8) {
-      const newAnno: DocumentAnnotation = {
-        id: `anno_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        type: activeTool === 'highlight' ? 'highlight' : 'rect',
-        x: Number(draftBox.x.toFixed(2)),
-        y: Number(draftBox.y.toFixed(2)),
-        width: Number(draftBox.width.toFixed(2)),
-        height: Number(draftBox.height.toFixed(2)),
-        color: activeColor,
-        createdAt: Date.now(),
-      }
-      onUpdateAnnotations?.(localPage, [...annotations, newAnno])
-    }
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
 
-    setIsDrawing(false)
-    setDragStart(null)
-    setDraftBox(null)
-  }
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+    }
+  }, [isDrawing, dragStart, isHost, activeTool, activeColor, localPage, annotations, onUpdateAnnotations])
 
   // ─── XỬ LÝ GÕ TEXT NOTE ──────────────────────────────────────────────────
   const handleAddTextAnnotation = () => {
@@ -425,18 +450,25 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
       </div>
 
       {/* ─── 2. VÙNG NỘI DUNG TÀI LIỆU VÀ LỚP PHỦ CHÚ THÍCH TRỰC QUAN ─────────── */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+      <div
+        ref={scrollContainerRef}
+        onMouseDown={handleMouseDown}
+        className={`flex-1 overflow-y-auto bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 ${
+          isHost && activeTool !== 'select' ? 'cursor-crosshair select-none' : 'cursor-default'
+        }`}
+      >
         <div
           ref={contentWrapperRef}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          className={`relative min-h-full max-w-4xl mx-auto ${
-            isHost && activeTool !== 'select' ? 'cursor-crosshair' : 'cursor-default'
+          className={`relative min-h-full max-w-4xl mx-auto p-4 sm:p-8 ${
+            isHost && activeTool !== 'select' ? 'cursor-crosshair select-none' : 'cursor-default'
           }`}
         >
           {/* Nội dung bài học Markdown */}
-          <div className="prose dark:prose-invert max-w-none text-sm sm:text-base leading-relaxed select-text">
+          <div
+            className={`prose dark:prose-invert max-w-none text-sm sm:text-base leading-relaxed ${
+              isHost && activeTool !== 'select' ? 'select-none pointer-events-none' : 'select-text'
+            }`}
+          >
             {currentPageContent ? (
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}
