@@ -50,7 +50,14 @@ export function useLiveKitRoom({
   const [isReconnecting, setIsReconnecting] = useState(false)
 
   const roomRef = useRef<Room | null>(null)
-  const socketReady = Boolean(currentSocketId)
+  // Cờ một chiều: khi socket đã sẵn sàng một lần thì giữ nguyên, tránh ngắt LiveKit mỗi khi socket đổi ID
+  const [socketReady, setSocketReady] = useState(Boolean(currentSocketId))
+  useEffect(() => {
+    if (currentSocketId) setSocketReady(true)
+  }, [currentSocketId])
+  useEffect(() => {
+    setSocketReady(Boolean(socket.id))
+  }, [roomCode])
   const screenStreamRef = useRef<MediaStream | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const isUnmountedRef = useRef(false)

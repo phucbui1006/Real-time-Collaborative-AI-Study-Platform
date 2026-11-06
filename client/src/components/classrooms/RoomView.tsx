@@ -346,6 +346,12 @@ export default function RoomView({
     onLeave()
   }, [stopAllMedia, room.code, onLeave])
 
+  // Ref giữ giá trị mới nhất để effect socket không bị chạy lại (tránh ngắt/nối lại socket vô ích)
+  const handleLeaveRef = useRef(handleLeave)
+  handleLeaveRef.current = handleLeave
+  const activeDrawerTabRef = useRef(activeDrawerTab)
+  activeDrawerTabRef.current = activeDrawerTab
+
   // Đóng phòng hoàn toàn cho tất cả mọi người (Chủ phòng)
   const handleCloseRoomForEveryone = useCallback(() => {
     stopAllMedia()
@@ -353,12 +359,15 @@ export default function RoomView({
     onLeave()
   }, [stopAllMedia, room.code, onLeave])
 
-  // Đảm bảo dừng 100% camera và mic khi RoomView bị unmount
+  // Đảm bảo dừng 100% camera và mic khi RoomView bị unmount (chỉ chạy khi unmount thật sự,
+  // không chạy mỗi khi stream thay đổi — tránh ngắt LiveKit giữa chừng khi bật mic/cam/chia sẻ màn hình)
+  const stopAllMediaRef = useRef(stopAllMedia)
+  stopAllMediaRef.current = stopAllMedia
   useEffect(() => {
     return () => {
-      stopAllMedia()
+      stopAllMediaRef.current()
     }
-  }, [stopAllMedia])
+  }, [])
 
   // Optimistic Member đại diện cho chính người dùng hiện tại (tránh badge = 0 và màn hình đen)
   const mySelfMember = useMemo<RoomMember>(() => ({
@@ -484,7 +493,7 @@ export default function RoomView({
 
     const onChatMessage = (msg: ChatMessage) => {
       setMessages((prev) => [...prev, msg])
-      if (activeDrawerTab !== 'chat') {
+      if (activeDrawerTabRef.current !== 'chat') {
         setUnreadCount((c) => c + 1)
       }
 
@@ -555,12 +564,12 @@ export default function RoomView({
 
     const onKicked = ({ reason }: { reason: string }) => {
       alert(reason || 'Bạn đã bị mời ra khỏi phòng học.')
-      handleLeave()
+      handleLeaveRef.current()
     }
 
     const onClosed = ({ reason }: { reason: string }) => {
       alert(reason || 'Chủ phòng đã kết thúc buổi học.')
-      handleLeave()
+      handleLeaveRef.current()
     }
 
     const onError = ({ message }: { message: string }) => {
@@ -622,7 +631,7 @@ export default function RoomView({
       socket.off('ROOM:CLOSED', onClosed)
       socket.off('ERROR', onError)
     }
-  }, [room.code, userId, userName, handleLeave, activeDrawerTab])
+  }, [room.code, userId, userName])
 
   // Reset badge tin chưa đọc khi mở tab chat
   useEffect(() => {
