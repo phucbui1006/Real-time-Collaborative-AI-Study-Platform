@@ -147,13 +147,14 @@ export function useLiveKitRoom({
 
     async function connectLiveKit() {
       try {
-        // Lấy token xác thực từ server
+        // Lấy token xác thực từ server (lấy socket.id tức thì nếu có)
+        const activeSocketId = socket.id || currentSocketId || ''
         const res = await fetch(getApiUrl(`/api/rooms/${roomCode}/livekit-token`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             userId,
-            socketId: currentSocketId,
+            socketId: activeSocketId,
             userName: userName || 'Thành viên',
           }),
         })
@@ -186,7 +187,8 @@ export function useLiveKitRoom({
           setIsReconnecting(false)
         })
 
-        room.on(RoomEvent.Disconnected, () => {
+        room.on(RoomEvent.Disconnected, (reason) => {
+          console.warn('⚠️ [LiveKit SFU] Room bị ngắt kết nối:', reason)
           setIsLiveKitConnected(false)
           setIsReconnecting(false)
         })
@@ -299,7 +301,7 @@ export function useLiveKitRoom({
         activeRoom.disconnect()
       }
     }
-  }, [roomCode, userId, currentSocketId, userName])
+  }, [roomCode, userId, userName])
 
   // ─── 3. ĐIỀU KHIỂN MICROPHONE (BẬT / TẮT) ───────────────────────────────
   const toggleMic = useCallback(async () => {
@@ -309,8 +311,8 @@ export function useLiveKitRoom({
     }
 
     const room = roomRef.current
-    if (!room) {
-      onPermissionError?.('Chưa kết nối tới máy chủ phòng học.')
+    if (!room || room.state !== 'connected') {
+      onPermissionError?.('Hệ thống SFU đang kết nối. Vui lòng thử lại sau vài giây.')
       return
     }
 
@@ -343,8 +345,8 @@ export function useLiveKitRoom({
     }
 
     const room = roomRef.current
-    if (!room) {
-      onPermissionError?.('Chưa kết nối tới máy chủ phòng học.')
+    if (!room || room.state !== 'connected') {
+      onPermissionError?.('Hệ thống SFU đang kết nối. Vui lòng thử lại sau vài giây.')
       return
     }
 
@@ -405,8 +407,8 @@ export function useLiveKitRoom({
 
   const startScreenShare = useCallback(async () => {
     const room = roomRef.current
-    if (!room) {
-      onPermissionError?.('Chưa kết nối tới máy chủ phòng học.')
+    if (!room || room.state !== 'connected') {
+      onPermissionError?.('Hệ thống SFU đang kết nối. Vui lòng thử lại sau vài giây.')
       return
     }
 
