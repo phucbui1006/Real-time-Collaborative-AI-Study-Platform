@@ -1,10 +1,23 @@
 import axios from 'axios'
 
+const rawApiUrl = import.meta.env.VITE_API_URL as string | undefined
+export const API_ORIGIN = rawApiUrl ? rawApiUrl.replace(/\/$/, '') : ''
+
+/**
+ * Trả về URL đầy đủ cho một endpoint API.
+ * Hỗ trợ chuyển đổi tự động giữa môi trường local (dùng proxy Vite) và production (gọi trực tiếp tới VITE_API_URL).
+ * Ví dụ: getApiUrl('/api/rooms/123/livekit-token') -> 'https://backend.com/api/rooms/123/livekit-token' (trên production)
+ */
+export function getApiUrl(path: string): string {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return API_ORIGIN ? `${API_ORIGIN}${normalizedPath}` : normalizedPath
+}
+
 /**
  * api — Axios instance đã được cấu hình sẵn cho Permind Backend.
  *
- * Tất cả request đến /api/* sẽ được Vite proxy chuyển đến server:3001
- * (cấu hình trong vite.config.ts).
+ * Tất cả request đến /api/* sẽ được chuyển đến VITE_API_URL (production)
+ * hoặc Vite proxy chuyển đến server:3001 (development).
  *
  * Dùng trong services hoặc hooks:
  * ```ts
@@ -13,7 +26,7 @@ import axios from 'axios'
  * ```
  */
 export const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_ORIGIN ? `${API_ORIGIN}/api` : '/api',
   headers: {
     'Content-Type': 'application/json',
   },

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import axios from 'axios'
+import { chatRAG } from '../services/api'
 
 interface ChatMessage {
   role: 'user' | 'ai'
@@ -28,7 +28,7 @@ export function useRAGChat(roomCode: string | null) {
     setIsLoading(true)
 
     try {
-      const { data } = await axios.post('/api/ai/chat', { roomCode, question })
+      const { data } = await chatRAG(roomCode, question)
       setMessages((prev) => [...prev, { role: 'ai', content: data.answer }])
     } catch {
       setMessages((prev) => [

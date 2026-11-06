@@ -1,6 +1,7 @@
 // services/roomService.ts — Service quản lý phòng học & dữ liệu Supabase Realtime
 import { supabase } from "./supabaseClient";
 import { isValidUUID } from "../utils";
+import { getApiUrl } from "./api";
 
 export type RoomItem = {
   id: number;
@@ -94,7 +95,7 @@ export async function fetchRoomsApi(userId?: string): Promise<RoomItem[]> {
  */
 export async function fetchActiveRoomCountsApi(): Promise<Record<string, number>> {
   try {
-    const res = await fetch("/api/rooms/active-counts");
+    const res = await fetch(getApiUrl("/api/rooms/active-counts"));
     if (!res.ok) return {};
     const json = await res.json();
     return json.counts || {};

@@ -2,6 +2,7 @@
 import * as pdfjsLib from "pdfjs-dist";
 import mammoth from "mammoth";
 import JSZip from "jszip";
+import { getApiUrl } from "./api";
 
 // Nhập worker trực tiếp từ gói pdfjs-dist nội bộ qua Vite URL bundling (?url)
 // Giải pháp này giải quyết triệt để lỗi CSP (Content Security Policy) và không phụ thuộc CDN mạng ngoài
@@ -85,18 +86,7 @@ export async function uploadPageImagesInBatches(
 ): Promise<Map<number, string>> {
   const urlMap = new Map<number, string>();
   if (!imagesWithPage || imagesWithPage.length === 0) return urlMap;
-
-  // Xác định endpoint API upload an toàn:
-  // Nếu ở browser trên production (Vercel), dùng relative path để tránh lỗi Mixed Content hoặc localhost:3001
-  let uploadUrl = "/api/documents/upload-images";
-  if (typeof window !== "undefined") {
-    const origin = window.location.origin;
-    if (origin.includes("localhost:5173") && import.meta.env?.VITE_API_URL) {
-      uploadUrl = `${(import.meta.env.VITE_API_URL as string).replace(/\/$/, "")}/api/documents/upload-images`;
-    } else {
-      uploadUrl = `${origin}/api/documents/upload-images`;
-    }
-  }
+  const uploadUrl = getApiUrl("/api/documents/upload-images");
 
   const BATCH_SIZE = 3; // 3 trang / đợt
   for (let i = 0; i < imagesWithPage.length; i += BATCH_SIZE) {
@@ -287,8 +277,7 @@ export async function uploadExtractedImagesFromMarkdown(markdownText: string): P
   if (imageMatches.length === 0) return markdownText;
 
   try {
-    const apiBase = (import.meta.env?.VITE_API_URL as string) || "";
-    const uploadUrl = apiBase ? `${apiBase.replace(/\/$/, "")}/api/documents/upload-images` : "/api/documents/upload-images";
+    const uploadUrl = getApiUrl("/api/documents/upload-images");
 
     const response = await fetch(uploadUrl, {
       method: "POST",
