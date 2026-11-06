@@ -124,7 +124,6 @@ export async function joinRoomApi({
       .from("rooms")
       .select("id, name, code, document_id, is_active, password_hash")
       .eq("code", cleanCode)
-      .eq("is_active", true)
       .maybeSingle();
 
     if (error) {

@@ -13,6 +13,9 @@ const activeRooms = new Map()
 // Quản lý debounce lưu DB khi sửa tài liệu
 const docSaveTimers = new Map()
 
+// Quản lý hẹn giờ đóng phòng khi trống thành viên (Grace period 30s)
+const roomCloseTimers = new Map()
+
 /**
  * Trả về danh sách activeRooms dùng chung cho các handler khác (WebRTC, Chat)
  */
@@ -110,16 +113,38 @@ function roomHandler(io, socket) {
       const userName = user.name || socket.user?.user_metadata?.full_name || socket.user?.email || 'Thành viên'
       const avatarColor = user.avatarColor || '#0ea5e9'
 
+      // Hủy hẹn giờ đóng phòng nếu phòng đang trong thời gian chờ đóng (Grace period)
+      if (roomCloseTimers.has(cleanCode)) {
+        console.log(`⚡ Hủy hẹn giờ đóng phòng ${cleanCode} do có thành viên tham gia lại.`)
+        clearTimeout(roomCloseTimers.get(cleanCode))
+        roomCloseTimers.delete(cleanCode)
+      }
+
       // Kiểm tra trong database
       const { data: dbRoom, error: dbError } = await supabaseAdmin
         .from('rooms')
         .select('*')
         .eq('code', cleanCode)
-        .eq('is_active', true)
         .maybeSingle()
 
       if (dbError || !dbRoom) {
-        return socket.emit('ERROR', { message: 'Phòng học không tồn tại hoặc đã kết thúc.' })
+        return socket.emit('ERROR', { message: 'Phòng học không tồn tại.' })
+      }
+
+      // Nếu phòng đã bị đóng trong DB nhưng Chủ phòng (host_user_id) quay lại, tự động kích hoạt lại phòng
+      if (!dbRoom.is_active) {
+        const isHostUser = dbRoom.host_user_id ? dbRoom.host_user_id === userId : true
+        if (isHostUser) {
+          console.log(`🔄 Chủ phòng quay lại, tự động kích hoạt lại phòng ${cleanCode}.`)
+          try {
+            await supabaseAdmin.from('rooms').update({ is_active: true }).eq('id', dbRoom.id)
+            dbRoom.is_active = true
+          } catch (actErr) {
+            console.warn('Lỗi kích hoạt lại phòng:', actErr.message)
+          }
+        } else {
+          return socket.emit('ERROR', { message: 'Phòng học không tồn tại hoặc đã kết thúc.' })
+        }
       }
 
       let room = activeRooms.get(cleanCode)
@@ -300,24 +325,38 @@ function roomHandler(io, socket) {
           } catch {}
         }
       } else {
-        // Không còn ai trong phòng: đóng phòng và giải phóng bộ nhớ
-        console.log(`🧹 Phòng ${targetCode} không còn thành viên, tự động đóng phòng.`)
-        if (room.dbRoomId) {
-          try {
-            await supabaseAdmin.from('rooms').update({ is_active: false }).eq('id', room.dbRoomId)
-          } catch {}
+        // Không còn ai trong phòng: đặt thời gian chờ 30 giây (Grace Period)
+        // Nếu người dùng chỉ F5 tải lại trang hoặc rớt mạng nhẹ, phòng vẫn được giữ nguyên
+        console.log(`⏳ Phòng ${targetCode} không còn thành viên. Đặt thời gian chờ 30s trước khi đóng...`)
+        if (roomCloseTimers.has(targetCode)) {
+          clearTimeout(roomCloseTimers.get(targetCode))
         }
 
-        // Dọn dẹp debounce lưu tài liệu nếu có
-        if (room.activeDocument?.id) {
-          const saveKey = `${targetCode}_${room.activeDocument.id}`
-          if (docSaveTimers.has(saveKey)) {
-            clearTimeout(docSaveTimers.get(saveKey))
-            docSaveTimers.delete(saveKey)
+        const closeTimer = setTimeout(async () => {
+          const currRoom = activeRooms.get(targetCode)
+          if (currRoom && currRoom.members.size === 0) {
+            console.log(`🧹 Hết thời gian chờ: Phòng ${targetCode} không còn thành viên, tự động đóng phòng.`)
+            if (currRoom.dbRoomId) {
+              try {
+                await supabaseAdmin.from('rooms').update({ is_active: false }).eq('id', currRoom.dbRoomId)
+              } catch {}
+            }
+
+            // Dọn dẹp debounce lưu tài liệu nếu có
+            if (currRoom.activeDocument?.id) {
+              const saveKey = `${targetCode}_${currRoom.activeDocument.id}`
+              if (docSaveTimers.has(saveKey)) {
+                clearTimeout(docSaveTimers.get(saveKey))
+                docSaveTimers.delete(saveKey)
+              }
+            }
+
+            activeRooms.delete(targetCode)
           }
-        }
+          roomCloseTimers.delete(targetCode)
+        }, 30000)
 
-        activeRooms.delete(targetCode)
+        roomCloseTimers.set(targetCode, closeTimer)
       }
     }
   }

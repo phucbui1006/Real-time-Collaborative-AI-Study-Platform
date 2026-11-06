@@ -326,24 +326,33 @@ async function getLiveKitToken(req, res, next) {
         .from('rooms')
         .select('id, host_user_id, is_active')
         .eq('code', cleanCode)
-        .eq('is_active', true)
         .maybeSingle()
 
       if (dbRoom) {
-        if (userId && dbRoom.host_user_id === userId) {
-          isValidMember = true
-          memberRole = 'host'
-        } else if (userId) {
-          const { data: dbMember } = await supabaseAdmin
-            .from('room_members')
-            .select('role')
-            .eq('room_id', dbRoom.id)
-            .eq('user_id', userId)
-            .maybeSingle()
+        // Tự động kích hoạt lại nếu chủ phòng quay lại
+        if (!dbRoom.is_active && userId && dbRoom.host_user_id === userId) {
+          try {
+            await supabaseAdmin.from('rooms').update({ is_active: true }).eq('id', dbRoom.id)
+            dbRoom.is_active = true
+          } catch {}
+        }
 
-          if (dbMember) {
+        if (dbRoom.is_active) {
+          if (userId && dbRoom.host_user_id === userId) {
             isValidMember = true
-            memberRole = dbMember.role || 'viewer'
+            memberRole = 'host'
+          } else if (userId) {
+            const { data: dbMember } = await supabaseAdmin
+              .from('room_members')
+              .select('role')
+              .eq('room_id', dbRoom.id)
+              .eq('user_id', userId)
+              .maybeSingle()
+
+            if (dbMember) {
+              isValidMember = true
+              memberRole = dbMember.role || 'viewer'
+            }
           }
         }
       }
