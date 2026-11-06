@@ -65,8 +65,14 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
   const [draftBox, setDraftBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
 
-  // Trạng thái gõ Text Note nổi
-  const [textInputPos, setTextInputPos] = useState<{ x: number; y: number } | null>(null)
+  // Trạng thái gõ Text Note nổi (Lưu tọa độ pixel hiển thị chính xác + tỷ lệ % chuẩn hóa để đồng bộ)
+  interface TextInputDraftState {
+    ratioX: number
+    ratioY: number
+    displayX: number
+    displayY: number
+  }
+  const [textInputState, setTextInputState] = useState<TextInputDraftState | null>(null)
   const [textInputValue, setTextInputValue] = useState<string>('')
 
   const contentWrapperRef = useRef<HTMLDivElement>(null)
@@ -75,17 +81,17 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
   // Đổi công cụ vẽ chú thích và tự động hủy ô note dở dang
   const handleSelectTool = (tool: AnnotationTool) => {
     setActiveTool(tool)
-    setTextInputPos(null)
+    setTextInputState(null)
     setTextInputValue('')
   }
 
   // Tự động đóng và biến mất ô note nếu bấm ra ngoài vùng ghi chú khi chưa Enter/Lưu
   useEffect(() => {
-    if (!textInputPos) return
+    if (!textInputState) return
 
     const handlePointerDownOutside = (e: MouseEvent | PointerEvent) => {
       if (notePopupRef.current && !notePopupRef.current.contains(e.target as Node)) {
-        setTextInputPos(null)
+        setTextInputState(null)
         setTextInputValue('')
       }
     }
@@ -95,11 +101,11 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
     return () => {
       window.removeEventListener('pointerdown', handlePointerDownOutside, true)
     }
-  }, [textInputPos])
+  }, [textInputState])
 
   // Tự động hủy ô ghi chú khi chuyển trang tài liệu
   useEffect(() => {
-    setTextInputPos(null)
+    setTextInputState(null)
     setTextInputValue('')
   }, [localPage])
 
@@ -157,9 +163,38 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!isHost || activeTool === 'select') return
 
+    // Bỏ qua nếu click vào chính popup ghi chú hoặc các nút con bên trong
+    if (notePopupRef.current && notePopupRef.current.contains(e.target as Node)) {
+      return
+    }
+
     if (activeTool === 'text') {
-      const coords = getRelativeCoords(e)
-      setTextInputPos(coords)
+      const el = contentWrapperRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const clickX = e.clientX - rect.left
+      const clickY = e.clientY - rect.top
+      const containerWidth = el.offsetWidth || rect.width || 1
+      const containerHeight = el.offsetHeight || rect.height || 1
+
+      // Kích thước ô popup nhập ghi chú: rộng 256px, cao ~112px
+      const POPUP_WIDTH = 256
+      const POPUP_HEIGHT = 112
+
+      // Clamp vị trí hiển thị để không bị tràn mép phải hoặc mép dưới
+      const displayX = Math.max(0, Math.min(Math.max(0, containerWidth - POPUP_WIDTH - 8), clickX))
+      const displayY = Math.max(0, Math.min(Math.max(0, containerHeight - POPUP_HEIGHT - 8), clickY))
+
+      // Tỷ lệ chuẩn hóa (%) theo kích thước trang tài liệu tương ứng với vị trí hiển thị của ghi chú
+      const ratioX = Math.max(0, Math.min(100, (displayX / containerWidth) * 100))
+      const ratioY = Math.max(0, Math.min(100, (displayY / containerHeight) * 100))
+
+      setTextInputState({
+        ratioX,
+        ratioY,
+        displayX,
+        displayY,
+      })
       setTextInputValue('')
       return
     }
@@ -214,16 +249,16 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
 
   // ─── XỬ LÝ GÕ TEXT NOTE ──────────────────────────────────────────────────
   const handleAddTextAnnotation = () => {
-    if (!textInputPos || !textInputValue.trim()) {
-      setTextInputPos(null)
+    if (!textInputState || !textInputValue.trim()) {
+      setTextInputState(null)
       return
     }
 
     const newAnno: DocumentAnnotation = {
       id: `anno_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       type: 'text',
-      x: Number(textInputPos.x.toFixed(2)),
-      y: Number(textInputPos.y.toFixed(2)),
+      x: Number(textInputState.ratioX.toFixed(2)),
+      y: Number(textInputState.ratioY.toFixed(2)),
       width: 0,
       height: 0,
       color: activeColor,
@@ -232,7 +267,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
     }
 
     onUpdateAnnotations?.(localPage, [...annotations, newAnno])
-    setTextInputPos(null)
+    setTextInputState(null)
     setTextInputValue('')
   }
 
@@ -493,16 +528,20 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
                   top: `${anno.y}%`,
                   borderColor: anno.color,
                 }}
-                className="absolute z-20 -translate-x-2 -translate-y-2 max-w-xs group"
+                className="absolute z-20 max-w-xs group pointer-events-auto"
               >
                 <div
                   style={{ backgroundColor: `${anno.color}20`, borderLeftColor: anno.color }}
-                  className="px-2.5 py-1.5 rounded-r bg-white/95 dark:bg-slate-900/95 shadow-md border-l-4 border text-xs text-slate-800 dark:text-slate-100 font-sans flex items-start gap-1.5 backdrop-blur-xs"
+                  className="px-2.5 py-1.5 rounded-r-lg bg-white/95 dark:bg-slate-900/95 shadow-md border-l-4 border text-xs text-slate-800 dark:text-slate-100 font-sans flex items-start gap-1.5 backdrop-blur-xs"
                 >
                   <span className="flex-1 whitespace-pre-wrap leading-relaxed">{anno.text}</span>
                   {isHost && (
                     <button
-                      onClick={() => handleDeleteAnnotation(anno.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteAnnotation(anno.id)
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
                       className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-opacity p-0.5 cursor-pointer"
                       title="Xóa ghi chú này"
                     >
@@ -515,11 +554,16 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
           })}
 
           {/* Ô nhập Text Note nổi khi Host bấm tool 'text' */}
-          {textInputPos && isHost && (
+          {textInputState && isHost && (
             <div
               ref={notePopupRef}
-              style={{ left: `${textInputPos.x}%`, top: `${textInputPos.y}%` }}
-              className="absolute z-30 -translate-x-2 -translate-y-2 p-2 rounded-md bg-white dark:bg-slate-900 border border-teal-500 shadow-2xl flex flex-col gap-1.5 w-64"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                left: `${textInputState.displayX}px`,
+                top: `${textInputState.displayY}px`,
+              }}
+              className="absolute z-30 p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-teal-500 shadow-2xl flex flex-col gap-1.5 w-64"
             >
               <textarea
                 autoFocus
@@ -530,28 +574,28 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
                     e.preventDefault()
                     handleAddTextAnnotation()
                   } else if (e.key === 'Escape') {
-                    setTextInputPos(null)
+                    setTextInputState(null)
                     setTextInputValue('')
                   }
                 }}
                 placeholder="Nhập ghi chú tại đây (Enter để lưu, Esc để hủy)..."
-                className="w-full h-16 p-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 focus:outline-none resize-none"
+                className="w-full h-16 p-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500 resize-none leading-relaxed"
               />
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between pt-0.5">
                 <span className="text-[10px] text-slate-400">Enter để xong</span>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => {
-                      setTextInputPos(null)
+                      setTextInputState(null)
                       setTextInputValue('')
                     }}
-                    className="h-6 px-2 rounded text-[11px] text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    className="h-6 px-2 rounded-lg text-[11px] text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                   >
                     Hủy
                   </button>
                   <button
                     onClick={handleAddTextAnnotation}
-                    className="h-6 px-2.5 rounded bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-medium flex items-center gap-1 cursor-pointer"
+                    className="h-6 px-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-medium flex items-center gap-1 cursor-pointer shadow-xs"
                   >
                     <Plus className="w-3 h-3" />
                     <span>Lưu</span>
