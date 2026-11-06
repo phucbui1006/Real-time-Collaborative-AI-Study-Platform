@@ -1,9 +1,10 @@
 // server/src/sockets/chatHandler.js
-// Quản lý tin nhắn phòng học real-time, chống spam rate-limit và lưu Supabase
+// Quản lý tin nhắn phòng học real-time, chống spam rate-limit (1 tin/giây) và lưu Supabase
 
 const { supabaseAdmin } = require('../config/supabase')
 
-// Theo dõi tần suất gửi tin nhắn của mỗi socket để chống spam (tối đa 5 tin / 3 giây)
+// Theo dõi thời điểm gửi tin nhắn gần nhất của mỗi socket để chống spam (tối đa 1 tin / giây)
+// Map<socketId, lastTimestamp>
 const messageRateMap = new Map()
 
 /**
@@ -24,14 +25,16 @@ function chatHandler(io, socket, activeRooms) {
         return socket.emit('ERROR', { message: 'Bạn chưa tham gia phòng học này.' })
       }
 
-      // Kiểm tra rate limit chống spam
+      // Kiểm tra rate limit chống spam: tối đa 1 tin / giây / người
       const now = Date.now()
-      const timestamps = (messageRateMap.get(socket.id) || []).filter((t) => now - t < 3000)
-      if (timestamps.length >= 5) {
-        return socket.emit('ERROR', { message: 'Bạn gửi tin nhắn quá nhanh. Vui lòng chờ giây lát.' })
+      const lastSent = messageRateMap.get(socket.id) || 0
+      if (now - lastSent < 1000) {
+        return socket.emit('ERROR', {
+          message: 'Bạn đang gửi tin nhắn quá nhanh (tối đa 1 tin/giây). Vui lòng đợi giây lát.',
+          code: 'CHAT_RATE_LIMIT',
+        })
       }
-      timestamps.push(now)
-      messageRateMap.set(socket.id, timestamps)
+      messageRateMap.set(socket.id, now)
 
       const sender = room.members.get(socket.id)
       const chatMessage = {

@@ -45,8 +45,10 @@ import {
   kickMember,
   transferHost,
   toggleScreenPermission,
+  raiseHand,
+  setMemberRole,
 } from '../../services/socket'
-import { useRoomRTC } from '../../hooks/useRoomRTC'
+import { useLiveKitRoom } from '../../hooks/useLiveKitRoom'
 import { VideoGrid } from './VideoGrid'
 import { ClassroomControls } from './ClassroomControls'
 import { ClassroomDrawer } from './ClassroomDrawer'
@@ -280,12 +282,37 @@ export default function RoomView({
     return initialIsHost
   }, [roomState.hostSocketId, currentSocketId, roomState.hostUserId, userId, initialIsHost])
 
+  // Thành viên đại diện cho người dùng hiện tại
+  const currentMember = useMemo(() => {
+    return (
+      roomState.members.find(
+        (m) =>
+          (currentSocketId && m.socketId === currentSocketId) ||
+          (userId && m.userId === userId)
+      ) || null
+    )
+  }, [roomState.members, currentSocketId, userId])
+
+  const currentUserRole: 'host' | 'speaker' | 'viewer' = useMemo(() => {
+    if (isHost) return 'host'
+    if (currentMember?.role === 'speaker') return 'speaker'
+    return 'viewer'
+  }, [isHost, currentMember?.role])
+
+  const isMyHandRaised = useMemo(() => {
+    return (
+      Boolean(currentMember?.isHandRaised) ||
+      raisedHands.has('local-me') ||
+      (currentSocketId ? raisedHands.has(currentSocketId) : false)
+    )
+  }, [currentMember?.isHandRaised, raisedHands, currentSocketId])
+
   // Memoize handler lỗi quyền thiết bị
   const handlePermissionError = useCallback((msg: string) => {
     setErrorMessage(msg)
   }, [])
 
-  // Custom hook WebRTC Mesh P2P
+  // Custom hook LiveKit SFU (Hỗ trợ 50 người, thay thế WebRTC Mesh P2P)
   const {
     localStream,
     screenStream,
@@ -293,15 +320,20 @@ export default function RoomView({
     isMicOn,
     isCamOn,
     isSharingScreen,
+    isLiveKitConnected,
+    isReconnecting: isLiveKitReconnecting,
     toggleMic,
     toggleCam,
     startScreenShare,
     stopScreenShare,
     stopAllMedia,
-  } = useRoomRTC({
+  } = useLiveKitRoom({
     roomCode: room.code,
     currentSocketId,
+    userId,
+    userName,
     members: roomState.members,
+    userRole: currentUserRole,
     onPermissionError: handlePermissionError,
   })
 
@@ -332,7 +364,7 @@ export default function RoomView({
     socketId: currentSocketId || 'local-me',
     userId,
     userName: userName || 'Chủ phòng',
-    role: initialIsHost ? 'host' : 'member',
+    role: initialIsHost ? 'host' : 'viewer',
     avatarColor: '#0ea5e9',
     isMicOn,
     isCamOn,
@@ -516,6 +548,23 @@ export default function RoomView({
       setTimeout(() => setErrorMessage(null), 5000)
     }
 
+    const onRoleChanged = (data: { targetSocketId: string; role: 'host' | 'speaker' | 'viewer'; targetUserName: string }) => {
+      const isTargetMe = data.targetSocketId === currentSocketId || (currentSocketId === '' && data.targetUserName === userName)
+      if (isTargetMe) {
+        if (data.role === 'speaker') {
+          setToastMessage('🎉 Bạn đã được Chủ phòng cấp quyền Diễn giả (Speaker)! Giờ bạn có thể bật mic và vẽ chú thích.')
+        } else if (data.role === 'viewer') {
+          setToastMessage('Bạn hiện là Người xem (Viewer).')
+        }
+      } else {
+        if (data.role === 'speaker') {
+          setToastMessage(`${data.targetUserName} đã được cấp quyền Diễn giả (Speaker)`)
+        }
+      }
+      setTimeout(() => setToastMessage(null), 5000)
+    }
+
+    socket.on('ROOM:ROLE_CHANGED', onRoleChanged)
     socket.on('ROOM:STATE', onRoomState)
     socket.on('ROOM:MEMBER_JOINED', onMemberJoined)
     socket.on('ROOM:MEMBER_LEFT', onMemberLeft)
@@ -534,6 +583,7 @@ export default function RoomView({
 
     return () => {
       leaveRoom(room.code)
+      socket.off('ROOM:ROLE_CHANGED', onRoleChanged)
       socket.off('ROOM:STATE', onRoomState)
       socket.off('ROOM:MEMBER_JOINED', onMemberJoined)
       socket.off('ROOM:MEMBER_LEFT', onMemberLeft)
@@ -556,6 +606,10 @@ export default function RoomView({
   useEffect(() => {
     if (activeDrawerTab === 'chat') setUnreadCount(0)
   }, [activeDrawerTab])
+
+  // Throttle timer cho ghi chú vẽ
+  const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingAnnotationsRef = useRef<{ pageIndex: number; annotations: DocumentAnnotation[] } | null>(null)
 
   // Lắng nghe phím tắt toàn cục (M, V, S, H)
   useEffect(() => {
@@ -730,11 +784,22 @@ export default function RoomView({
     sendChatMessage(room.code, text)
   }
 
-  // Giơ tay phát biểu
+  // Giơ tay phát biểu (toggle)
   const handleRaiseHand = () => {
-    handleSendMessage('✋ [Giơ tay phát biểu]')
-    setRaisedHands((prev) => new Set(prev).add('local-me'))
-    setToastMessage('Bạn đã giơ tay phát biểu')
+    const nextState = !isMyHandRaised
+    raiseHand(room.code, nextState)
+    if (nextState) {
+      setRaisedHands((prev) => new Set(prev).add('local-me'))
+      setToastMessage('Bạn đã giơ tay xin phát biểu ✋')
+    } else {
+      setRaisedHands((prev) => {
+        const next = new Set(prev)
+        next.delete('local-me')
+        if (currentSocketId) next.delete(currentSocketId)
+        return next
+      })
+      setToastMessage('Đã hạ tay phát biểu')
+    }
     setTimeout(() => setToastMessage(null), 2500)
   }
 
@@ -776,7 +841,7 @@ export default function RoomView({
 
     selectDocument(room.code, selectedDoc.id, {
       title: docData.title,
-      pagesContent: docData.pagesContent,
+      pagesContent: docData.pagesContent || [],
       totalPages: docData.totalPages,
     })
 
@@ -808,13 +873,29 @@ export default function RoomView({
     changeDocumentPage(room.code, pageIndex)
   }
 
-  // Chú thích trực quan
+  // Chú thích trực quan (Throttle và batch gửi socket 80ms)
   const handleUpdateAnnotations = (pageIndex: number, newAnnotations: DocumentAnnotation[]) => {
+    // 1. Cập nhật ngay trên giao diện local (Optimistic UI)
     setAnnotationsByPage((prev) => ({
       ...prev,
       [pageIndex]: newAnnotations,
     }))
-    sendDocumentAnnotations(room.code, pageIndex, newAnnotations)
+
+    // 2. Throttle gửi socket 80ms
+    pendingAnnotationsRef.current = { pageIndex, annotations: newAnnotations }
+    if (!throttleTimerRef.current) {
+      throttleTimerRef.current = setTimeout(() => {
+        if (pendingAnnotationsRef.current) {
+          sendDocumentAnnotations(
+            room.code,
+            pendingAnnotationsRef.current.pageIndex,
+            pendingAnnotationsRef.current.annotations
+          )
+          pendingAnnotationsRef.current = null
+        }
+        throttleTimerRef.current = null
+      }, 80)
+    }
   }
 
   const handleClearAnnotations = (pageIndex?: number) => {
@@ -835,6 +916,31 @@ export default function RoomView({
   const handleKick = (targetSocketId: string) => kickMember(room.code, targetSocketId)
   const handleTransfer = (targetSocketId: string) => transferHost(room.code, targetSocketId)
   const handleToggleScreenSharePermission = (allow: boolean) => toggleScreenPermission(room.code, allow)
+  const handleSetMemberRole = (targetSocketId: string, role: 'speaker' | 'viewer') => {
+    setMemberRole(room.code, targetSocketId, role)
+    setToastMessage(role === 'speaker' ? 'Đã duyệt quyền phát biểu (Speaker)' : 'Đã chuyển thành Người xem (Viewer)')
+    setTimeout(() => setToastMessage(null), 3000)
+  }
+
+  // Bật/tắt micro có kiểm tra vai trò
+  const handleToggleMic = () => {
+    if (!isHost && currentUserRole === 'viewer' && !isMicOn) {
+      setToastMessage('Bạn đang là Người xem. Hãy bấm Giơ tay ✋ để xin quyền phát biểu.')
+      setTimeout(() => setToastMessage(null), 4000)
+      return
+    }
+    toggleMic()
+  }
+
+  // Bật/tắt camera
+  const handleToggleCam = () => {
+    if (!isHost && currentUserRole === 'viewer' && !isCamOn) {
+      setToastMessage('Bạn đang là Người xem. Hãy bấm Giơ tay ✋ để xin quyền bật camera.')
+      setTimeout(() => setToastMessage(null), 4000)
+      return
+    }
+    toggleCam()
+  }
 
   // Bật/tắt toàn màn hình
   const toggleFullscreen = () => {
@@ -879,12 +985,17 @@ export default function RoomView({
   // Trạng thái chia sẻ màn hình
   const isLocalSharing = Boolean(isSharingScreen && screenStream)
   const activeScreenSharerSocketId = roomState.screenSharerSocketId
+  const isSomeoneSharing = isLocalSharing || Boolean(activeScreenSharerSocketId)
+
+  // Luồng màn hình chia sẻ từ LiveKit SFU
+  const remoteScreenStreamToDisplay =
+    activeScreenSharerSocketId ? remoteStreams[activeScreenSharerSocketId] : null
+
   const isRemoteSharing = Boolean(
     activeScreenSharerSocketId &&
       activeScreenSharerSocketId !== currentSocketId &&
-      remoteStreams[activeScreenSharerSocketId]
+      remoteScreenStreamToDisplay
   )
-  const isSomeoneSharing = isLocalSharing || Boolean(activeScreenSharerSocketId)
 
   const screenSharerMember = useMemo(() => {
     if (isLocalSharing) return mySelfMember
@@ -892,11 +1003,12 @@ export default function RoomView({
     return roomState.members.find((m) => m.socketId === activeScreenSharerSocketId)
   }, [isLocalSharing, mySelfMember, activeScreenSharerSocketId, roomState.members])
 
-  // Trạng thái kết nối WebRTC P2P
+  // Trạng thái kết nối LiveKit SFU (50 người)
   const connectionStatus = useMemo(() => {
     if (!isSocketConnected) return { label: 'Mất kết nối', color: 'bg-rose-500' }
-    return { label: 'WebRTC P2P: Tốt', color: 'bg-emerald-400' }
-  }, [isSocketConnected])
+    if (isLiveKitConnected) return { label: 'LiveKit SFU: Tốt (50 người)', color: 'bg-emerald-400' }
+    return { label: 'Đang kết nối SFU...', color: 'bg-amber-400' }
+  }, [isSocketConnected, isLiveKitConnected])
 
   const hasPresentationOrShare = isSomeoneSharing || Boolean(roomState.activeDocument)
 
@@ -967,7 +1079,7 @@ export default function RoomView({
             title={connectionStatus.label}
           >
             <span className={`w-2 h-2 rounded-full ${connectionStatus.color} animate-pulse`} />
-            <span className="text-[11px] text-slate-400">P2P Tốt</span>
+            <span className="text-[11px] text-slate-400">{connectionStatus.label}</span>
           </div>
         </div>
 
@@ -1023,6 +1135,8 @@ export default function RoomView({
           <span>{toastMessage}</span>
         </div>
       )}
+
+
 
       {/* Banner thông báo lỗi nếu có */}
       {errorMessage && (
@@ -1092,14 +1206,14 @@ export default function RoomView({
                       className="w-full h-full object-contain rounded-xl"
                     />
                   </div>
-                ) : isRemoteSharing && activeScreenSharerSocketId ? (
-                  /* Màn hình chia sẻ từ thành viên khác trong phòng */
+                ) : isRemoteSharing && remoteScreenStreamToDisplay ? (
+                  /* Màn hình chia sẻ từ thành viên khác trong phòng (LiveKit SFU / Mesh Fallback) */
                   <div
                     style={{ transform: `scale(${stageZoom})` }}
                     className="w-full h-full transition-transform duration-150 flex items-center justify-center"
                   >
                     <MediaVideo
-                      stream={remoteStreams[activeScreenSharerSocketId]}
+                      stream={remoteScreenStreamToDisplay}
                       muted={false}
                       isPaused={isStagePaused}
                       className="w-full h-full object-contain rounded-xl"
@@ -1112,12 +1226,24 @@ export default function RoomView({
                   </div>
                 )}
 
+                {/* Trạng thái Auto Reconnect màn hình */}
+                {isLiveKitReconnecting && (
+                  <div className="absolute top-12 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-950/90 border border-amber-500/60 text-amber-200 text-xs shadow-xl backdrop-blur-md animate-pulse">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                    <span>Mạng gián đoạn — Đang tự động kết nối lại màn hình...</span>
+                  </div>
+                )}
+
                 {/* Nhãn nổi nhỏ góc trên trái */}
                 <div className="absolute top-3 left-3 bg-[#0B1220]/85 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs text-slate-200 border border-slate-700/60 flex items-center gap-2 shadow-md">
                   <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
                   <span className="font-medium">
                     {isLocalSharing
-                      ? 'Bạn đang chia sẻ màn hình'
+                      ? isLiveKitConnected
+                        ? 'Bạn đang chia sẻ màn hình (LiveKit SFU)'
+                        : 'Bạn đang chia sẻ màn hình'
+                      : isLiveKitConnected
+                      ? `${screenSharerMember?.userName || 'Thành viên'} đang chia sẻ màn hình (LiveKit SFU)`
                       : `${screenSharerMember?.userName || 'Thành viên'} đang chia sẻ màn hình`}
                   </span>
                 </div>
@@ -1181,6 +1307,8 @@ export default function RoomView({
                 <DocumentCollaborativeViewer
                   document={roomState.activeDocument}
                   isHost={isHost}
+                  userRole={currentUserRole}
+                  roomCode={room.code}
                   currentUserId={userId}
                   annotations={annotationsByPage[roomState.activeDocument.currentPage || 0] || []}
                   onPageChange={handlePageChange}
@@ -1286,6 +1414,7 @@ export default function RoomView({
           onKickMember={handleKick}
           onTransferHost={handleTransfer}
           onToggleScreenSharePermission={handleToggleScreenSharePermission}
+          onSetMemberRole={handleSetMemberRole}
         />
       </div>
 
@@ -1310,12 +1439,14 @@ export default function RoomView({
         isScreenSharerActive={Boolean(roomState.screenSharerSocketId)}
         canShareScreen={roomState.allowMemberScreenShare || isHost}
         isHost={isHost}
+        userRole={currentUserRole}
+        isHandRaised={isMyHandRaised}
         hasActiveDocument={Boolean(roomState.activeDocument)}
         unreadCount={unreadCount}
         membersCount={effectiveMembers.length}
         activeDrawerTab={activeDrawerTab}
-        onToggleMic={toggleMic}
-        onToggleCam={toggleCam}
+        onToggleMic={handleToggleMic}
+        onToggleCam={handleToggleCam}
         onToggleScreenShare={isSharingScreen ? stopScreenShare : startScreenShare}
         onOpenDocPicker={() => setDocPickerOpen(true)}
         onRaiseHand={handleRaiseHand}

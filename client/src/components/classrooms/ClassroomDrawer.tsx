@@ -18,6 +18,7 @@ import {
   VolumeX,
   ArrowRightLeft,
   Shield,
+  Hand,
 } from 'lucide-react'
 import type { RoomMember, ChatMessage } from '../../types/classroom'
 
@@ -38,6 +39,7 @@ interface ClassroomDrawerProps {
   onKickMember?: (socketId: string) => void
   onTransferHost?: (socketId: string) => void
   onToggleScreenSharePermission?: (allow: boolean) => void
+  onSetMemberRole?: (socketId: string, role: 'speaker' | 'viewer') => void
 }
 
 const QUICK_EMOJIS = ['👍', '❤️', '👏', '🎉', '💡', '🙋‍♂️']
@@ -59,6 +61,7 @@ export const ClassroomDrawer: React.FC<ClassroomDrawerProps> = ({
   onKickMember,
   onTransferHost,
   onToggleScreenSharePermission,
+  onSetMemberRole,
 }) => {
   const [chatInput, setChatInput] = useState('')
   const [memberSearch, setMemberSearch] = useState('')
@@ -248,11 +251,25 @@ export const ClassroomDrawer: React.FC<ClassroomDrawerProps> = ({
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            {isMemberHost && (
+                          <div className="flex items-center flex-wrap gap-1 mt-0.5">
+                            {isMemberHost ? (
                               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-950/60 text-amber-300 border border-amber-800/60">
                                 <Crown className="w-2.5 h-2.5 text-amber-400" />
                                 <span>Chủ phòng</span>
+                              </span>
+                            ) : member.role === 'speaker' ? (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-teal-950/60 text-teal-300 border border-teal-800/60">
+                                <span>Diễn giả</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-medium bg-slate-800/70 text-slate-400 border border-slate-700/60">
+                                <span>Người xem</span>
+                              </span>
+                            )}
+                            {member.isHandRaised && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                                <Hand className="w-2.5 h-2.5 text-amber-400" />
+                                <span>Giơ tay</span>
                               </span>
                             )}
                             {member.isScreenSharing && (
@@ -267,6 +284,16 @@ export const ClassroomDrawer: React.FC<ClassroomDrawerProps> = ({
 
                       {/* Trạng thái Mic / Cam + Menu Chủ phòng */}
                       <div className="flex items-center gap-1 shrink-0">
+                        {/* Nút duyệt nhanh giơ tay dành cho Host */}
+                        {isHost && !isMe && member.isHandRaised && (
+                          <button
+                            onClick={() => onSetMemberRole?.(member.socketId, 'speaker')}
+                            className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-semibold transition-colors cursor-pointer shadow-xs animate-bounce"
+                            title="Duyệt cho thành viên phát biểu"
+                          >
+                            <span>Duyệt ✋</span>
+                          </button>
+                        )}
                         {/* Biểu tượng Micro */}
                         <div
                           className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs ${
@@ -308,7 +335,30 @@ export const ClassroomDrawer: React.FC<ClassroomDrawerProps> = ({
 
                     {/* Menu tác vụ quản trị khi Host bấm ••• */}
                     {isHost && !isMe && showActions && (
-                      <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center gap-1.5 justify-end">
+                      <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center flex-wrap gap-1.5 justify-end">
+                        {member.role === 'speaker' ? (
+                          <button
+                            onClick={() => {
+                              onSetMemberRole?.(member.socketId, 'viewer')
+                              setSelectedMemberActions(null)
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-medium transition-colors cursor-pointer"
+                            title="Chuyển thành Người xem (chỉ nghe/xem)"
+                          >
+                            <span>Hạ quyền Viewer</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              onSetMemberRole?.(member.socketId, 'speaker')
+                              setSelectedMemberActions(null)
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-950/80 hover:bg-teal-900 text-teal-300 border border-teal-800/60 text-[10px] font-medium transition-colors cursor-pointer"
+                            title="Cấp quyền phát biểu và ghi chú"
+                          >
+                            <span>Cấp quyền Speaker</span>
+                          </button>
+                        )}
                         {member.isMicOn && (
                           <button
                             onClick={() => {

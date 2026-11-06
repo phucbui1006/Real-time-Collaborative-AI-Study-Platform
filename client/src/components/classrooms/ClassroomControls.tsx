@@ -27,6 +27,8 @@ interface ClassroomControlsProps {
   isScreenSharerActive: boolean
   canShareScreen: boolean
   isHost: boolean
+  userRole?: 'host' | 'speaker' | 'viewer'
+  isHandRaised?: boolean
   hasActiveDocument: boolean
   unreadCount: number
   membersCount: number
@@ -51,6 +53,8 @@ export const ClassroomControls: React.FC<ClassroomControlsProps> = ({
   isScreenSharerActive,
   canShareScreen,
   isHost,
+  userRole,
+  isHandRaised = false,
   hasActiveDocument,
   unreadCount,
   membersCount,
@@ -100,7 +104,7 @@ export const ClassroomControls: React.FC<ClassroomControlsProps> = ({
                   ? 'bg-slate-800/90 hover:bg-slate-700 text-teal-400 hover:text-teal-300 border border-slate-700/60'
                   : 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
               }`}
-              aria-label={isMicOn ? 'Tắt micro' : 'Bật micro'}
+              aria-label={userRole === 'viewer' ? 'Người xem cần xin quyền phát biểu' : isMicOn ? 'Tắt micro' : 'Bật micro'}
             >
               {isMicOn ? <Mic className="w-4 h-4 sm:w-5 sm:h-5" /> : <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />}
             </button>
@@ -182,16 +186,22 @@ export const ClassroomControls: React.FC<ClassroomControlsProps> = ({
           <div className="relative group flex flex-col items-center hidden sm:flex">
             <button
               onClick={onRaiseHand}
-              className="h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center bg-slate-800/90 hover:bg-amber-950/60 text-slate-200 hover:text-amber-300 border border-slate-700/60 transition-all cursor-pointer shadow-sm hover:border-amber-600/50"
-              aria-label="Giơ tay phát biểu"
+              className={`h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-sm ${
+                isHandRaised
+                  ? 'bg-amber-600 hover:bg-amber-500 text-white ring-2 ring-amber-400/50 shadow-amber-600/30'
+                  : 'bg-slate-800/90 hover:bg-amber-950/60 text-slate-200 hover:text-amber-300 border border-slate-700/60 hover:border-amber-600/50'
+              }`}
+              aria-label={isHandRaised ? 'Hạ tay' : 'Giơ tay phát biểu'}
             >
-              <Hand className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
+              <Hand className={`w-4 h-4 sm:w-5 sm:h-5 ${isHandRaised ? 'text-white' : 'text-amber-400'}`} />
             </button>
             <div className="hidden md:group-hover:flex absolute -top-11 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-900 border border-slate-800 text-[10px] text-slate-200 whitespace-nowrap shadow-lg pointer-events-none items-center gap-1">
-              <span>Giơ tay</span>
+              <span>{isHandRaised ? 'Hạ tay' : 'Giơ tay'}</span>
               <kbd className="px-1 rounded bg-slate-800 text-amber-400 font-mono text-[9px]">H</kbd>
             </div>
-            <span className="hidden xl:block text-[9px] text-slate-400 mt-0.5">Giơ tay</span>
+            <span className="hidden xl:block text-[9px] text-slate-400 mt-0.5">
+              {isHandRaised ? 'Đang giơ' : 'Giơ tay'}
+            </span>
           </div>
 
           {/* 6. NÚT BIỂU CẢM NHANH (REACTIONS) */}
@@ -315,7 +325,7 @@ export const ClassroomControls: React.FC<ClassroomControlsProps> = ({
                   className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-slate-800 text-left"
                 >
                   <Hand className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Giơ tay phát biểu</span>
+                  <span>{isHandRaised ? 'Hạ tay phát biểu' : 'Giơ tay phát biểu'}</span>
                 </button>
               </div>
             )}

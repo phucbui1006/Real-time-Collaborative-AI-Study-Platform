@@ -37,6 +37,8 @@ const ANNOTATION_COLORS = [
 interface DocumentCollaborativeViewerProps {
   document: RoomDocumentData
   isHost: boolean
+  userRole?: 'host' | 'speaker' | 'viewer'
+  roomCode?: string
   currentUserId?: string
   annotations?: DocumentAnnotation[]
   onPageChange: (pageIndex: number) => void
@@ -47,11 +49,14 @@ interface DocumentCollaborativeViewerProps {
 export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerProps> = ({
   document,
   isHost,
+  userRole,
+  roomCode,
   annotations = [],
   onPageChange,
   onUpdateAnnotations,
   onClearAnnotations,
 }) => {
+  const canAnnotate = isHost || userRole === 'speaker'
   const hostPage = document.currentPage || 0
   const [localPage, setLocalPage] = useState<number>(hostPage)
   const [isFreeView, setIsFreeView] = useState<boolean>(false)
@@ -123,13 +128,86 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
   }, [hostPage, isFreeView])
 
   const totalPages = Math.max(1, document.totalPages || 0, document.pagesContent?.length || 0)
-  const currentPageContent = document.pagesContent?.[localPage] || ''
+  const pageCacheRef = useRef<Map<number, string>>(new Map())
+  const [pageContent, setPageContent] = useState<string>(() => {
+    return document.pagesContent?.[localPage] || ''
+  })
+  const [isLoadingPage, setIsLoadingPage] = useState<boolean>(false)
+
+  // Khởi tạo cache từ pagesContent nếu có sẵn
+  useEffect(() => {
+    if (document.pagesContent && Array.isArray(document.pagesContent)) {
+      document.pagesContent.forEach((txt, idx) => {
+        if (txt && !pageCacheRef.current.has(idx)) {
+          pageCacheRef.current.set(idx, txt)
+        }
+      })
+    }
+  }, [document.pagesContent])
+
+  // Lazy-load trang hiện tại và prefetch trước/sau 1-2 trang
+  useEffect(() => {
+    let isMounted = true
+
+    if (pageCacheRef.current.has(localPage)) {
+      setPageContent(pageCacheRef.current.get(localPage) || '')
+      setIsLoadingPage(false)
+    } else if (document.pagesContent?.[localPage]) {
+      const content = document.pagesContent[localPage]
+      pageCacheRef.current.set(localPage, content)
+      setPageContent(content)
+      setIsLoadingPage(false)
+    } else if (roomCode) {
+      setIsLoadingPage(true)
+      fetch(`/api/rooms/${roomCode}/document/page/${localPage}`)
+        .then((res) => {
+          if (!res.ok) throw new Error('Không thể tải nội dung trang')
+          return res.json()
+        })
+        .then((data) => {
+          if (isMounted) {
+            const c = data.content || ''
+            pageCacheRef.current.set(localPage, c)
+            setPageContent(c)
+          }
+        })
+        .catch((err) => {
+          console.warn('[DocViewer] Lỗi tải nội dung trang:', err)
+        })
+        .finally(() => {
+          if (isMounted) setIsLoadingPage(false)
+        })
+    }
+
+    // Prefetch trước/sau 1-2 trang
+    if (roomCode) {
+      const pagesToPrefetch = [localPage - 1, localPage + 1, localPage + 2].filter(
+        (p) => p >= 0 && p < totalPages && !pageCacheRef.current.has(p)
+      )
+      pagesToPrefetch.forEach((p) => {
+        fetch(`/api/rooms/${roomCode}/document/page/${p}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.content) {
+              pageCacheRef.current.set(p, data.content)
+            }
+          })
+          .catch(() => {})
+      })
+    }
+
+    return () => {
+      isMounted = false
+    }
+  }, [localPage, roomCode, totalPages, document.pagesContent])
+
+  const currentPageContent = pageContent || document.pagesContent?.[localPage] || ''
 
   // Xử lý chuyển trang
   const handlePrevPage = () => {
     const next = Math.max(0, localPage - 1)
     setLocalPage(next)
-    if (isHost) {
+    if (canAnnotate) {
       onPageChange(next)
     } else {
       setIsFreeView(true)
@@ -139,7 +217,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
   const handleNextPage = () => {
     const next = Math.min(totalPages - 1, localPage + 1)
     setLocalPage(next)
-    if (isHost) {
+    if (canAnnotate) {
       onPageChange(next)
     } else {
       setIsFreeView(true)
@@ -167,7 +245,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
 
   // ─── XỬ LÝ VẼ KHOANH HÌNH CHỮ NHẬT VÀ HIGHLIGHT (HOST) ────────────────────
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (!isHost || activeTool === 'select') return
+    if (!canAnnotate || activeTool === 'select') return
 
     // Bỏ qua nếu click vào chính popup ghi chú hoặc các nút con bên trong
     if (notePopupRef.current && notePopupRef.current.contains(e.target as Node)) {
@@ -227,7 +305,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
 
   // Theo dõi sự kiện di chuyển và nhả chuột toàn cục (window) để nét kéo vẽ luôn mượt mà và không bị đứt đoạn
   useEffect(() => {
-    if (!isDrawing || !dragStart || !isHost) return
+    if (!isDrawing || !dragStart || !canAnnotate) return
 
     const handlePointerMove = (e: MouseEvent) => {
       const current = getRelativeCoords(e)
@@ -270,7 +348,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointerup', handlePointerUp)
     }
-  }, [isDrawing, dragStart, isHost, activeTool, activeColor, localPage, annotations, onUpdateAnnotations])
+  }, [isDrawing, dragStart, canAnnotate, activeTool, activeColor, localPage, annotations, onUpdateAnnotations])
 
   // ─── XỬ LÝ GÕ TEXT NOTE ──────────────────────────────────────────────────
   const handleAddTextAnnotation = () => {
@@ -310,7 +388,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
 
   // Xóa một chú thích cụ thể
   const handleDeleteAnnotation = (id: string) => {
-    if (!isHost) return
+    if (!canAnnotate) return
     onUpdateAnnotations?.(localPage, annotations.filter((a) => a.id !== id))
   }
 
@@ -329,9 +407,9 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
           </span>
         </div>
 
-        {/* Cụm công cụ chú thích (Chủ phòng điều khiển, thành viên xem) */}
+        {/* Cụm công cụ chú thích (Host/Speaker điều khiển, thành viên xem) */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {isHost ? (
+          {canAnnotate ? (
             <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-md border border-slate-200 dark:border-slate-800 shadow-xs">
               {/* Con trỏ bình thường */}
               <button
@@ -431,7 +509,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
           ) : (
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 text-xs border border-teal-200 dark:border-teal-800">
               <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-              <span>Chế độ xem chú thích trực tiếp từ Chủ phòng</span>
+              <span>Chế độ xem chú thích trực tiếp từ Người trình bày</span>
             </div>
           )}
 
@@ -454,27 +532,32 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
         ref={scrollContainerRef}
         onMouseDown={handleMouseDown}
         className={`flex-1 overflow-y-auto bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 ${
-          isHost && activeTool !== 'select' ? 'cursor-crosshair select-none' : 'cursor-default'
+          canAnnotate && activeTool !== 'select' ? 'cursor-crosshair select-none' : 'cursor-default'
         }`}
       >
         <div
           ref={contentWrapperRef}
           className={`relative min-h-full max-w-4xl mx-auto p-4 sm:p-8 ${
-            isHost && activeTool !== 'select' ? 'cursor-crosshair select-none' : 'cursor-default'
+            canAnnotate && activeTool !== 'select' ? 'cursor-crosshair select-none' : 'cursor-default'
           }`}
         >
           {/* Nội dung bài học Markdown */}
           <div
             className={`prose dark:prose-invert max-w-none text-sm sm:text-base leading-relaxed ${
-              isHost && activeTool !== 'select' ? 'select-none pointer-events-none' : 'select-text'
+              canAnnotate && activeTool !== 'select' ? 'select-none pointer-events-none' : 'select-text'
             }`}
           >
-            {currentPageContent ? (
+            {isLoadingPage && !currentPageContent ? (
+              <div className="py-24 text-center text-slate-400 dark:text-slate-500 flex flex-col items-center justify-center gap-3">
+                <Sparkles className="w-8 h-8 animate-spin text-teal-500" />
+                <p className="text-xs">Đang tải trang {localPage + 1}...</p>
+              </div>
+            ) : currentPageContent ? (
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}
                 rehypePlugins={[rehypeKatex]}
                 components={{
-                  img: ({ node, ...props }) => (
+                  img: ({ ...props }) => (
                     <img
                       {...props}
                       alt={props.alt || 'Tài liệu'}
@@ -567,7 +650,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
                   className="px-2.5 py-1.5 rounded-r-lg bg-white/95 dark:bg-slate-900/95 shadow-md border-l-4 border text-xs text-slate-800 dark:text-slate-100 font-sans flex items-start gap-1.5 backdrop-blur-xs"
                 >
                   <span className="flex-1 whitespace-pre-wrap leading-relaxed">{anno.text}</span>
-                  {isHost && (
+                  {canAnnotate && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
@@ -585,8 +668,8 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
             )
           })}
 
-          {/* Ô nhập Text Note nổi khi Host bấm tool 'text' */}
-          {textInputState && isHost && (
+          {/* Ô nhập Text Note nổi khi Host/Speaker bấm tool 'text' */}
+          {textInputState && canAnnotate && (
             <div
               ref={notePopupRef}
               onMouseDown={(e) => e.stopPropagation()}

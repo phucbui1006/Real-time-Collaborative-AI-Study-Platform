@@ -8,13 +8,14 @@ export interface RoomMember {
   socketId: string;         // Định danh socket kết nối real-time
   userId: string;           // ID người dùng (UUID Supabase hoặc guest ID)
   userName: string;         // Tên hiển thị của thành viên
-  role: 'host' | 'member';  // Vai trò: 'host' (Chủ phòng) hoặc 'member' (Thành viên)
+  role: 'host' | 'speaker' | 'viewer';  // Vai trò 3 cấp: 'host' (Chủ phòng), 'speaker' (Diễn giả/Được phát biểu), 'viewer' (Người xem)
   avatarColor: string;      // Mã màu đại diện avatar
   avatarUrl?: string;       // Đường dẫn ảnh đại diện nếu có
   isMicOn: boolean;         // Trạng thái bật/tắt Micro
   isCamOn: boolean;         // Trạng thái bật/tắt Camera
   isScreenSharing: boolean; // Trạng thái đang chia sẻ màn hình
   isSpeaking: boolean;      // Trạng thái phát hiện đang phát biểu (VAD)
+  isHandRaised?: boolean;   // Trạng thái đang giơ tay phát biểu
   joinedAt: number;         // Thời điểm tham gia phòng (timestamp ms)
 }
 
@@ -43,7 +44,7 @@ export interface RoomDocumentData {
   originalDocumentId?: number | null;  // ID tài liệu gốc trong kho documents
   title: string;                       // Tiêu đề tài liệu
   totalPages: number;                  // Tổng số trang
-  pagesContent: string[];              // Mảng nội dung văn bản (Markdown/LaTeX) từng trang
+  pagesContent?: string[];             // Mảng nội dung văn bản (tùy chọn khi nạp lazy)
   currentPage: number;                 // Trang hiện tại đang chiếu (bắt đầu từ 0)
   updatedAt: string;                   // Thời điểm cập nhật nội dung gần nhất
 }
@@ -93,6 +94,11 @@ export interface ClientToServerEvents {
   // Dừng chia sẻ màn hình máy tính
   'ROOM:SCREEN_SHARE_STOP': (payload: { roomCode: string }) => void;
 
+  // Giơ tay phát biểu
+  'ROOM:RAISE_HAND': (payload: { roomCode: string; isRaised: boolean }) => void;
+  // Cấp / Hạ vai trò thành viên (Host only)
+  'ROOM:SET_ROLE': (payload: { roomCode: string; targetSocketId: string; role: 'speaker' | 'viewer' }) => void;
+
   // Quyền hạn dành riêng cho Chủ phòng (Host)
   'ROOM:MUTE_MEMBER': (payload: { roomCode: string; targetSocketId: string }) => void;
   'ROOM:KICK_MEMBER': (payload: { roomCode: string; targetSocketId: string }) => void;
@@ -104,7 +110,7 @@ export interface ClientToServerEvents {
   'CHAT:SEND': (payload: { roomCode: string; message: string }) => void;
 
   // Điều khiển tài liệu bài học (Host)
-  'DOC:SELECT': (payload: { roomCode: string; documentId: number; docData?: { title: string; pagesContent: string[]; totalPages: number } }) => void;
+  'DOC:SELECT': (payload: { roomCode: string; documentId: number; docData?: { title: string; pagesContent?: string[]; totalPages: number } }) => void;
   'DOC:STOP': (payload: { roomCode: string }) => void;
   'DOC:CHANGE_PAGE': (payload: { roomCode: string; pageIndex: number }) => void;
   'DOC:EDIT_PAGE': (payload: { roomCode: string; pageIndex: number; content: string }) => void;
@@ -135,6 +141,8 @@ export interface ServerToClientEvents {
   'ROOM:CLOSED': (data: { reason: string }) => void;
   // Quyền Chủ phòng được chuyển giao cho người khác
   'ROOM:HOST_CHANGED': (data: { newHostUserId: string; newHostSocketId: string }) => void;
+  // Vai trò của một thành viên bị thay đổi (Host/Speaker/Viewer)
+  'ROOM:ROLE_CHANGED': (data: { targetSocketId: string; role: 'host' | 'speaker' | 'viewer'; targetUserName: string }) => void;
   // Bị Chủ phòng tắt micro
   'ROOM:MUTED_BY_HOST': () => void;
 

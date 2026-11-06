@@ -111,7 +111,7 @@ export function sendChatMessage(roomCode: string, message: string) {
 export function selectDocument(
   roomCode: string,
   documentId: number,
-  docData?: { title: string; pagesContent: string[]; totalPages: number }
+  docData?: { title: string; pagesContent?: string[]; totalPages: number }
 ) {
   if (socket.connected) {
     socket.emit('DOC:SELECT', { roomCode, documentId, docData })
@@ -196,6 +196,24 @@ export function transferHost(roomCode: string, targetSocketId: string) {
 export function toggleScreenPermission(roomCode: string, allow: boolean) {
   if (socket.connected) {
     socket.emit('ROOM:TOGGLE_SCREEN_PERMISSION', { roomCode, allow })
+  }
+}
+
+/**
+ * Thành viên: Giơ tay hoặc hạ tay phát biểu
+ */
+export function raiseHand(roomCode: string, isRaised: boolean) {
+  if (socket.connected) {
+    socket.emit('ROOM:RAISE_HAND', { roomCode, isRaised })
+  }
+}
+
+/**
+ * Chủ phòng: Cấp hoặc hạ vai trò thành viên ('speaker' | 'viewer')
+ */
+export function setMemberRole(roomCode: string, targetSocketId: string, role: 'speaker' | 'viewer') {
+  if (socket.connected) {
+    socket.emit('ROOM:SET_ROLE', { roomCode, targetSocketId, role })
   }
 }
 

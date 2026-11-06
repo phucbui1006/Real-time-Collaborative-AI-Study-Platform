@@ -1,7 +1,9 @@
 // server/src/sockets/roomHandler.js
-// Quản lý toàn diện vòng đời phòng học, phân quyền Host/Member, trạng thái trình chiếu và tài liệu
+// Quản lý toàn diện vòng đời phòng học, phân quyền 3 vai trò (Host/Speaker/Viewer),
+// lazy load tài liệu và kiểm tra quyền server-side cho mọi hành động nhạy cảm
 
 const { supabaseAdmin } = require('../config/supabase')
+const { MAX_ROOM_MEMBERS } = require('../config/env')
 const { loadRecentMessages } = require('./chatHandler')
 
 // Bộ nhớ RAM lưu trữ trạng thái các phòng đang hoạt động
@@ -32,18 +34,58 @@ function findRoomBySocketId(socketId) {
 }
 
 /**
+ * Lấy vai trò thực tế của socket trong phòng ('host' | 'speaker' | 'viewer')
+ */
+function getMemberRole(room, socketId) {
+  const member = room.members.get(socketId)
+  if (!member) return null
+  if (room.hostSocketId === socketId || (room.hostUserId && room.hostUserId === member.userId)) {
+    return 'host'
+  }
+  return member.role || 'viewer'
+}
+
+function isHost(room, socketId) {
+  return getMemberRole(room, socketId) === 'host'
+}
+
+function isHostOrSpeaker(room, socketId) {
+  const role = getMemberRole(room, socketId)
+  return role === 'host' || role === 'speaker'
+}
+
+/**
  * Lấy snapshot trạng thái phòng để gửi cho client
+ * Tối ưu hóa: Chỉ gửi metadata của tài liệu và snapshot chú thích trang hiện tại
  * @param {any} room 
  */
 function formatRoomState(room) {
+  // Chỉ gửi metadata của tài liệu, TUYỆT ĐỐI không gửi mảng pagesContent qua socket
+  const docMeta = room.activeDocument
+    ? {
+        id: room.activeDocument.id,
+        originalDocumentId: room.activeDocument.originalDocumentId,
+        title: room.activeDocument.title,
+        totalPages: room.activeDocument.totalPages || (room.activeDocument.pagesContent ? room.activeDocument.pagesContent.length : 1),
+        currentPage: room.activeDocument.currentPage || 0,
+        updatedAt: room.activeDocument.updatedAt,
+      }
+    : null
+
+  // Người mới vào chỉ nhận snapshot chú thích của trang hiện tại đang chiếu
+  const currPage = room.activeDocument ? (room.activeDocument.currentPage || 0) : 0
+  const annotationsSnapshot = room.annotationsByPage && room.annotationsByPage[currPage]
+    ? { [currPage]: room.annotationsByPage[currPage] }
+    : {}
+
   return {
     code: room.code,
     name: room.name,
     hostUserId: room.hostUserId,
     hostSocketId: room.hostSocketId,
     members: Array.from(room.members.values()),
-    activeDocument: room.activeDocument,
-    annotationsByPage: room.annotationsByPage || {},
+    activeDocument: docMeta,
+    annotationsByPage: annotationsSnapshot,
     screenSharerSocketId: room.screenSharerSocketId,
     allowMemberScreenShare: room.allowMemberScreenShare,
     maxMembers: room.maxMembers,
@@ -84,18 +126,19 @@ function roomHandler(io, socket) {
 
       // Khởi tạo phòng trong RAM nếu người đầu tiên vào
       if (!room) {
-        const isHost = dbRoom.host_user_id ? dbRoom.host_user_id === userId : true
+        const isHostUser = dbRoom.host_user_id ? dbRoom.host_user_id === userId : true
         room = {
           code: cleanCode,
           name: dbRoom.name || 'Phòng học nhóm',
           dbRoomId: dbRoom.id,
           hostUserId: dbRoom.host_user_id || userId,
-          hostSocketId: isHost ? socket.id : null,
-          maxMembers: dbRoom.max_members || 6,
+          hostSocketId: isHostUser ? socket.id : null,
+          maxMembers: dbRoom.max_members || MAX_ROOM_MEMBERS || 6,
           allowMemberScreenShare: true,
           screenSharerSocketId: null,
           members: new Map(),
           activeDocument: null,
+          annotationsByPage: {},
         }
 
         // Tải tài liệu của phòng nếu đã có sẵn trong DB (bảng room_documents)
@@ -134,9 +177,9 @@ function roomHandler(io, socket) {
         })
       }
 
-      // Xác định vai trò: nếu là người tạo phòng hoặc hiện tại phòng chưa có host
-      const isHost = room.hostUserId === userId || !room.hostSocketId
-      if (isHost) {
+      // Xác định vai trò: người tạo phòng là 'host', thành viên vào sau là 'viewer'
+      const isHostUser = room.hostUserId === userId || !room.hostSocketId
+      if (isHostUser) {
         room.hostUserId = userId
         room.hostSocketId = socket.id
       }
@@ -145,12 +188,13 @@ function roomHandler(io, socket) {
         socketId: socket.id,
         userId,
         userName,
-        role: isHost ? 'host' : 'member',
+        role: isHostUser ? 'host' : 'viewer', // 3 vai trò: host | speaker | viewer
         avatarColor,
         isMicOn: false,
         isCamOn: false,
         isScreenSharing: false,
         isSpeaking: false,
+        isHandRaised: false, // Quản lý trạng thái giơ tay
         joinedAt: Date.now(),
       }
 
@@ -162,7 +206,7 @@ function roomHandler(io, socket) {
       // Thông báo cho các thành viên khác
       socket.to(cleanCode).emit('ROOM:MEMBER_JOINED', member)
 
-      // Gửi toàn bộ trạng thái phòng cho thành viên mới
+      // Gửi snapshot trạng thái phòng (metadata tài liệu + snapshot annotation trang hiện tại)
       socket.emit('ROOM:STATE', formatRoomState(room))
 
       // Gửi lịch sử tin nhắn
@@ -179,6 +223,7 @@ function roomHandler(io, socket) {
             role: member.role,
             avatar_color: avatarColor,
             is_online: true,
+            is_hand_raised: false,
             joined_at: new Date(),
           })
         } catch {}
@@ -224,7 +269,7 @@ function roomHandler(io, socket) {
     // Xử lý chính sách chuyển giao Host khi chủ phòng rời (HOST_LEAVE_POLICY: transfer_to_oldest)
     if (room.hostSocketId === socket.id) {
       if (room.members.size > 0) {
-        // Tìm thành viên vào phòng sớm nhất còn lại
+        // Tìm thành viên vào phòng sớm nhất còn lại để kế vị Host
         const sortedMembers = Array.from(room.members.values()).sort((a, b) => a.joinedAt - b.joinedAt)
         const newHost = sortedMembers[0]
         newHost.role = 'host'
@@ -236,6 +281,10 @@ function roomHandler(io, socket) {
         io.to(targetCode).emit('ROOM:HOST_CHANGED', {
           newHostUserId: newHost.userId,
           newHostSocketId: newHost.socketId,
+        })
+        io.to(targetCode).emit('ROOM:MEMBER_UPDATED', {
+          socketId: newHost.socketId,
+          role: 'host',
         })
         io.to(targetCode).emit('ROOM:STATE', formatRoomState(room))
 
@@ -258,14 +307,17 @@ function roomHandler(io, socket) {
             await supabaseAdmin.from('rooms').update({ is_active: false }).eq('id', room.dbRoomId)
           } catch {}
         }
+
+        // Dọn dẹp debounce lưu tài liệu nếu có
+        if (room.activeDocument?.id) {
+          const saveKey = `${targetCode}_${room.activeDocument.id}`
+          if (docSaveTimers.has(saveKey)) {
+            clearTimeout(docSaveTimers.get(saveKey))
+            docSaveTimers.delete(saveKey)
+          }
+        }
+
         activeRooms.delete(targetCode)
-      }
-    } else {
-      // Nếu không còn ai trong phòng
-      if (room.members.size === 0) {
-        activeRooms.delete(targetCode)
-      } else {
-        io.to(targetCode).emit('ROOM:STATE', formatRoomState(room))
       }
     }
   }
@@ -273,12 +325,21 @@ function roomHandler(io, socket) {
   socket.on('ROOM:LEAVE', ({ roomCode }) => handleLeave(roomCode, true))
   socket.on('disconnect', () => handleLeave(null, false))
 
-  // ─── 3. ĐIỀU KHIỂN MICRO / CAMERA / NÓI ─────────────────────────────────
+  // ─── 3. ĐIỀU KHIỂN MICRO / CAMERA / NÓI (SERVER-SIDE ENFORCEMENT) ─────────
   socket.on('ROOM:MEDIA_TOGGLE', ({ roomCode, isMicOn, isCamOn }) => {
     const room = activeRooms.get(roomCode)
     if (!room || !room.members.has(socket.id)) return
 
     const member = room.members.get(socket.id)
+
+    // KIỂM TRA QUYỀN: Chỉ Host hoặc Speaker mới được bật Micro
+    if (isMicOn === true && !isHostOrSpeaker(room, socket.id)) {
+      return socket.emit('ERROR', {
+        message: 'Bạn đang là Người xem (Viewer). Vui lòng giơ tay để Chủ phòng cấp quyền phát biểu.',
+        code: 'FORBIDDEN',
+      })
+    }
+
     if (typeof isMicOn === 'boolean') member.isMicOn = isMicOn
     if (typeof isCamOn === 'boolean') member.isCamOn = isCamOn
 
@@ -302,7 +363,101 @@ function roomHandler(io, socket) {
     })
   })
 
-  // ─── 4. CHIA SẺ MÀN HÌNH (SCREEN SHARE) ─────────────────────────────────
+  // ─── 4. GIƠ TAY PHÁT BIỂU (ROOM:RAISE_HAND) ──────────────────────────────
+  socket.on('ROOM:RAISE_HAND', ({ roomCode, isRaised }) => {
+    try {
+      if (!roomCode) return
+      const room = activeRooms.get(roomCode)
+      if (!room || !room.members.has(socket.id)) return
+
+      const member = room.members.get(socket.id)
+      member.isHandRaised = Boolean(isRaised)
+
+      console.log(`✋ ${member.userName} ${member.isHandRaised ? 'đã giơ tay' : 'đã hạ tay'}`)
+
+      io.to(roomCode).emit('ROOM:MEMBER_UPDATED', {
+        socketId: socket.id,
+        isHandRaised: member.isHandRaised,
+      })
+    } catch (err) {
+      console.error('Lỗi ROOM:RAISE_HAND:', err)
+    }
+  })
+
+  // ─── 5. PHÂN VAI TRÒ THÀNH VIÊN (ROOM:SET_ROLE - HOST ONLY) ──────────────
+  socket.on('ROOM:SET_ROLE', async ({ roomCode, targetSocketId, role }) => {
+    try {
+      if (!roomCode || !targetSocketId || !['speaker', 'viewer'].includes(role)) return
+      const room = activeRooms.get(roomCode)
+      if (!room || !room.members.has(socket.id)) return
+
+      // Chỉ Chủ phòng mới có quyền cấp hoặc hạ quyền
+      if (!isHost(room, socket.id)) {
+        return socket.emit('ERROR', {
+          message: 'Chỉ Chủ phòng mới có quyền phân vai trò thành viên.',
+          code: 'FORBIDDEN',
+        })
+      }
+
+      const targetMember = room.members.get(targetSocketId)
+      if (!targetMember) return
+
+      targetMember.role = role
+
+      // Nếu hạ xuống Viewer: tự động hạ tay và cưỡng chế tắt Mic / Screen share nếu đang bật
+      if (role === 'viewer') {
+        targetMember.isHandRaised = false
+        if (targetMember.isMicOn || targetMember.isCamOn) {
+          targetMember.isMicOn = false
+          targetMember.isCamOn = false
+          io.to(roomCode).emit('ROOM:MEMBER_UPDATED', {
+            socketId: targetSocketId,
+            isMicOn: false,
+            isCamOn: false,
+          })
+          io.to(targetSocketId).emit('ROOM:MUTED_BY_HOST')
+        }
+        if (room.screenSharerSocketId === targetSocketId) {
+          room.screenSharerSocketId = null
+          targetMember.isScreenSharing = false
+          io.to(roomCode).emit('ROOM:MEMBER_UPDATED', {
+            socketId: targetSocketId,
+            isScreenSharing: false,
+          })
+          io.to(roomCode).emit('ROOM:STATE', formatRoomState(room))
+        }
+      }
+
+      console.log(`🎖️ ${targetMember.userName} đã được đặt vai trò: ${role}`)
+
+      // Thông báo cập nhật vai trò cho toàn phòng
+      io.to(roomCode).emit('ROOM:MEMBER_UPDATED', {
+        socketId: targetSocketId,
+        role: targetMember.role,
+        isHandRaised: targetMember.isHandRaised,
+      })
+      io.to(roomCode).emit('ROOM:ROLE_CHANGED', {
+        targetSocketId,
+        role,
+        targetUserName: targetMember.userName,
+      })
+
+      // Cập nhật DB
+      if (room.dbRoomId && targetMember.userId) {
+        try {
+          await supabaseAdmin
+            .from('room_members')
+            .update({ role })
+            .eq('room_id', room.dbRoomId)
+            .eq('user_id', targetMember.userId)
+        } catch {}
+      }
+    } catch (err) {
+      console.error('Lỗi ROOM:SET_ROLE:', err)
+    }
+  })
+
+  // ─── 6. CHIA SẺ MÀN HÌNH (SCREEN SHARE) ─────────────────────────────────
   socket.on('ROOM:SCREEN_SHARE_START', ({ roomCode }) => {
     const room = activeRooms.get(roomCode)
     if (!room) return
@@ -323,9 +478,19 @@ function roomHandler(io, socket) {
 
     if (!member) return
 
-    // Kiểm tra quyền: nếu không phải host và host tắt quyền chia sẻ của thành viên
+    // KIỂM TRA QUYỀN: Chỉ Host hoặc Speaker mới được chia sẻ màn hình
+    if (!isHostOrSpeaker(room, socket.id)) {
+      return socket.emit('ERROR', {
+        message: 'Chỉ Chủ phòng và Diễn giả (Speaker) mới được chia sẻ màn hình.',
+        code: 'FORBIDDEN',
+      })
+    }
+
     if (member.role !== 'host' && !room.allowMemberScreenShare) {
-      return socket.emit('ERROR', { message: 'Chủ phòng đã tắt quyền chia sẻ màn hình của thành viên.' })
+      return socket.emit('ERROR', {
+        message: 'Chủ phòng đã tắt quyền chia sẻ màn hình của thành viên.',
+        code: 'FORBIDDEN',
+      })
     }
 
     // Mỗi thời điểm chỉ một người được chia sẻ
@@ -363,105 +528,113 @@ function roomHandler(io, socket) {
     }
   })
 
-  // ─── 5. QUYỀN HẠN CỦA CHỦ PHÒNG (HOST ACTIONS) ──────────────────────────
-  // Mute mic thành viên
+  // ─── 7. QUYỀN HẠN CỦA CHỦ PHÒNG (HOST ACTIONS) ──────────────────────────
   socket.on('ROOM:MUTE_MEMBER', ({ roomCode, targetSocketId }) => {
     const room = activeRooms.get(roomCode)
-    if (!room || room.hostSocketId !== socket.id) {
-      return socket.emit('ERROR', { message: 'Chỉ chủ phòng mới có quyền tắt tiếng thành viên.' })
+    if (!room || !isHost(room, socket.id)) {
+      return socket.emit('ERROR', {
+        message: 'Chỉ Chủ phòng mới có quyền tắt micro thành viên.',
+        code: 'FORBIDDEN',
+      })
     }
 
     const targetMember = room.members.get(targetSocketId)
     if (targetMember) {
       targetMember.isMicOn = false
-      io.to(targetSocketId).emit('ROOM:MUTED_BY_HOST')
       io.to(roomCode).emit('ROOM:MEMBER_UPDATED', {
         socketId: targetSocketId,
         isMicOn: false,
       })
+      io.to(targetSocketId).emit('ROOM:MUTED_BY_HOST')
     }
   })
 
-  // Kick thành viên ra khỏi phòng
   socket.on('ROOM:KICK_MEMBER', ({ roomCode, targetSocketId }) => {
     const room = activeRooms.get(roomCode)
-    if (!room || room.hostSocketId !== socket.id) {
-      return socket.emit('ERROR', { message: 'Chỉ chủ phòng mới có quyền mời thành viên ra ngoài.' })
-    }
-
-    const targetSocket = io.sockets.sockets.get(targetSocketId)
-    if (targetSocket) {
-      targetSocket.emit('ROOM:KICKED', { reason: 'Chủ phòng đã mời bạn rời khỏi phòng học.' })
-      targetSocket.leave(roomCode)
+    if (!room || !isHost(room, socket.id)) {
+      return socket.emit('ERROR', {
+        message: 'Chỉ Chủ phòng mới có quyền mời thành viên ra khỏi phòng.',
+        code: 'FORBIDDEN',
+      })
     }
 
     const targetMember = room.members.get(targetSocketId)
-    room.members.delete(targetSocketId)
-    if (room.screenSharerSocketId === targetSocketId) {
-      room.screenSharerSocketId = null
+    if (targetMember) {
+      room.members.delete(targetSocketId)
+      io.to(targetSocketId).emit('ROOM:KICKED', { reason: 'Chủ phòng đã mời bạn rời khỏi phòng học.' })
+      io.to(roomCode).emit('ROOM:MEMBER_LEFT', {
+        socketId: targetSocketId,
+        userId: targetMember.userId,
+        reason: 'kicked',
+      })
     }
-
-    io.to(roomCode).emit('ROOM:MEMBER_LEFT', {
-      socketId: targetSocketId,
-      userId: targetMember?.userId,
-      reason: 'Bị mời ra',
-    })
-    io.to(roomCode).emit('ROOM:STATE', formatRoomState(room))
   })
 
-  // Chuyển quyền chủ phòng thủ công
-  socket.on('ROOM:TRANSFER_HOST', ({ roomCode, targetSocketId }) => {
+  socket.on('ROOM:TRANSFER_HOST', async ({ roomCode, targetSocketId }) => {
     const room = activeRooms.get(roomCode)
-    if (!room || room.hostSocketId !== socket.id) {
-      return socket.emit('ERROR', { message: 'Chỉ chủ phòng mới có thể nhượng quyền.' })
+    if (!room || !isHost(room, socket.id)) {
+      return socket.emit('ERROR', {
+        message: 'Chỉ Chủ phòng mới có quyền chuyển giao quyền Chủ phòng.',
+        code: 'FORBIDDEN',
+      })
     }
 
-    const currentHost = room.members.get(socket.id)
-    const newHost = room.members.get(targetSocketId)
-
-    if (currentHost && newHost) {
-      currentHost.role = 'member'
-      newHost.role = 'host'
+    const targetMember = room.members.get(targetSocketId)
+    if (targetMember) {
+      const oldHost = room.members.get(socket.id)
+      if (oldHost) oldHost.role = 'speaker' // Chủ phòng cũ được giữ vai trò Speaker
+      targetMember.role = 'host'
       room.hostSocketId = targetSocketId
-      room.hostUserId = newHost.userId
+      room.hostUserId = targetMember.userId
 
       io.to(roomCode).emit('ROOM:HOST_CHANGED', {
-        newHostUserId: newHost.userId,
-        newHostSocketId: newHost.socketId,
+        newHostUserId: targetMember.userId,
+        newHostSocketId: targetSocketId,
       })
+      io.to(roomCode).emit('ROOM:MEMBER_UPDATED', {
+        socketId: targetSocketId,
+        role: 'host',
+      })
+      if (oldHost) {
+        io.to(roomCode).emit('ROOM:MEMBER_UPDATED', {
+          socketId: socket.id,
+          role: 'speaker',
+        })
+      }
       io.to(roomCode).emit('ROOM:STATE', formatRoomState(room))
 
       if (room.dbRoomId) {
-        supabaseAdmin.from('rooms').update({ host_user_id: newHost.userId }).eq('id', room.dbRoomId).catch(() => {})
+        try {
+          await supabaseAdmin.from('rooms').update({ host_user_id: targetMember.userId }).eq('id', room.dbRoomId)
+          await supabaseAdmin.from('room_members').update({ role: 'host' }).eq('room_id', room.dbRoomId).eq('user_id', targetMember.userId)
+        } catch {}
       }
     }
   })
 
-  // Bật/tắt quyền chia sẻ màn hình cho thành viên
   socket.on('ROOM:TOGGLE_SCREEN_PERMISSION', ({ roomCode, allow }) => {
     const room = activeRooms.get(roomCode)
-    if (!room || room.hostSocketId !== socket.id) {
-      return socket.emit('ERROR', { message: 'Chỉ chủ phòng mới có quyền đổi cài đặt này.' })
+    if (!room || !isHost(room, socket.id)) {
+      return socket.emit('ERROR', {
+        message: 'Chỉ Chủ phòng mới có quyền điều chỉnh quyền chia sẻ.',
+        code: 'FORBIDDEN',
+      })
     }
 
     room.allowMemberScreenShare = Boolean(allow)
-    // Nếu tắt quyền mà đang có thành viên thường share thì dừng
-    if (!room.allowMemberScreenShare && room.screenSharerSocketId && room.screenSharerSocketId !== room.hostSocketId) {
-      const sharer = room.members.get(room.screenSharerSocketId)
-      if (sharer) sharer.isScreenSharing = false
-      room.screenSharerSocketId = null
-    }
-
     io.to(roomCode).emit('ROOM:STATE', formatRoomState(room))
   })
 
-  // Đóng phòng hoàn toàn
   socket.on('ROOM:CLOSE', async ({ roomCode }) => {
     const room = activeRooms.get(roomCode)
-    if (!room || room.hostSocketId !== socket.id) {
-      return socket.emit('ERROR', { message: 'Chỉ chủ phòng mới có quyền đóng phòng.' })
+    if (!room || !isHost(room, socket.id)) {
+      return socket.emit('ERROR', {
+        message: 'Chỉ Chủ phòng mới có quyền đóng phòng học.',
+        code: 'FORBIDDEN',
+      })
     }
 
+    console.log(`🔒 Chủ phòng đã đóng phòng ${roomCode}`)
     io.to(roomCode).emit('ROOM:CLOSED', { reason: 'Chủ phòng đã kết thúc buổi học.' })
 
     if (room.dbRoomId) {
@@ -473,8 +646,8 @@ function roomHandler(io, socket) {
     activeRooms.delete(roomCode)
   })
 
-  // ─── 6. TRÌNH CHIẾU TÀI LIỆU & ĐỒNG BỘ NỘI DUNG ─────────────────────────
-  // Host chọn tài liệu để trình chiếu (sao chép sang room_documents hoặc dùng docData client gửi kèm)
+  // ─── 8. TRÌNH CHIẾU TÀI LIỆU & ĐỒNG BỘ NỘI DUNG (LAZY LOAD + ENFORCEMENT) ─
+  // Chỉ Chủ phòng mới được chọn tài liệu chiếu
   socket.on('DOC:SELECT', async ({ roomCode, documentId, docData }) => {
     try {
       const room = activeRooms.get(roomCode)
@@ -482,11 +655,11 @@ function roomHandler(io, socket) {
         return socket.emit('ERROR', { message: 'Phòng học không tồn tại.' })
       }
 
-      // Xác minh quyền chủ phòng (cho phép đồng bộ lại hostSocketId nếu socket mới kết nối lại)
-      const currentUserId = socket.user?.id || socket.id
-      const isHost = room.hostSocketId === socket.id || (room.hostUserId && room.hostUserId === currentUserId)
-      if (!isHost) {
-        return socket.emit('ERROR', { message: 'Chỉ chủ phòng mới có quyền chọn tài liệu trình chiếu.' })
+      if (!isHost(room, socket.id)) {
+        return socket.emit('ERROR', {
+          message: 'Chỉ Chủ phòng mới có quyền chọn tài liệu trình chiếu.',
+          code: 'FORBIDDEN',
+        })
       }
       room.hostSocketId = socket.id
 
@@ -503,7 +676,7 @@ function roomHandler(io, socket) {
         }
       }
 
-      // 2. Nếu không tìm thấy trong DB nhưng client gửi kèm docData (Guest / Local Cache)
+      // 2. Nếu không tìm thấy trong DB nhưng client gửi kèm docData
       if (!sourceDoc && docData && Array.isArray(docData.pagesContent)) {
         sourceDoc = {
           id: documentId,
@@ -565,41 +738,48 @@ function roomHandler(io, socket) {
         }
       }
 
+      // Lưu trữ toàn bộ nội dung trong RAM server, nhưng phát qua socket CHỈ GỬI METADATA
       room.activeDocument = roomDocData
-      io.to(roomCode).emit('DOC:SYNC', roomDocData)
-      io.to(roomCode).emit('ROOM:STATE', formatRoomState(room))
+      room.annotationsByPage = {}
+
+      const stateSnapshot = formatRoomState(room)
+      io.to(roomCode).emit('DOC:SYNC', stateSnapshot.activeDocument)
+      io.to(roomCode).emit('ROOM:STATE', stateSnapshot)
     } catch (err) {
       console.error('Lỗi chọn tài liệu:', err)
       socket.emit('ERROR', { message: 'Không thể mở tài liệu trình chiếu.' })
     }
   })
 
-  // Host dừng trình chiếu tài liệu
+  // Chỉ Chủ phòng mới được dừng trình chiếu
   socket.on('DOC:STOP', ({ roomCode }) => {
     const room = activeRooms.get(roomCode)
     if (!room) return
-    const currentUserId = socket.user?.id || socket.id
-    const isHost = room.hostSocketId === socket.id || (room.hostUserId && room.hostUserId === currentUserId)
-    if (!isHost) {
-      return socket.emit('ERROR', { message: 'Chỉ chủ phòng mới có quyền dừng trình chiếu tài liệu.' })
+
+    if (!isHost(room, socket.id)) {
+      return socket.emit('ERROR', {
+        message: 'Chỉ Chủ phòng mới có quyền dừng trình chiếu tài liệu.',
+        code: 'FORBIDDEN',
+      })
     }
+
     room.activeDocument = null
     room.annotationsByPage = {}
     io.to(roomCode).emit('DOC:SYNC', null)
     io.to(roomCode).emit('ROOM:STATE', formatRoomState(room))
   })
 
-  // Host lật trang tài liệu
+  // Chỉ Host hoặc Speaker mới được lật trang tài liệu
   socket.on('DOC:CHANGE_PAGE', ({ roomCode, pageIndex }) => {
     const room = activeRooms.get(roomCode)
     if (!room) return
 
-    const currentUserId = socket.user?.id || socket.id
-    const isHost = room.hostSocketId === socket.id || (room.hostUserId && room.hostUserId === currentUserId)
-    if (!isHost) {
-      return socket.emit('ERROR', { message: 'Chỉ chủ phòng mới có quyền điều khiển trang.' })
+    if (!isHostOrSpeaker(room, socket.id)) {
+      return socket.emit('ERROR', {
+        message: 'Chỉ Chủ phòng và Diễn giả mới có quyền điều khiển trang tài liệu.',
+        code: 'FORBIDDEN',
+      })
     }
-    room.hostSocketId = socket.id
 
     if (!room.activeDocument) return
 
@@ -608,6 +788,7 @@ function roomHandler(io, socket) {
 
     room.activeDocument.currentPage = validPage
 
+    // Phát sự kiện chuyển trang (chỉ gửi index số trang, không gửi pages_content)
     io.to(roomCode).emit('DOC:PAGE_CHANGED', {
       pageIndex: validPage,
       by: socket.id,
@@ -618,17 +799,17 @@ function roomHandler(io, socket) {
     }
   })
 
-  // Host chỉnh sửa nội dung văn bản trang hiện tại
+  // Chỉ Host hoặc Speaker mới được chỉnh sửa nội dung văn bản trang
   socket.on('DOC:EDIT_PAGE', ({ roomCode, pageIndex, content }) => {
     const room = activeRooms.get(roomCode)
     if (!room) return
 
-    const currentUserId = socket.user?.id || socket.id
-    const isHost = room.hostSocketId === socket.id || (room.hostUserId && room.hostUserId === currentUserId)
-    if (!isHost) {
-      return socket.emit('ERROR', { message: 'Chỉ chủ phòng mới có quyền chỉnh sửa tài liệu.' })
+    if (!isHostOrSpeaker(room, socket.id)) {
+      return socket.emit('ERROR', {
+        message: 'Chỉ Chủ phòng và Diễn giả mới có quyền chỉnh sửa tài liệu.',
+        code: 'FORBIDDEN',
+      })
     }
-    room.hostSocketId = socket.id
 
     if (!room.activeDocument || typeof content !== 'string') return
 
@@ -639,14 +820,13 @@ function roomHandler(io, socket) {
     room.activeDocument.pagesContent[idx] = content
     room.activeDocument.updatedAt = new Date().toISOString()
 
-    // Đồng bộ lập tức tới các thành viên
     io.to(roomCode).emit('DOC:PAGE_UPDATED', {
       pageIndex: idx,
       content,
       by: socket.id,
     })
 
-    // Debounce 500ms lưu vào cơ sở dữ liệu Supabase room_documents
+    // Debounce 500ms lưu vào DB
     const saveKey = `${roomCode}_${room.activeDocument.id}`
     if (docSaveTimers.has(saveKey)) {
       clearTimeout(docSaveTimers.get(saveKey))
@@ -671,17 +851,17 @@ function roomHandler(io, socket) {
     docSaveTimers.set(saveKey, timer)
   })
 
-  // Host vẽ/khoanh vùng/chú thích trên tài liệu (In-Memory chỉ lưu trong phòng học, không lưu DB)
+  // Chỉ Host hoặc Speaker mới được vẽ chú thích lên trang
   socket.on('DOC:ANNOTATE', ({ roomCode, pageIndex, annotations }) => {
     const room = activeRooms.get(roomCode)
     if (!room) return
 
-    const currentUserId = socket.user?.id || socket.id
-    const isHost = room.hostSocketId === socket.id || (room.hostUserId && room.hostUserId === currentUserId)
-    if (!isHost) {
-      return socket.emit('ERROR', { message: 'Chỉ chủ phòng mới có quyền chú thích lên tài liệu.' })
+    if (!isHostOrSpeaker(room, socket.id)) {
+      return socket.emit('ERROR', {
+        message: 'Chỉ Chủ phòng và Diễn giả mới có quyền chú thích lên tài liệu.',
+        code: 'FORBIDDEN',
+      })
     }
-    room.hostSocketId = socket.id
 
     if (!room.annotationsByPage) {
       room.annotationsByPage = {}
@@ -697,15 +877,17 @@ function roomHandler(io, socket) {
     })
   })
 
-  // Host xóa chú thích trên trang (hoặc toàn bộ)
+  // Chỉ Host hoặc Speaker mới được xóa chú thích
   socket.on('DOC:CLEAR_ANNOTATIONS', ({ roomCode, pageIndex }) => {
     const room = activeRooms.get(roomCode)
     if (!room) return
 
-    const currentUserId = socket.user?.id || socket.id
-    const isHost = room.hostSocketId === socket.id || (room.hostUserId && room.hostUserId === currentUserId)
-    if (!isHost) return
-    room.hostSocketId = socket.id
+    if (!isHostOrSpeaker(room, socket.id)) {
+      return socket.emit('ERROR', {
+        message: 'Chỉ Chủ phòng và Diễn giả mới có quyền xóa chú thích.',
+        code: 'FORBIDDEN',
+      })
+    }
 
     if (!room.annotationsByPage) {
       room.annotationsByPage = {}
