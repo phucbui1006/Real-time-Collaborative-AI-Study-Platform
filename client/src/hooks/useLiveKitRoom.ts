@@ -50,6 +50,7 @@ export function useLiveKitRoom({
   const [isReconnecting, setIsReconnecting] = useState(false)
 
   const roomRef = useRef<Room | null>(null)
+  const socketReady = Boolean(currentSocketId)
   const screenStreamRef = useRef<MediaStream | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const isUnmountedRef = useRef(false)
@@ -140,15 +141,19 @@ export function useLiveKitRoom({
 
   // ─── 2. KẾT NỐI TỚI LIVEKIT ROOM SFU ────────────────────────────────────
   useEffect(() => {
-    if (!roomCode) return
+    // Chỉ kết nối khi socket đã sẵn sàng (đã vào phòng, có socket.id)
+    if (!roomCode || !socketReady) return
     isUnmountedRef.current = false
 
     let activeRoom: Room | null = null
+    let cancelled = false
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
 
-    async function connectLiveKit() {
+    // Trả về true nếu kết thúc (thành công hoặc bị huỷ), false nếu cần thử lại
+    async function attemptConnect(): Promise<boolean> {
       try {
-        // Lấy token xác thực từ server (lấy socket.id tức thì nếu có)
-        const activeSocketId = socket.id || currentSocketId || ''
+        // Lấy token xác thực từ server
+        const activeSocketId = socket.id || ''
         const res = await fetch(getApiUrl(`/api/rooms/${roomCode}/livekit-token`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -161,12 +166,12 @@ export function useLiveKitRoom({
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}))
-          console.warn('[LiveKit] Không thể lấy token:', errData.error)
-          return
+          console.warn(`[LiveKit] Không thể lấy token (HTTP ${res.status}):`, errData.error)
+          return false
         }
 
         const { token, url } = await res.json()
-        if (isUnmountedRef.current) return
+        if (isUnmountedRef.current || cancelled) return true
 
         // Khởi tạo LiveKit Room tối ưu cho 50 người: Dynacast + Adaptive Stream
         const room = new Room({
@@ -191,6 +196,13 @@ export function useLiveKitRoom({
           console.warn('⚠️ [LiveKit SFU] Room bị ngắt kết nối:', reason)
           setIsLiveKitConnected(false)
           setIsReconnecting(false)
+          // Ngắt ngoài ý muốn (không phải do rời phòng / unmount) → tự kết nối lại
+          if (!cancelled && !isUnmountedRef.current && roomRef.current === room) {
+            roomRef.current = null
+            retryTimer = setTimeout(() => {
+              void connectWithRetry()
+            }, 1500)
+          }
         })
 
         // Lắng nghe nhận Track từ các thành viên khác trong phòng
@@ -282,26 +294,57 @@ export function useLiveKitRoom({
 
         // Kết nối phòng
         await room.connect(url, token)
-        if (isUnmountedRef.current) {
+        if (isUnmountedRef.current || cancelled) {
           room.disconnect()
-          return
+          return true
         }
 
         setIsLiveKitConnected(true)
         console.log('🚀 [LiveKit SFU] Đã kết nối thành công tới phòng học!')
+        return true
       } catch (err: any) {
-        console.warn('⚠️ [LiveKit SFU] Lỗi kết nối LiveKit:', err.message)
+        console.warn('⚠️ [LiveKit SFU] Lỗi kết nối LiveKit:', err?.message || err)
+        if (activeRoom) {
+          const failed = activeRoom
+          if (roomRef.current === failed) roomRef.current = null
+          activeRoom = null
+          try {
+            failed.disconnect()
+          } catch {}
+        }
+        return false
       }
     }
 
-    connectLiveKit()
+    // Thử lại với backoff 1s, 2s, 4s... (tối đa 8 lần)
+    async function connectWithRetry() {
+      for (let attempt = 0; attempt < 8; attempt++) {
+        if (cancelled || isUnmountedRef.current) return
+        const done = await attemptConnect()
+        if (done) return
+        const delay = Math.min(1000 * 2 ** attempt, 8000)
+        console.log(`[LiveKit] Thử kết nối lại lần ${attempt + 2} sau ${delay}ms...`)
+        await new Promise<void>((resolve) => {
+          retryTimer = setTimeout(resolve, delay)
+        })
+      }
+      console.warn('[LiveKit] Đã thử nhiều lần nhưng không kết nối được SFU.')
+    }
+
+    // Chờ ~600ms để socket kịp gửi ROOM:JOIN rồi mới xin token lần đầu
+    retryTimer = setTimeout(() => {
+      void connectWithRetry()
+    }, 600)
 
     return () => {
+      cancelled = true
+      if (retryTimer) clearTimeout(retryTimer)
       if (activeRoom) {
+        if (roomRef.current === activeRoom) roomRef.current = null
         activeRoom.disconnect()
       }
     }
-  }, [roomCode, userId, userName])
+  }, [roomCode, userId, userName, socketReady])
 
   // ─── 3. ĐIỀU KHIỂN MICROPHONE (BẬT / TẮT) ───────────────────────────────
   const toggleMic = useCallback(async () => {
@@ -406,6 +449,11 @@ export function useLiveKitRoom({
   }, [roomCode])
 
   const startScreenShare = useCallback(async () => {
+    // Nếu SFU chưa sẵn sàng, chờ tối đa ~10s để kết nối xong rồi mới phát
+    for (let i = 0; i < 20; i++) {
+      if (roomRef.current && roomRef.current.state === 'connected') break
+      await new Promise((r) => setTimeout(r, 500))
+    }
     const room = roomRef.current
     if (!room || room.state !== 'connected') {
       onPermissionError?.('Hệ thống SFU đang kết nối. Vui lòng thử lại sau vài giây.')
