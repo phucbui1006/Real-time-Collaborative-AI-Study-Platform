@@ -5,6 +5,7 @@
 const { supabaseAdmin } = require('../config/supabase')
 const { MAX_ROOM_MEMBERS } = require('../config/env')
 const { loadRecentMessages } = require('./chatHandler')
+const { deleteLiveKitRoom } = require('../services/livekitService')
 
 // Bộ nhớ RAM lưu trữ trạng thái các phòng đang hoạt động
 // Map<roomCode, RoomState>
@@ -131,9 +132,10 @@ function roomHandler(io, socket) {
         return socket.emit('ERROR', { message: 'Phòng học không tồn tại.' })
       }
 
-      // Nếu phòng đã bị đóng trong DB nhưng Chủ phòng (host_user_id) quay lại, tự động kích hoạt lại phòng
+      // Nếu phòng đã tự đóng (hết thời gian chờ khi trống) nhưng đúng Chủ phòng quay lại, kích hoạt lại phòng
+      // Phòng không có host_user_id thì KHÔNG cho ai kích hoạt lại (tránh bị chiếm quyền)
       if (!dbRoom.is_active) {
-        const isHostUser = dbRoom.host_user_id ? dbRoom.host_user_id === userId : true
+        const isHostUser = Boolean(dbRoom.host_user_id) && dbRoom.host_user_id === userId
         if (isHostUser) {
           console.log(`🔄 Chủ phòng quay lại, tự động kích hoạt lại phòng ${cleanCode}.`)
           try {
@@ -352,6 +354,8 @@ function roomHandler(io, socket) {
             }
 
             activeRooms.delete(targetCode)
+            // Giải phóng phòng SFU LiveKit khi phòng trống
+            deleteLiveKitRoom(targetCode)
           }
           roomCloseTimers.delete(targetCode)
         }, 30000)
@@ -497,9 +501,20 @@ function roomHandler(io, socket) {
   })
 
   // ─── 6. CHIA SẺ MÀN HÌNH (SCREEN SHARE) ─────────────────────────────────
-  socket.on('ROOM:SCREEN_SHARE_START', ({ roomCode }) => {
+  // Quy tắc: MỌI thành viên trong phòng đều được chia sẻ màn hình,
+  // nhưng tại một thời điểm chỉ có MỘT người chia sẻ.
+  // Client gửi kèm callback ack({ ok, message }) để biết được phép chia sẻ hay chưa.
+  socket.on('ROOM:SCREEN_SHARE_START', ({ roomCode }, ack) => {
+    const reply = (ok, message, code) => {
+      if (typeof ack === 'function') {
+        ack({ ok, message })
+      } else if (!ok && message) {
+        socket.emit('ERROR', { message, code })
+      }
+    }
+
     const room = activeRooms.get(roomCode)
-    if (!room) return
+    if (!room) return reply(false, 'Phòng học không tồn tại hoặc đã kết thúc.')
 
     let member = room.members.get(socket.id)
     if (!member) {
@@ -515,29 +530,21 @@ function roomHandler(io, socket) {
       }
     }
 
-    if (!member) return
+    if (!member) return reply(false, 'Bạn chưa tham gia phòng học này.')
 
-    // KIỂM TRA QUYỀN: Chỉ Host hoặc Speaker mới được chia sẻ màn hình
-    if (!isHostOrSpeaker(room, socket.id)) {
-      return socket.emit('ERROR', {
-        message: 'Chỉ Chủ phòng và Diễn giả (Speaker) mới được chia sẻ màn hình.',
-        code: 'FORBIDDEN',
-      })
-    }
-
+    // Chủ phòng có thể tắt quyền chia sẻ của thành viên thường
     if (member.role !== 'host' && !room.allowMemberScreenShare) {
-      return socket.emit('ERROR', {
-        message: 'Chủ phòng đã tắt quyền chia sẻ màn hình của thành viên.',
-        code: 'FORBIDDEN',
-      })
+      return reply(false, 'Chủ phòng đã tắt quyền chia sẻ màn hình của thành viên.', 'FORBIDDEN')
     }
 
     // Mỗi thời điểm chỉ một người được chia sẻ
     if (room.screenSharerSocketId && room.screenSharerSocketId !== socket.id) {
       const sharer = room.members.get(room.screenSharerSocketId)
-      return socket.emit('ERROR', {
-        message: `Hiện tại ${sharer?.userName || 'thành viên khác'} đang chia sẻ màn hình.`,
-      })
+      // Nếu người đang chia sẻ đã không còn trong phòng thì nhả lượt
+      if (sharer) {
+        return reply(false, `Hiện tại ${sharer.userName || 'thành viên khác'} đang chia sẻ màn hình.`)
+      }
+      room.screenSharerSocketId = null
     }
 
     room.screenSharerSocketId = socket.id
@@ -548,6 +555,7 @@ function roomHandler(io, socket) {
       isScreenSharing: true,
     })
     io.to(roomCode).emit('ROOM:STATE', formatRoomState(room))
+    reply(true)
   })
 
   socket.on('ROOM:SCREEN_SHARE_STOP', ({ roomCode }) => {
@@ -676,12 +684,40 @@ function roomHandler(io, socket) {
     console.log(`🔒 Chủ phòng đã đóng phòng ${roomCode}`)
     io.to(roomCode).emit('ROOM:CLOSED', { reason: 'Chủ phòng đã kết thúc buổi học.' })
 
-    if (room.dbRoomId) {
-      try {
-        await supabaseAdmin.from('rooms').update({ is_active: false }).eq('id', room.dbRoomId)
-      } catch {}
+    // 1. Hủy mọi hẹn giờ liên quan tới phòng để không giữ RAM / timer
+    if (roomCloseTimers.has(roomCode)) {
+      clearTimeout(roomCloseTimers.get(roomCode))
+      roomCloseTimers.delete(roomCode)
+    }
+    for (const [key, timer] of docSaveTimers.entries()) {
+      if (key.startsWith(`${roomCode}_`)) {
+        clearTimeout(timer)
+        docSaveTimers.delete(key)
+      }
     }
 
+    // 2. Đóng phòng SFU LiveKit: ngắt toàn bộ người tham gia, giải phóng băng thông
+    await deleteLiveKitRoom(roomCode)
+
+    // 3. Đưa mọi socket ra khỏi room Socket.io của phòng
+    try {
+      io.in(roomCode).socketsLeave(roomCode)
+    } catch {}
+
+    // 4. Xóa hẳn phòng trong DB (cascade: room_members, room_documents, room_messages)
+    //    → không ai (kể cả Chủ phòng) vào lại được bằng mã phòng này nữa
+    if (room.dbRoomId) {
+      try {
+        await supabaseAdmin.from('rooms').delete().eq('id', room.dbRoomId)
+      } catch (err) {
+        console.warn('Lỗi xóa phòng khỏi DB, đánh dấu is_active=false:', err?.message)
+        try {
+          await supabaseAdmin.from('rooms').update({ is_active: false }).eq('id', room.dbRoomId)
+        } catch {}
+      }
+    }
+
+    // 5. Giải phóng RAM
     activeRooms.delete(roomCode)
   })
 

@@ -14,7 +14,7 @@ import {
 import {
   socket,
   toggleMedia,
-  startScreenShare as emitStartShare,
+  requestScreenShare,
   stopScreenShare as emitStopShare,
 } from '../services/socket'
 import { getApiUrl } from '../services/api'
@@ -52,6 +52,8 @@ export function useLiveKitRoom({
   const roomRef = useRef<Room | null>(null)
   // Cờ một chiều: khi socket đã sẵn sàng một lần thì giữ nguyên, tránh ngắt LiveKit mỗi khi socket đổi ID
   const [socketReady, setSocketReady] = useState(Boolean(currentSocketId))
+  // Khi vai trò đổi giữa Người xem <-> Diễn giả/Host, cần token mới để cập nhật quyền phát mic/cam
+  const canPublishMedia = userRole !== 'viewer'
   useEffect(() => {
     if (currentSocketId) setSocketReady(true)
   }, [currentSocketId])
@@ -351,7 +353,7 @@ export function useLiveKitRoom({
         activeRoom.disconnect()
       }
     }
-  }, [roomCode, userId, userName, socketReady])
+  }, [roomCode, userId, userName, socketReady, canPublishMedia])
 
   // ─── 3. ĐIỀU KHIỂN MICROPHONE (BẬT / TẮT) ───────────────────────────────
   const toggleMic = useCallback(async () => {
@@ -467,8 +469,15 @@ export function useLiveKitRoom({
       return
     }
 
+    // Xin lượt chia sẻ từ server: mỗi phòng chỉ một người được chia sẻ tại một thời điểm
+    const grant = await requestScreenShare(roomCode)
+    if (!grant.ok) {
+      onPermissionError?.(grant.message || 'Hiện không thể chia sẻ màn hình.')
+      return
+    }
+
     try {
-      // Bật chia sẻ màn hình qua LiveKit SFU (không dùng simulcast cho screenshare để tương thích 100% mọi trình duyệt)
+      // Bật chia sẻ màn hình qua LiveKit SFU (không dùng simulcast cho screenshare để tương thích mọi trình duyệt)
       const pub = await room.localParticipant.setScreenShareEnabled(true, {
         audio: true, // Kèm âm thanh tab/hệ thống nếu người dùng chọn
       })
@@ -489,9 +498,11 @@ export function useLiveKitRoom({
           stopScreenShare()
         }
       }
-
-      emitStartShare(roomCode)
     } catch (err: any) {
+      // Nhả lượt chia sẻ đã xin trước đó vì không phát được
+      emitStopShare(roomCode)
+      setIsSharingScreen(false)
+
       if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
         console.log('[LiveKit] Người dùng đã hủy chọn cửa sổ chia sẻ.')
         return

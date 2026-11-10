@@ -88,6 +88,26 @@ export function startScreenShare(roomCode: string) {
 }
 
 /**
+ * Xin lượt chia sẻ màn hình từ server (mỗi phòng chỉ một người chia sẻ tại một thời điểm).
+ * Trả về { ok: true } nếu được phép, ngược lại kèm message lý do.
+ */
+export function requestScreenShare(roomCode: string): Promise<{ ok: boolean; message?: string }> {
+  return new Promise((resolve) => {
+    if (!socket.connected) {
+      resolve({ ok: false, message: 'Mất kết nối tới máy chủ phòng học. Vui lòng thử lại.' })
+      return
+    }
+    const timer = setTimeout(() => {
+      resolve({ ok: false, message: 'Máy chủ phòng học phản hồi chậm. Vui lòng thử lại.' })
+    }, 4000)
+    socket.emit('ROOM:SCREEN_SHARE_START', { roomCode }, (res: { ok: boolean; message?: string }) => {
+      clearTimeout(timer)
+      resolve(res || { ok: false, message: 'Không nhận được phản hồi từ máy chủ.' })
+    })
+  })
+}
+
+/**
  * Dừng chia sẻ màn hình
  */
 export function stopScreenShare(roomCode: string) {

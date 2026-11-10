@@ -1400,7 +1400,10 @@ export default function RoomView({
                     {/* Nút Chia sẻ màn hình */}
                     <button
                       onClick={startScreenShare}
-                      disabled={!roomState.allowMemberScreenShare && !isHost}
+                      disabled={
+                        (!roomState.allowMemberScreenShare && !isHost) ||
+                        Boolean(roomState.screenSharerSocketId && roomState.screenSharerSocketId !== currentSocketId)
+                      }
                       className="w-full py-2.5 px-4 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
                     >
                       <Monitor className="w-4 h-4 text-teal-400" />
@@ -1469,7 +1472,10 @@ export default function RoomView({
         isCamOn={isCamOn}
         isSharingScreen={isSharingScreen}
         isScreenSharerActive={Boolean(roomState.screenSharerSocketId)}
-        canShareScreen={roomState.allowMemberScreenShare || isHost}
+        canShareScreen={
+          (roomState.allowMemberScreenShare || isHost) &&
+          (!roomState.screenSharerSocketId || roomState.screenSharerSocketId === currentSocketId)
+        }
         isHost={isHost}
         userRole={currentUserRole}
         isHandRaised={isMyHandRaised}

@@ -90,7 +90,10 @@ export interface ClientToServerEvents {
   // Gửi trạng thái âm lượng đang nói (Voice Activity Detection)
   'ROOM:SPEAKING_STATE': (payload: { roomCode: string; isSpeaking: boolean }) => void;
   // Bắt đầu chia sẻ màn hình máy tính
-  'ROOM:SCREEN_SHARE_START': (payload: { roomCode: string }) => void;
+  'ROOM:SCREEN_SHARE_START': (
+    payload: { roomCode: string },
+    ack?: (res: { ok: boolean; message?: string }) => void
+  ) => void;
   // Dừng chia sẻ màn hình máy tính
   'ROOM:SCREEN_SHARE_STOP': (payload: { roomCode: string }) => void;
 

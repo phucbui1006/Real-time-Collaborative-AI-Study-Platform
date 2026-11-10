@@ -9,7 +9,7 @@ const {
   LIVEKIT_API_SECRET,
   LIVEKIT_CONFIGURED,
 } = require('../config/env')
-const { AccessToken } = require('livekit-server-sdk')
+const { AccessToken, TrackSource } = require('livekit-server-sdk')
 
 /** Tạo mã phòng 6 số chưa tồn tại trong DB */
 async function createUniqueCode() {
@@ -366,8 +366,11 @@ async function getLiveKitToken(req, res, next) {
       })
     }
 
-    // Quyền publish: Host và Speaker được publish; Viewer chỉ subscribe
-    const canPublish = memberRole === 'host' || memberRole === 'speaker'
+    // Quyền publish:
+    //  - Host/Speaker: phát mọi nguồn (mic, camera, màn hình)
+    //  - Viewer: chỉ được phát màn hình (mọi thành viên đều có quyền chia sẻ màn hình;
+    //    việc "chỉ một người chia sẻ tại một thời điểm" do socket server điều phối)
+    const canPublishMedia = memberRole === 'host' || memberRole === 'speaker'
 
     const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
       identity: String(participantIdentity),
@@ -375,13 +378,17 @@ async function getLiveKitToken(req, res, next) {
       ttl: '1h', // Token thời hạn ngắn 1h
     })
 
-    at.addGrant({
+    const grant = {
       room: cleanCode,
       roomJoin: true,
-      canPublish: canPublish,
+      canPublish: true,
       canPublishData: true,
       canSubscribe: true,
-    })
+    }
+    if (!canPublishMedia) {
+      grant.canPublishSources = [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO]
+    }
+    at.addGrant(grant)
 
     const token = await at.toJwt()
 
@@ -391,7 +398,8 @@ async function getLiveKitToken(req, res, next) {
       url: LIVEKIT_URL,
       roomName: cleanCode,
       role: memberRole,
-      canPublish,
+      canPublish: canPublishMedia,
+      canShareScreen: true,
     })
   } catch (err) {
     next(err)

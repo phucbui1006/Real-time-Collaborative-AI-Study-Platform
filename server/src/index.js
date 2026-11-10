@@ -8,6 +8,7 @@ const { Server } = require('socket.io')
 require('dotenv').config()
 
 const { initSockets } = require('./sockets/index')
+const { startRoomCleanupJob } = require('./services/roomCleanup')
 const documentRoutes = require('./routes/documentRoutes')
 const aiRoutes = require('./routes/aiRoutes')
 const roomRoutes = require('./routes/roomRoutes')
@@ -52,6 +53,9 @@ const io = new Server(server, {
 })
 
 initSockets(io)
+
+// Job dọn dẹp phòng không hoạt động quá lâu (tiết kiệm dung lượng DB)
+startRoomCleanupJob()
 
 server.listen(PORT, () => {
   console.log(`🚀 Permind Server đang chạy tại http://localhost:${PORT}`)
