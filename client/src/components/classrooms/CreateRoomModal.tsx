@@ -7,14 +7,14 @@ interface CreateRoomModalProps {
   open: boolean;
   onClose: () => void;
   onCreate: (data: { name: string; code: string; password: string }) => Promise<{ name: string; code: string }>;
-  onEnterCreatedRoom?: (room: { name: string; code: string }) => void;
+  onEnterCreatedRoom?: (room: { name: string; code: string; password?: string }) => void;
 }
 
 export function CreateRoomModal({ open, onClose, onCreate, onEnterCreatedRoom }: CreateRoomModalProps) {
   const [form, setForm] = useState({ name: "", code: randomCode(), password: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [created, setCreated] = useState<{ name: string; code: string } | null>(null);
+  const [created, setCreated] = useState<{ name: string; code: string; password?: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Đặt lại form mỗi khi mở popup
@@ -45,7 +45,7 @@ export function CreateRoomModal({ open, onClose, onCreate, onEnterCreatedRoom }:
     setBusy(true);
     try {
       const room = await onCreate({ ...form, name: form.name.trim() });
-      setCreated(room);
+      setCreated({ ...room, password: form.password });
     } catch (e: unknown) {
       const errMsg = e instanceof Error ? e.message : "Có lỗi xảy ra. Hãy thử lại.";
       setError(errMsg);

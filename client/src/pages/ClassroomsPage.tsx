@@ -227,8 +227,8 @@ export default function ClassroomsPage({
     return room;
   };
 
-  const handleEnterCreatedRoom = (room: { name: string; code: string }) => {
-    setActiveRoom({ name: room.name, code: room.code, isHost: true });
+  const handleEnterCreatedRoom = (room: { name: string; code: string; password?: string }) => {
+    setActiveRoom({ name: room.name, code: room.code, password: room.password, isHost: true });
     onEnterRoom(room);
   };
 

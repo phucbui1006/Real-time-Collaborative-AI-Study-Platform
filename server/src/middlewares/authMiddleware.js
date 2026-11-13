@@ -41,6 +41,21 @@ function verifyPassword(inputPassword, storedHash) {
     }
   }
 
+  if (stored.startsWith('sha256:')) {
+    const parts = stored.split(':')
+    if (parts.length !== 3) return false
+    const [, salt, hashHex] = parts
+    try {
+      const expectedBuf = Buffer.from(hashHex, 'hex')
+      const actualHex = crypto.createHash('sha256').update(`${salt}:${input}`).digest('hex')
+      const actualBuf = Buffer.from(actualHex, 'hex')
+      if (actualBuf.length !== expectedBuf.length) return false
+      return crypto.timingSafeEqual(actualBuf, expectedBuf)
+    } catch {
+      return false
+    }
+  }
+
   // Tương thích phòng cũ trước migration (so sánh HMAC digest thời gian hằng số)
   const hmacKey = crypto.randomBytes(32)
   const a = crypto.createHmac('sha256', hmacKey).update(input).digest()

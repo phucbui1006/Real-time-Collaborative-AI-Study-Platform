@@ -122,7 +122,7 @@ function roomHandler(io, socket) {
 
       const { data: dbRoom, error: dbError } = await supabaseAdmin
         .from('rooms')
-        .select('id, name, code, is_active, max_members, host_user_id, password_hash, current_page')
+        .select('*')
         .eq('code', cleanCode)
         .maybeSingle()
 

@@ -52,7 +52,7 @@ async function isUserAuthorizedInRoom(cleanCode, userId) {
 
   const { data: dbRoom } = await supabaseAdmin
     .from('rooms')
-    .select('id, host_user_id, is_active, current_document_id')
+    .select('*')
     .eq('code', cleanCode)
     .maybeSingle()
 
@@ -73,7 +73,7 @@ async function isUserAuthorizedInRoom(cleanCode, userId) {
     return { allowed: true, dbRoom, role: dbMember.role || 'viewer' }
   }
 
-  // Cho phép với phòng mẫu hệ thống (host_user_id IS NULL)
+  // Cho phép với phòng mẫu hệ thống hoặc schema cũ chưa có host_user_id
   if (!dbRoom.host_user_id) {
     return { allowed: true, dbRoom, role: 'viewer' }
   }
@@ -97,6 +97,7 @@ async function createRoom(req, res, next) {
     const cleanName = name.trim().slice(0, 120)
     const cleanPassword = password ? String(password).trim().slice(0, 128) : ''
     const safeMaxMembers = Math.min(Math.max(Number(maxMembers) || MAX_ROOM_MEMBERS || 6, 2), MAX_ROOM_MEMBERS || 50)
+    const hashedPassword = cleanPassword ? hashPassword(cleanPassword) : null
 
     let code = null
     if (requestedCode && /^\d{6}$/.test(String(requestedCode).trim())) {
@@ -113,21 +114,73 @@ async function createRoom(req, res, next) {
     const payload = {
       name: cleanName,
       code,
-      password_hash: cleanPassword ? hashPassword(cleanPassword) : null,
+      password_hash: hashedPassword,
       host_user_id: userId,
       is_active: true,
       max_members: safeMaxMembers,
     }
 
+    let createdRoom = null
     const { data, error } = await supabaseAdmin
       .from('rooms')
       .insert(payload)
-      .select('id, name, code, document_id, is_active, max_members, created_at, host_user_id, password_hash')
+      .select('*')
       .single()
 
-    if (error) throw error
+    if (!error && data) {
+      createdRoom = data
+    } else {
+      // Dự phòng nếu bảng rooms trên Supabase chưa chạy đủ migration (thiếu max_members hoặc host_user_id)
+      console.warn('[createRoom] Thử fallback schema cơ bản do lỗi:', error?.message)
+      const fallbackWithHost = {
+        name: cleanName,
+        code,
+        password_hash: hashedPassword,
+        host_user_id: userId,
+        is_active: true,
+      }
+      const { data: d1, error: e1 } = await supabaseAdmin
+        .from('rooms')
+        .insert(fallbackWithHost)
+        .select('*')
+        .single()
 
-    res.status(201).json({ success: true, room: sanitizeRoom(data) })
+      if (!e1 && d1) {
+        createdRoom = d1
+      } else {
+        const minimalPayload = {
+          name: cleanName,
+          code,
+          password_hash: hashedPassword,
+          is_active: true,
+        }
+        const { data: d2, error: e2 } = await supabaseAdmin
+          .from('rooms')
+          .insert(minimalPayload)
+          .select('*')
+          .single()
+        if (e2) throw e2
+        createdRoom = d2
+      }
+    }
+
+    if (createdRoom?.id && userId) {
+      const hostName =
+        req.user?.user_metadata?.full_name ||
+        req.user?.email?.split('@')[0] ||
+        'Chủ phòng'
+      try {
+        await supabaseAdmin.from('room_members').insert({
+          room_id: createdRoom.id,
+          user_id: userId,
+          user_name: hostName,
+          role: 'host',
+          is_online: true,
+        })
+      } catch {}
+    }
+
+    res.status(201).json({ success: true, room: sanitizeRoom(createdRoom) })
   } catch (err) {
     next(err)
   }
@@ -144,7 +197,7 @@ async function verifyRoom(req, res, next) {
     const cleanCode = String(code).trim().replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)
     const { data, error } = await supabaseAdmin
       .from('rooms')
-      .select('id, name, code, document_id, is_active, max_members, host_user_id, password_hash, created_at')
+      .select('*')
       .eq('code', cleanCode)
       .eq('is_active', true)
       .maybeSingle()
@@ -168,9 +221,35 @@ async function verifyRoom(req, res, next) {
       }
     }
 
-    const max = data.max_members || 6
+    const max = data.max_members || MAX_ROOM_MEMBERS || 50
     if (memoryRoom && memoryRoom.members.size >= max) {
       return res.status(403).json({ success: false, error: `Phòng đã đủ sĩ số tối đa (${max} người).` })
+    }
+
+    // Ghi nhận thành viên đã xác thực mật khẩu vào room_members để Socket ROOM:JOIN & LiveKit nhận diện tức thì
+    if (data.id && req.user?.id) {
+      const memberName =
+        req.user?.user_metadata?.full_name ||
+        req.user?.email?.split('@')[0] ||
+        'Thành viên'
+      try {
+        const { data: existingMember } = await supabaseAdmin
+          .from('room_members')
+          .select('id')
+          .eq('room_id', data.id)
+          .eq('user_id', req.user.id)
+          .maybeSingle()
+
+        if (!existingMember) {
+          await supabaseAdmin.from('room_members').insert({
+            room_id: data.id,
+            user_id: req.user.id,
+            user_name: memberName,
+            role: isHostUser ? 'host' : 'viewer',
+            is_online: true,
+          })
+        }
+      } catch {}
     }
 
     res.json({ success: true, room: sanitizeRoom(data) })
@@ -185,13 +264,22 @@ async function getRooms(req, res, next) {
     const userId = req.user?.id
     const { data, error } = await supabaseAdmin
       .from('rooms')
-      .select('id, name, code, document_id, is_active, max_members, host_user_id, password_hash, created_at')
+      .select('*')
       .eq('is_active', true)
       .or(`host_user_id.eq.${userId},host_user_id.is.null`)
       .order('created_at', { ascending: false })
       .limit(20)
 
-    if (error) throw error
+    if (error) {
+      const { data: fallbackData, error: fallbackErr } = await supabaseAdmin
+        .from('rooms')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (fallbackErr) throw fallbackErr
+      return res.json({ success: true, rooms: (fallbackData || []).map(sanitizeRoom) })
+    }
     res.json({ success: true, rooms: (data || []).map(sanitizeRoom) })
   } catch (err) {
     next(err)
@@ -407,22 +495,26 @@ async function getLiveKitToken(req, res, next) {
     if (!isValidMember) {
       const { data: dbRoom } = await supabaseAdmin
         .from('rooms')
-        .select('id, host_user_id, is_active')
+        .select('*')
         .eq('code', cleanCode)
         .maybeSingle()
 
       if (dbRoom) {
-        if (!dbRoom.is_active && dbRoom.host_user_id === verifiedUserId) {
+        if (dbRoom.is_active === false && dbRoom.host_user_id === verifiedUserId) {
           try {
             await supabaseAdmin.from('rooms').update({ is_active: true }).eq('id', dbRoom.id)
             dbRoom.is_active = true
           } catch {}
         }
 
-        if (dbRoom.is_active) {
+        if (dbRoom.is_active !== false) {
           if (dbRoom.host_user_id === verifiedUserId) {
             isValidMember = true
             memberRole = 'host'
+          } else if (!dbRoom.host_user_id) {
+            // Phòng mẫu hoặc schema cũ chưa có cột host_user_id
+            isValidMember = true
+            memberRole = !activeRoom || activeRoom.members.size === 0 ? 'host' : 'viewer'
           } else {
             const { data: dbMember } = await supabaseAdmin
               .from('room_members')
