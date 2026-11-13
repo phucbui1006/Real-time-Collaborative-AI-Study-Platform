@@ -148,10 +148,13 @@ export type GeminiContent = {
 let activeAbortController: AbortController | null = null;
 export function abortActiveGeminiRequest(): void {
   if (activeAbortController) {
-    try { activeAbortController.abort(); } catch {}
+    try {
+      activeAbortController.abort();
+    } catch {}
     activeAbortController = null;
   }
 }
+
 async function callGemini(
   contentsInput: string | GeminiContent[],
   systemInstructionOrJson?: string | boolean,
@@ -179,12 +182,22 @@ async function callGemini(
     try {
       const url = buildGeminiUrl(model);
 
+      const generationConfig: Record<string, unknown> = {
+        temperature: isJson ? 0.2 : 0.7, // Giúp phản hồi tự nhiên hoặc chuẩn xác khi xuất JSON
+        maxOutputTokens: isJson ? 8192 : 4096,
+      };
+
+      if (isJson) {
+        generationConfig.responseMimeType = "application/json";
+        // Tắt thinking trên dòng gemini-2.5 khi xuất JSON để tránh tốn maxOutputTokens và tránh cắt cụt chuỗi JSON
+        if (model.includes("2.5")) {
+          generationConfig.thinkingConfig = { thinkingBudget: 0 };
+        }
+      }
+
       const bodyPayload: Record<string, unknown> = {
         contents,
-        generationConfig: {
-          temperature: 0.7, // Giúp phản hồi tự nhiên, sinh động, thông minh
-          maxOutputTokens: 2500,
-        },
+        generationConfig,
       };
 
       if (systemInstructionText && systemInstructionText.trim().length > 0) {
@@ -193,15 +206,11 @@ async function callGemini(
         };
       }
 
-      if (isJson) {
-        (bodyPayload.generationConfig as Record<string, unknown>).responseMimeType = "application/json";
-        (bodyPayload.generationConfig as Record<string, unknown>).temperature = 0.2;
-      }
-
       const controller = new AbortController();
       activeAbortController = controller;
-      const timeoutId = setTimeout(() => controller.abort(), 45000);
-      const res = await fetch(url, { signal: controller.signal,
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      const res = await fetch(url, {
+        signal: controller.signal,
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -215,7 +224,7 @@ async function callGemini(
         const err = await res.json().catch(() => ({}));
         const errMsg = err.error?.message || `Mã HTTP: ${res.status}`;
 
-        // Nếu gặp lỗi xác thực 400/401/403 hoặc API key bị block/invalid, tự động xóa key lỗi khỏi localStorage
+        // Nếu gặp lỗi xác thực 400/401/403 hoặc API key bị block/invalid, tự động xóa key lỗi khỏi sessionStorage
         if (
           res.status === 401 ||
           res.status === 403 ||
@@ -239,7 +248,12 @@ async function callGemini(
 
       const data = await res.json();
       const candidate = data.candidates?.[0];
-      const textPart = candidate?.content?.parts?.[0]?.text;
+      const parts = Array.isArray(candidate?.content?.parts) ? candidate.content.parts : [];
+      const textPart =
+        parts
+          .filter((p: { thought?: boolean; text?: string }) => !p?.thought && typeof p?.text === "string")
+          .map((p: { text?: string }) => p.text)
+          .join("") || parts[0]?.text;
 
       if (!textPart) {
         lastError = new Error("Mô hình không trả về nội dung.");
@@ -255,6 +269,164 @@ async function callGemini(
   }
 
   throw lastError || new Error("Không thể kết nối đến Google Gemini API.");
+}
+
+/**
+ * Làm sạch và khôi phục mảng câu hỏi từ chuỗi JSON do AI trả về
+ * Xử lý triệt để:
+ * 1. Markdown fences (```json ... ```) hoặc văn bản thừa ở đầu/cuối
+ * 2. Ký tự LaTeX backslash chưa escape (\omega, \pi, \frac, \varphi...) hoặc xuống dòng thô trong chuỗi
+ * 3. Chuỗi JSON bị cắt cụt giữa chừng (Unterminated string in JSON) khi tạo nhiều câu hỏi dài
+ */
+function sanitizeJsonStringLiterals(input: string): string {
+  let out = "";
+  let inString = false;
+  let i = 0;
+
+  while (i < input.length) {
+    const ch = input[i];
+
+    if (!inString) {
+      if (ch === '"') {
+        inString = true;
+      }
+      out += ch;
+      i++;
+      continue;
+    }
+
+    // Đang ở bên trong chuỗi JSON ("...")
+    if (ch === '"') {
+      inString = false;
+      out += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === "\\") {
+      const next = input[i + 1];
+      if (next === undefined) {
+        // Dấu \ bị cắt cụt ở cuối chuỗi
+        out += "\\\\";
+        i++;
+        continue;
+      }
+      if (next === '"' || next === "\\" || next === "/") {
+        out += ch + next;
+        i += 2;
+        continue;
+      }
+      if (next === "u" && /^[0-9a-fA-F]{4}$/.test(input.slice(i + 2, i + 6))) {
+        out += input.slice(i, i + 6);
+        i += 6;
+        continue;
+      }
+      // Nếu là \b, \f, \n, \r, \t nhưng theo sau ngay bởi chữ cái (VD: \frac, \varphi, \theta, \tau, \beta, \nabla, \rho) -> là công thức LaTeX!
+      if ("bfnrt".includes(next)) {
+        const afterNext = input[i + 2] || "";
+        if (/[a-zA-Z]/.test(afterNext)) {
+          out += "\\\\" + next;
+        } else {
+          out += ch + next;
+        }
+        i += 2;
+        continue;
+      }
+      // Các ký tự LaTeX khác như \omega, \pi, \Delta, \alpha, \sqrt...
+      out += "\\\\" + next;
+      i += 2;
+      continue;
+    }
+
+    if (ch === "\n") {
+      out += "\\n";
+      i++;
+      continue;
+    }
+    if (ch === "\r") {
+      i++;
+      continue;
+    }
+    if (ch === "\t") {
+      out += "\\t";
+      i++;
+      continue;
+    }
+
+    out += ch;
+    i++;
+  }
+
+  return out;
+}
+
+function extractQuestionsArray(parsed: any): any[] | null {
+  if (!parsed) return null;
+  if (Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+    return parsed.questions;
+  }
+  if (Array.isArray(parsed) && parsed.length > 0) {
+    return parsed;
+  }
+  return null;
+}
+
+function parseOrRecoverQuestionsJson(rawJson: string): any[] {
+  let cleaned = rawJson
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  const firstBrace = cleaned.indexOf("{");
+  const firstBracket = cleaned.indexOf("[");
+  if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+    cleaned = cleaned.slice(firstBrace);
+  } else if (firstBracket !== -1) {
+    cleaned = cleaned.slice(firstBracket);
+  }
+
+  const candidates = [cleaned, sanitizeJsonStringLiterals(cleaned)];
+
+  // 1. Thử parse trực tiếp
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      const list = extractQuestionsArray(parsed);
+      if (list) return list;
+    } catch {
+      // Thử phương án tiếp theo
+    }
+  }
+
+  // 2. Nếu chuỗi JSON bị cắt cụt giữa chừng (Unterminated string in JSON),
+  // lùi về dấu đóng object `}` hoàn chỉnh gần nhất và đóng mảng `]}` hoặc `]`
+  for (const candidate of candidates) {
+    let searchPos = candidate.length;
+    while (searchPos > 0) {
+      const closeBraceIdx = candidate.lastIndexOf("}", searchPos - 1);
+      if (closeBraceIdx === -1) break;
+
+      const prefix = candidate.slice(0, closeBraceIdx + 1);
+      const suffixes = ["\n]}", "]}", "\n]", "]", ""];
+      for (const suffix of suffixes) {
+        try {
+          const parsed = JSON.parse(prefix + suffix);
+          const list = extractQuestionsArray(parsed);
+          if (list && list.length > 0) {
+            return list;
+          }
+        } catch {
+          // Tiếp tục lùi về dấu `}` trước đó
+        }
+      }
+
+      searchPos = closeBraceIdx;
+    }
+  }
+
+  throw new Error(
+    "Phản hồi từ AI bị ngắt quãng do nội dung câu hỏi quá dài. Bạn vui lòng bấm 'Tạo câu hỏi' lại hoặc giảm số câu mỗi lần tạo."
+  );
 }
 
 /**
@@ -460,7 +632,7 @@ export async function generateQuizWithGemini({
   pagesContent: string[];
   count?: number;
 }): Promise<GeneratedQuestion[]> {
-  const contentText = pagesContent.length > 0 ? pagesContent.join("\n\n") : docTitle;
+  const contentText = pagesContent.length > 0 ? pagesContent.join("\n\n").slice(0, 24000) : docTitle;
 
   const prompt = `
 Bạn là người bạn đồng hành cùng ôn thi. Dựa vào nội dung tài liệu dưới đây, hãy soạn thảo ${count} câu hỏi trắc nghiệm thú vị, bám sát kiến thức:
@@ -470,7 +642,9 @@ ${contentText}
 </DOCUMENT_DATA>
 
 === YÊU CẦU BẮT BUỘC ===
-Trả về kết quả ở dạng JSON thuần túy theo schema sau (KHÔNG bọc trong markdown \`\`\`json hay thêm văn bản giải thích nào khác):
+- Ưu tiên dùng ký hiệu Unicode (như ω, φ, π, Δ, √, ², ³) thay vì chuỗi LaTeX phức tạp để JSON gọn nhẹ và dễ đọc.
+- Phần "explanation" giải thích ngắn gọn trong 1-2 câu.
+- Trả về kết quả ở dạng JSON thuần túy theo schema sau (KHÔNG bọc trong markdown \`\`\`json hay thêm văn bản giải thích nào khác):
 {
   "questions": [
     {
@@ -483,7 +657,7 @@ Trả về kết quả ở dạng JSON thuần túy theo schema sau (KHÔNG bọ
         "D": "Đáp án D"
       },
       "correctAnswer": "A",
-      "explanation": "Giải thích ngắn gọn, dễ hiểu vì sao đáp án này đúng."
+      "explanation": "Giải thích ngắn gọn (1-2 câu) vì sao đáp án này đúng."
     }
   ]
 }
@@ -491,18 +665,11 @@ Trả về kết quả ở dạng JSON thuần túy theo schema sau (KHÔNG bọ
 
   const rawJson = await callGemini(prompt, PROMPT_INJECTION_GUARD, true);
   try {
-    const cleaned = rawJson.replace(/^```json\s*/i, "").replace(/\s*```$/, "").trim();
-    const parsed = JSON.parse(cleaned);
-    if (Array.isArray(parsed.questions)) {
-      return parsed.questions;
-    }
-    if (Array.isArray(parsed)) {
-      return parsed;
-    }
-    throw new Error("Cấu trúc JSON không khớp.");
-  } catch (err) {
+    const list = parseOrRecoverQuestionsJson(rawJson);
+    return list as GeneratedQuestion[];
+  } catch (err: any) {
     console.error("Lỗi parse JSON câu hỏi Gemini:", err, rawJson);
-    throw new Error("Không thể phân tích dữ liệu câu hỏi từ AI. Hãy thử lại.");
+    throw new Error(err?.message || "Không thể phân tích dữ liệu câu hỏi từ AI. Hãy thử lại.");
   }
 }
 
@@ -574,8 +741,9 @@ YÊU CẦU BIÊN SOẠN BẮT BUỘC:
 1. ${topicBlock}
 2. ${levelGuide}
 3. Các phương án sai (distractors) phải hợp lý, không được vô lý hay hiển nhiên sai.
-4. Câu hỏi và các phương án phải bằng tiếng Việt chuẩn xác, mạch lạc, đúng ngữ pháp.
-5. Chỉ trả về kết quả dưới định dạng JSON thuần túy (KHÔNG dùng markdown \`\`\`json hay bất kỳ văn bản nào khác):
+4. Câu hỏi và các phương án phải bằng tiếng Việt chuẩn xác, mạch lạc, đúng ngữ pháp. Với công thức Toán/Lý/Hóa, ưu tiên dùng ký hiệu Unicode trực quan (như ω, φ, π, Δ, √, ², ³, ≥, ≤, ±, ⋅) thay vì chuỗi LaTeX dài để hiển thị rõ nét trên mọi ô nhập liệu.
+5. Trường "explanation" tóm tắt lời giải thật cô đọng (tối đa 1-2 câu).
+6. Chỉ trả về kết quả dưới định dạng JSON thuần túy (KHÔNG dùng markdown \`\`\`json hay bất kỳ văn bản nào khác):
 {
   "questions": [
     {
@@ -587,7 +755,7 @@ YÊU CẦU BIÊN SOẠN BẮT BUỘC:
         "Nội dung phương án D"
       ],
       "correctAnswer": 0,
-      "explanation": "Giải thích ngắn gọn, dễ hiểu vì sao phương án này đúng."
+      "explanation": "Giải thích ngắn gọn (1-2 câu) vì sao phương án này đúng."
     }
   ]
 }
@@ -596,20 +764,10 @@ Lưu ý: "correctAnswer" là số nguyên từ 0 đến 3 tương ứng vị tr�
 
   const rawJson = await callGemini(prompt, PROMPT_INJECTION_GUARD, true);
   try {
-    const cleaned = rawJson.replace(/^\`\`\`json\s*/i, "").replace(/\s*\`\`\`$/, "").trim();
-    const parsed = JSON.parse(cleaned);
-    const list = Array.isArray(parsed.questions)
-      ? parsed.questions
-      : Array.isArray(parsed)
-      ? parsed
-      : [];
-
-    if (list.length === 0) {
-      throw new Error("AI không trả về danh sách câu hỏi hợp lệ.");
-    }
+    const list = parseOrRecoverQuestionsJson(rawJson);
 
     return list.map((q: any, i: number) => {
-      let opts = [];
+      let opts: string[] = [];
       if (Array.isArray(q.options)) {
         opts = q.options.map((o: any) => String(o || "").trim());
       } else if (typeof q.options === "object" && q.options !== null) {
@@ -649,4 +807,3 @@ Lưu ý: "correctAnswer" là số nguyên từ 0 đến 3 tương ứng vị tr�
     throw new Error(err?.message || "Không thể phân tích dữ liệu câu hỏi từ AI. Hãy thử lại.");
   }
 }
-
