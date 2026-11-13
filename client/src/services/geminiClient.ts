@@ -145,6 +145,13 @@ export type GeminiContent = {
 /**
  * Gọi Gemini REST API sinh văn bản với cơ chế tự động chuyển đổi mô hình (Failover)
  */
+let activeAbortController: AbortController | null = null;
+export function abortActiveGeminiRequest(): void {
+  if (activeAbortController) {
+    try { activeAbortController.abort(); } catch {}
+    activeAbortController = null;
+  }
+}
 async function callGemini(
   contentsInput: string | GeminiContent[],
   systemInstructionOrJson?: string | boolean,
@@ -191,7 +198,10 @@ async function callGemini(
         (bodyPayload.generationConfig as Record<string, unknown>).temperature = 0.2;
       }
 
-      const res = await fetch(url, {
+      const controller = new AbortController();
+      activeAbortController = controller;
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
+      const res = await fetch(url, { signal: controller.signal,
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -200,6 +210,7 @@ async function callGemini(
         body: JSON.stringify(bodyPayload),
       });
 
+      clearTimeout(timeoutId);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         const errMsg = err.error?.message || `Mã HTTP: ${res.status}`;
@@ -237,6 +248,7 @@ async function callGemini(
 
       return textPart.trim();
     } catch (err) {
+      if ((err as Error)?.name === "AbortError") throw new Error("Đã hủy yêu cầu tạo câu trả lời.");
       lastError = err as Error;
       continue;
     }

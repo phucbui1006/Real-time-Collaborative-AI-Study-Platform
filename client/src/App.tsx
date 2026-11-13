@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Sparkles,
@@ -23,16 +23,16 @@ import {
 import { Logo } from "./components/common/Logo";
 import { ThemeToggle } from "./components/common/ThemeToggle";
 import { Header, DashboardTab } from "./components/common/Header";
-import LibraryPage, { clearAllUserState } from "./pages/LibraryPage";
-import ClassroomsPage from "./pages/ClassroomsPage";
-import TestsPage from "./pages/TestsPage";
+const LibraryPage = lazy(() => import("./pages/LibraryPage"));
+const ClassroomsPage = lazy(() => import("./pages/ClassroomsPage"));
+const TestsPage = lazy(() => import("./pages/TestsPage"));
 import { ClassroomHeroAnimation } from "./components/common/ClassroomHeroAnimation";
-import { loginWithEmail, registerWithEmail, logoutUser, getCurrentUser, resetPasswordForEmail, loginAsGuest } from "./services/authService";
+import { loginWithEmail, registerWithEmail, logoutUser, getCurrentUser, resetPasswordForEmail, loginAsGuest, clearAllUserState } from "./services/authService";
 import { supabase } from "./services/supabaseClient";
 import { socket } from "./services/socket";
 import { idleService, IdleState } from "./services/idleService";
 import { IdleWarningModal } from "./components/common/IdleWarningModal";
-import { MotionShowcaseModal } from "./components/motion";
+const MotionShowcaseModal = lazy(() => import("./components/motion/MotionShowcaseModal").then((m) => ({ default: m.MotionShowcaseModal })));
 
 type AuthView = "login" | "register" | "forgot";
 
@@ -597,7 +597,7 @@ export default function App() {
               <div className={`lg:col-span-5 min-w-0 flex flex-col justify-between gap-5 ${CARD} bg-amber-50/70 dark:bg-slate-900 p-6 sm:p-7`}>
                 <figure className="relative overflow-hidden rounded-3xl shadow-md group">
                   <img
-                    src="/landing/study-group.jpg"
+                    src="/landing/study-group.jpg" loading="lazy" decoding="async" width={640} height={336}
                     alt="Nhóm sinh viên đại học đang học chung quanh bàn gỗ trong thư viện"
                     className="w-full h-72 sm:h-84 object-cover transition-transform duration-300 group-hover:scale-105"
                   />
@@ -895,7 +895,7 @@ export default function App() {
                     <span>Trích dẫn theo từng trang để bạn tự kiểm tra</span>
                   </div>
                   <img
-                    src="/landing/notes-closeup.jpg"
+                    src="/landing/notes-closeup.jpg" loading="lazy" decoding="async" width={640} height={160}
                     alt="Sinh viên ghi chép bên cạnh laptop đang mở sơ đồ tư duy"
                     className="h-40 w-full object-cover"
                   />
@@ -966,7 +966,7 @@ export default function App() {
                   Từ tài liệu vừa tải, AI tạo câu hỏi trắc nghiệm có giải thích đáp án. Ôn trên điện thoại ở bất cứ đâu — bấm thử câu trả lời bên dưới!
                 </p>
                 <img
-                  src="/landing/campus-mobile.jpg"
+                  src="/landing/campus-mobile.jpg" loading="lazy" decoding="async" width={640} height={144}
                   alt="Hai sinh viên cùng xem điện thoại trên ghế đá khuôn viên trường"
                   className="mt-4 h-36 w-full rounded-2xl object-cover"
                 />
@@ -1140,7 +1140,7 @@ export default function App() {
 
                   <figcaption className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3.5">
                     <img
-                      src={item.avatarSrc}
+                      src={item.avatarSrc} loading="lazy" decoding="async" width={96} height={96}
                       alt={`Ảnh đại diện của ${item.name}`}
                       className="h-12 w-12 shrink-0 rounded-2xl object-cover"
                     />
@@ -1228,7 +1228,7 @@ export default function App() {
       </footer>
 
       {/* ─── PHÒNG THỬ NGHIỆM MOTION (NỘI BỘ) ───────────────────────────────── */}
-      <MotionShowcaseModal isOpen={isMotionLabOpen} onClose={() => setIsMotionLabOpen(false)} />
+      {isMotionLabOpen && <Suspense fallback={null}><MotionShowcaseModal isOpen={isMotionLabOpen} onClose={() => setIsMotionLabOpen(false)} /></Suspense>}
 
       {/* ─── AUTH MODAL ──────────────────────────────────────────────────────── */}
       {isLoginOpen && (
@@ -1499,6 +1499,16 @@ function Dashboard({
   };
 
   const [activeTab, setActiveTab] = useState<DashboardTab>(() => getTabFromHash(window.location.hash));
+  const [visitedTabs, setVisitedTabs] = useState<Set<DashboardTab>>(() => new Set([getTabFromHash(window.location.hash)]));
+
+  useEffect(() => {
+    setVisitedTabs((prev) => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
 
   useEffect(() => {
     const clean = window.location.hash.replace(/^#\/?/, "").toLowerCase();
@@ -1558,15 +1568,10 @@ function Dashboard({
       </div>
 
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6 py-6">
-        <div style={{ display: activeTab === "documents" ? "block" : "none" }}>
-          <LibraryPage userId={userId} userName={userName} />
-        </div>
-        <div style={{ display: activeTab === "classrooms" ? "block" : "none" }}>
-          <ClassroomsPage userId={userId} userName={userName} />
-        </div>
-        <div style={{ display: activeTab === "tests" ? "block" : "none" }}>
-          <TestsPage userId={userId} userName={userName} />
-        </div>
+        <Suspense fallback={<div className="py-16 flex items-center justify-center text-sm font-medium text-slate-500 dark:text-slate-400">Đang tải không gian học tập...</div>}>{visitedTabs.has("documents") && <div style={{ display: activeTab === "documents" ? "block" : "none" }}>
+          <LibraryPage userId={userId} userName={userName} /></div>}{visitedTabs.has("classrooms") && <div style={{ display: activeTab === "classrooms" ? "block" : "none" }}>
+          <ClassroomsPage userId={userId} userName={userName} /></div>}{visitedTabs.has("tests") && <div style={{ display: activeTab === "tests" ? "block" : "none" }}>
+          <TestsPage userId={userId} userName={userName} /></div>}</Suspense>
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ interface VideoTileProps {
   isHandRaised?: boolean
 }
 
-export const VideoTile: React.FC<VideoTileProps> = ({
+export const VideoTile: React.FC<VideoTileProps> = React.memo(({
   member,
   stream,
   isLocal = false,
@@ -109,4 +109,4 @@ export const VideoTile: React.FC<VideoTileProps> = ({
       </div>
     </div>
   )
-}
+})

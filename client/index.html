@@ -29,13 +29,26 @@
     <meta name="twitter:description" content="Nền tảng học nhóm trực tuyến tích hợp AI, đồng bộ slide thời gian thực và thi đấu trắc nghiệm xếp hạng." />
     <meta name="twitter:image" content="/og-image.png" />
     
-    <!-- Google Fonts Preconnect & Fonts: Be Vietnam Pro, Space Mono, Inter, Plus Jakarta Sans, JetBrains Mono -->
+    <!-- Google Fonts Preconnect & Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@700;800&display=swap"
       rel="stylesheet"
     />
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("permind_theme_v2");
+          if (t === "dark") {
+            document.documentElement.classList.add("dark");
+            document.documentElement.setAttribute("data-theme", "dark");
+          } else {
+            document.documentElement.setAttribute("data-theme", "light");
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

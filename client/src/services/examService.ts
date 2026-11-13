@@ -216,32 +216,26 @@ export async function loadUserQuizDocs(userId?: string): Promise<QuizDocItem[]> 
     }
   }
 
-  // 2. Nếu là người dùng có UUID thực tế, đồng bộ từ Supabase
+  // 2. Nếu là người dùng có UUID thực tế, đồng bộ danh sách metadata từ Supabase (không tải pages_content nặng cho tới khi user chọn tài liệu tạo đề)
   if (isValidUUID(userId)) {
     try {
       const { data, error } = await supabase
         .from("documents")
-        .select("id, title, original_name, filename, subject, pages_content")
+        .select("id, original_name, filename, subject, total_pages, created_at")
         .eq("owner_user_id", userId)
         .order("created_at", { ascending: false });
 
       if (!error && Array.isArray(data)) {
         for (const d of data) {
-          const title = (d.title || d.original_name || d.filename || `Tài liệu ${d.id}`).trim();
-          const pages = Array.isArray(d.pages_content) ? d.pages_content : [];
+          const title = (d.original_name || d.filename || `Tài liệu ${d.id}`).trim();
           if (!seenIds.has(d.id)) {
             loaded.push({
               id: d.id,
               title,
               subject: d.subject || "",
-              pagesContent: pages,
+              pagesContent: [],
             });
             seenIds.add(d.id);
-          } else {
-            const existing = loaded.find((x) => x.id === d.id);
-            if (existing && (!existing.pagesContent || existing.pagesContent.length === 0) && pages.length > 0) {
-              existing.pagesContent = pages;
-            }
           }
         }
       }
@@ -718,6 +712,7 @@ export async function loadUserHostedExams(userId?: string): Promise<HostedExamRe
     const { data, error } = await supabase
       .from("rooms")
       .select("id, name, code, is_active, created_at, host_user_id")
+      .eq("host_user_id", userId)
       .order("created_at", { ascending: false })
       .limit(50);
 

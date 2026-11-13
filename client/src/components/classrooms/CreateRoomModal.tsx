@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Plus, Copy, Check, SignIn, ArrowsClockwise } from "@phosphor-icons/react";
+import { X, Plus, Copy, Check, LogIn, RefreshCw } from "lucide-react";
 import { ErrorBox } from "./JoinPanel";
 import { randomCode } from "../../services/roomService";
 
@@ -88,7 +88,7 @@ export function CreateRoomModal({ open, onClose, onCreate, onEnterCreatedRoom }:
             aria-label="Đóng"
             className="w-9 h-9 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d5e5ff] active:translate-y-[1px] transition-transform cursor-pointer shrink-0"
           >
-            <X size={18} weight="regular" />
+            <X size={18} />
           </button>
         </div>
 
@@ -114,12 +114,12 @@ export function CreateRoomModal({ open, onClose, onCreate, onEnterCreatedRoom }:
               >
                 {copied ? (
                   <>
-                    <Check size={18} weight="regular" className="text-[#16ab59]" />
+                    <Check size={18} className="text-[#16ab59]" />
                     <span>Đã sao chép</span>
                   </>
                 ) : (
                   <>
-                    <Copy size={18} weight="regular" />
+                    <Copy size={18} />
                     <span>Sao chép mã</span>
                   </>
                 )}
@@ -132,7 +132,7 @@ export function CreateRoomModal({ open, onClose, onCreate, onEnterCreatedRoom }:
                 }}
                 className="inline-flex items-center gap-2 h-11 px-6 rounded-pill bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white text-base font-normal border border-[#111118] shadow-[0_3px_0_0_#111118] dark:shadow-[0_3px_0_0_#000000] active:translate-y-[1px] transition-transform cursor-pointer"
               >
-                <SignIn size={18} weight="regular" />
+                <LogIn size={18} />
                 <span>Vào phòng ngay</span>
               </button>
             </div>
@@ -180,7 +180,7 @@ export function CreateRoomModal({ open, onClose, onCreate, onEnterCreatedRoom }:
                   className="w-12 h-12 rounded-sm border border-[#111118] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] active:translate-y-[1px] transition-transform cursor-pointer shrink-0"
                   title="Tạo mã ngẫu nhiên mới"
                 >
-                  <ArrowsClockwise size={20} weight="regular" />
+                  <RefreshCw size={20} />
                 </button>
               </div>
             </div>
@@ -213,7 +213,7 @@ export function CreateRoomModal({ open, onClose, onCreate, onEnterCreatedRoom }:
                 disabled={busy}
                 className="inline-flex items-center gap-2 h-11 px-6 rounded-pill bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white text-base font-normal border border-[#111118] shadow-[0_3px_0_0_#111118] dark:shadow-[0_3px_0_0_#000000] active:translate-y-[1px] transition-transform cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
               >
-                <Plus size={18} weight="regular" />
+                <Plus size={18} />
                 <span>{busy ? "Đang tạo…" : "Khởi tạo phòng"}</span>
               </button>
             </div>

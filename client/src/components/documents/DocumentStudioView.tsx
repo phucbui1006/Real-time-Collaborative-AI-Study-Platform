@@ -632,6 +632,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
           <div
             ref={readerContentRef}
             onMouseUp={handleTextSelection}
+            onTouchEnd={handleTextSelection}
             className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center items-start"
           >
             <div

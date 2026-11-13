@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, SignIn } from "@phosphor-icons/react";
+import { X, LogIn } from "lucide-react";
 import { ErrorBox } from "./JoinPanel";
 
 interface JoinRoomModalProps {
@@ -73,7 +73,7 @@ export function JoinRoomModal({ open, onClose, onSubmit, initialCode = "" }: Joi
             aria-label="Đóng"
             className="w-9 h-9 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#e1edff] dark:border-[#2a2a3a] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d5e5ff] active:translate-y-[1px] transition-transform cursor-pointer shrink-0"
           >
-            <X size={18} weight="regular" />
+            <X size={18} />
           </button>
         </div>
 
@@ -129,7 +129,7 @@ export function JoinRoomModal({ open, onClose, onSubmit, initialCode = "" }: Joi
               disabled={busy}
               className="inline-flex items-center gap-2 h-11 px-6 rounded-pill bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white text-base font-normal border border-[#111118] shadow-[0_3px_0_0_#111118] dark:shadow-[0_3px_0_0_#000000] active:translate-y-[1px] transition-transform cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
             >
-              <SignIn size={18} weight="regular" />
+              <LogIn size={18} />
               <span>{busy ? "Đang kết nối…" : "Vào phòng ngay"}</span>
             </button>
           </div>

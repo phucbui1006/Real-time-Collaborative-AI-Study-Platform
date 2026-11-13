@@ -8,6 +8,23 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('pdfjs-dist')) return 'vendor-pdf'
+          if (id.includes('mammoth') || id.includes('jszip')) return 'vendor-office'
+          if (id.includes('livekit-client')) return 'vendor-livekit'
+          if (id.includes('katex') || id.includes('react-markdown') || id.includes('remark-') || id.includes('rehype-')) {
+            return 'vendor-markdown-math'
+          }
+          if (id.includes('@supabase')) return 'vendor-supabase'
+          return undefined
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

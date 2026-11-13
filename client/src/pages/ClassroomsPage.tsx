@@ -49,37 +49,23 @@ export default function ClassroomsPage({
       try {
         const loaded: DocItem[] = [];
 
-        // 1. Tải từ Supabase (nếu đã đăng nhập)
+        // 1. Tải Metadata từ Supabase (KHÔNG tải pages_content để tránh nghẽn mạng khi chuyển tab)
         if (isValidUUID(userId)) {
           const { data, error } = await supabase
             .from("documents")
-            .select("id, original_name, filename, subject, pages_content, total_pages, created_at")
+            .select("id, original_name, filename, subject, total_pages, created_at")
             .eq("owner_user_id", userId)
             .order("created_at", { ascending: false });
 
           if (!error && data && Array.isArray(data)) {
             data.forEach((d) => {
               const docTitle = d.original_name || d.filename || "Tài liệu";
-              const rawPages: string[] = Array.isArray(d.pages_content) ? d.pages_content : [];
-              const safePages = rawPages.length > 0 ? rawPages : [`# ${docTitle}\n\nTài liệu học tập.`];
-              const slides: SlideItem[] = safePages.map((pageText, idx) => {
-                const imgMatch = typeof pageText === "string" ? pageText.match(/!\[(.*?)\]\((.*?)\)/) : null;
-                const imageUrl = imgMatch ? imgMatch[2] : undefined;
-                const cleanText = typeof pageText === "string" ? pageText.replace(/!\[.*?\]\(.*?\)/g, "").trim() : "";
-                const lines = cleanText.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
-                const title = lines[0]?.replace(/^#+\s*/, "") || `Trang ${idx + 1}`;
-                return {
-                  title,
-                  points: lines.slice(1, 5),
-                  imageUrl,
-                };
-              });
               loaded.push({
                 id: d.id,
                 title: docTitle,
                 color: "#0b7a75",
-                slides,
-                pagesContent: safePages,
+                slides: [],
+                pagesContent: [],
               });
             });
           }

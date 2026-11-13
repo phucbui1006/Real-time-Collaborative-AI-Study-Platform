@@ -107,9 +107,9 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
           </button>
         </div>
 
-        {/* Danh sách tile video xếp dọc */}
+        {/* Danh sách tile video xếp dọc (phân trang tối đa 8 ô/lần để chống treo DOM khi phòng 50 người) */}
         <div className="flex-1 overflow-y-auto p-2 space-y-2">
-          {sortedMembers.map((member) => {
+          {visibleMembers.map((member) => {
             const isLocal = checkIsLocal(member)
             const stream = isLocal ? localStream : remoteStreams[member.socketId]
             const isHandRaised = Boolean(
@@ -129,6 +129,29 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
             )
           })}
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-2.5 py-1.5 border-t border-slate-800/60 bg-[#0F172A]/60 text-[11px] font-mono text-slate-300 shrink-0">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+              disabled={safeCurrentPage === 0}
+              className="h-6 w-6 rounded flex items-center justify-center bg-slate-800 hover:bg-slate-700 disabled:opacity-30 cursor-pointer"
+              title="Trang trước"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span>
+              {safeCurrentPage + 1}/{totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={safeCurrentPage >= totalPages - 1}
+              className="h-6 w-6 rounded flex items-center justify-center bg-slate-800 hover:bg-slate-700 disabled:opacity-30 cursor-pointer"
+              title="Trang sau"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     )
   }
@@ -137,7 +160,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   if (effectiveMode === 'filmstrip-horizontal') {
     return (
       <div className="w-full flex items-center gap-2 overflow-x-auto py-2 px-3 bg-[#0B1220]/80 backdrop-blur-md border-t border-slate-800/80 shrink-0 select-none">
-        {sortedMembers.map((member) => {
+        {visibleMembers.map((member) => {
           const isLocal = checkIsLocal(member)
           const stream = isLocal ? localStream : remoteStreams[member.socketId]
           const isHandRaised = Boolean(

@@ -74,8 +74,39 @@ function mapSupabaseDoc(d: SupabaseDoc, index: number): DocumentItem {
   };
 }
 
-// Cache theo từng userId để lưu danh sách tài liệu độc lập giữa các tài khoản và các lần chuyển tab
+// Cache theo từng userId để lưu danh sách tài liệu độc lập giữa các tài khoản và các lần chuyển tab (giới hạn LRU 5 user, tối đa 5 tài liệu giữ full pagesContent trong RAM)
+const MAX_USER_CACHE_ENTRIES = 5;
+const MAX_DOCS_WITH_FULL_CONTENT = 5;
 const userDocsCache = new Map<string, DocumentItem[]>();
+
+function setUserDocsCacheLRU(uid: string, docsList: DocumentItem[], activeDocId?: number | null) {
+  if (!uid) return;
+  if (userDocsCache.has(uid)) {
+    userDocsCache.delete(uid);
+  } else if (userDocsCache.size >= MAX_USER_CACHE_ENTRIES) {
+    const oldestKey = userDocsCache.keys().next().value;
+    if (oldestKey) userDocsCache.delete(oldestKey);
+  }
+
+  let fullContentCount = 0;
+  const trimmed = docsList.map((d) => {
+    if (d.pagesContent && d.pagesContent.length > 0) {
+      if (d.id === activeDocId || fullContentCount < MAX_DOCS_WITH_FULL_CONTENT) {
+        fullContentCount++;
+        return d;
+      }
+      return { ...d, pagesContent: [] };
+    }
+    return d;
+  });
+  userDocsCache.set(uid, trimmed);
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("permind:clear-user-cache", () => {
+    userDocsCache.clear();
+  });
+}
 
 /**
  * Xóa sạch toàn bộ cache và state dữ liệu tài liệu người dùng khi đăng xuất
@@ -165,7 +196,6 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
 
   // Điều khiển nạp ngầm và ngắt ưu tiên khi người dùng bấm click
   const isMountedRef = useRef<boolean>(true);
-  const isUserActionActiveRef = useRef<boolean>(false);
   const prefetchAbortRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -177,64 +207,45 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
   }, []);
 
   /**
-   * Tiến trình âm thầm nạp trước nội dung trang (pages_content) trong nền
-   * Ưu tiên tải tài liệu đang chọn trước, sau đó lần lượt tải các tài liệu còn lại
+   * Nạp nội dung trang (pages_content) CHỈ cho 1 tài liệu đang được chọn (lazy on-demand),
+   * tuyệt đối không lặp qua toàn bộ danh sách để tránh tải hàng chục MB JSONB không cần thiết.
    */
   const prefetchDocContents = useCallback(
     async (list: DocumentItem[], priorityId?: number | null) => {
-      const queue = [...list].sort((a, b) => {
-        if (priorityId && a.id === priorityId) return -1;
-        if (priorityId && b.id === priorityId) return 1;
-        return 0;
-      });
+      if (!priorityId || priorityId < 0) return;
+      const targetDoc = list.find((d) => d.id === priorityId);
+      if (!targetDoc) return;
 
-      for (const doc of queue) {
-        if (!isMountedRef.current || prefetchAbortRef.current) break;
+      const existing = userDocsCache.get(userId || "")?.find((d) => d.id === targetDoc.id);
+      if (existing?.pagesContent && existing.pagesContent.length > 0) return;
 
-        // Bỏ qua tài liệu tạm đang tải lên
-        if (doc.id < 0) continue;
+      if (!isMountedRef.current || prefetchAbortRef.current) return;
 
-        // Nếu tài liệu đã có nội dung trong bộ nhớ thì bỏ qua
-        const existing = userDocsCache.get(userId || "")?.find((d) => d.id === doc.id);
-        if (existing?.pagesContent && existing.pagesContent.length > 0) continue;
+      try {
+        const { data: detail } = await supabase
+          .from("documents")
+          .select("pages_content, total_pages")
+          .eq("id", targetDoc.id)
+          .single();
 
-        // Nếu người dùng đang bấm click vào 1 tài liệu khác, tạm dừng nhường 100% tài nguyên mạng
-        while (isUserActionActiveRef.current) {
-          if (!isMountedRef.current || prefetchAbortRef.current) break;
-          await new Promise((r) => setTimeout(r, 200));
+        if (detail && Array.isArray(detail.pages_content) && detail.pages_content.length > 0) {
+          if (!isMountedRef.current || prefetchAbortRef.current) return;
+          setDocs((prev) => {
+            const next = prev.map((d) =>
+              d.id === targetDoc.id
+                ? {
+                    ...d,
+                    pagesContent: detail.pages_content,
+                    pagesCount: d.pagesCount || detail.total_pages || detail.pages_content.length,
+                  }
+                : d
+            );
+            if (userId) setUserDocsCacheLRU(userId, next, targetDoc.id);
+            return next;
+          });
         }
-
-        if (!isMountedRef.current || prefetchAbortRef.current) break;
-
-        try {
-          const { data: detail } = await supabase
-            .from("documents")
-            .select("pages_content, total_pages")
-            .eq("id", doc.id)
-            .single();
-
-          if (detail && Array.isArray(detail.pages_content) && detail.pages_content.length > 0) {
-            if (!isMountedRef.current || prefetchAbortRef.current) break;
-            setDocs((prev) => {
-              const next = prev.map((d) =>
-                d.id === doc.id
-                  ? {
-                      ...d,
-                      pagesContent: detail.pages_content,
-                      pagesCount: d.pagesCount || detail.total_pages || detail.pages_content.length,
-                    }
-                  : d
-              );
-              if (userId) userDocsCache.set(userId, next);
-              return next;
-            });
-          }
-        } catch {
-          // Bỏ qua lỗi nạp ngầm, không ảnh hưởng UI
-        }
-
-        // Tạm dừng 400ms giữa các file để mạng hoàn toàn êm ái
-        await new Promise((r) => setTimeout(r, 400));
+      } catch {
+        // Bỏ qua lỗi nạp ngầm, không ảnh hưởng UI
       }
     },
     [userId]
@@ -341,13 +352,13 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
           localStorage.setItem(localKey, JSON.stringify(metaOnly));
         } catch {}
 
-        if (userId) userDocsCache.set(userId, mapped);
+        if (userId) setUserDocsCacheLRU(userId, mapped, mapped[0]?.id ?? null);
         setDocs(mapped);
         setSelectedId((prev) =>
           prev && mapped.some((m: DocumentItem) => m.id === prev) ? prev : (mapped[0]?.id ?? null)
         );
 
-        // Kích hoạt nạp ngầm nội dung (pages_content) trong nền
+        // Chỉ nạp ngầm nội dung (pages_content) cho đúng 1 tài liệu đang chọn đầu tiên
         prefetchAbortRef.current = false;
         const initialSelectedId = mapped[0]?.id ?? null;
         prefetchDocContents(mapped, initialSelectedId);
@@ -443,7 +454,14 @@ export default function LibraryPage({ userId, userName }: LibraryPageProps) {
       // 4. Tiến hành bóc tách và lưu trữ trong nền (hoàn toàn không chặn UI để người dùng thoải mái chuyển tab)
       (async () => {
         try {
-          const extracted = await extractDocumentContent(file);
+          const extracted = await extractDocumentContent(file, (cur, total) => {
+            const pct = Math.round((cur / Math.max(1, total)) * 100);
+            setDocs((prev) =>
+              prev.map((d) =>
+                d.id === tempId ? { ...d, pagesCount: total, updatedAt: `Đang xử lý ${cur}/${total} (${pct}%)` } : d
+              )
+            );
+          });
 
           const docPayload: any = {
             filename: cleanName,

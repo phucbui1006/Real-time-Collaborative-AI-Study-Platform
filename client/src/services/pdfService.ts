@@ -1,10 +1,8 @@
 // client/src/services/pdfService.ts — Bóc tách nội dung PDF/DOCX/PPTX thực tế phía trình duyệt (Client-side)
-import * as pdfjsLib from "pdfjs-dist";
-import mammoth from "mammoth";
-import JSZip from "jszip";
+import type JSZip from "jszip";
 import { authFetch } from "./api";
 
-const MAX_UPLOAD_FILE_BYTES = 30 * 1024 * 1024; // Giới hạn 30MB
+const MAX_UPLOAD_FILE_BYTES = 20 * 1024 * 1024; // Đồng bộ giới hạn 20MB với LibraryPage
 const MAX_DOCUMENT_PAGES = 200; // Tối đa 200 trang/slide
 const MAX_ZIP_ENTRIES = 2000;
 const MAX_ZIP_UNCOMPRESSED_BYTES = 60 * 1024 * 1024; // 60MB chống Zip Bomb
@@ -27,16 +25,24 @@ function validateZipSafety(zip: JSZip) {
   });
 }
 
-// Nhập worker trực tiếp từ gói pdfjs-dist nội bộ qua Vite URL bundling (?url)
-// Giải pháp này giải quyết triệt để lỗi CSP (Content Security Policy) và không phụ thuộc CDN mạng ngoài
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-
-if (typeof window !== "undefined") {
-  try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-  } catch (err: any) {
-    console.warn("Không thể gán PDF worker nội bộ:", err);
+let pdfjsLibPromise: Promise<typeof import("pdfjs-dist")> | null = null;
+async function getPdfJs() {
+  if (!pdfjsLibPromise) {
+    pdfjsLibPromise = Promise.all([
+      import("pdfjs-dist"),
+      import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+    ]).then(([pdfjsLib, workerModule]) => {
+      if (typeof window !== "undefined") {
+        try {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = workerModule.default;
+        } catch (err) {
+          console.warn("Không thể gán PDF worker nội bộ:", err);
+        }
+      }
+      return pdfjsLib;
+    });
   }
+  return pdfjsLibPromise;
 }
 
 
@@ -45,17 +51,31 @@ export interface ExtractedDoc {
   pages: string[];
 }
 
+function blobToBase64Async(blob: Blob): Promise<string | null> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const commaIdx = result.indexOf(",");
+      resolve(commaIdx !== -1 ? result.substring(commaIdx + 1) : null);
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+}
+
 /**
- * Render một trang PDF sang hình ảnh Base64 (WebP để siêu nhẹ hoặc JPEG)
- * Tỷ lệ scale 1.15 và chất lượng 0.72 tối ưu: chỉ ~25KB/trang mà giữ nguyên độ sắc nét
+ * Render một trang PDF sang hình ảnh bất đồng bộ qua canvas.toBlob (không khóa Main Thread như toDataURL)
+ * Tự động giảm scale xuống 0.85 trên màn hình di động để tiết kiệm 45% RAM
  */
 export async function renderPdfPageToImage(
   page: any,
-  scale = 1.15
+  scale?: number
 ): Promise<{ base64: string; mimeType: string } | null> {
   if (typeof window === "undefined" || typeof document === "undefined") return null;
   try {
-    const viewport = page.getViewport({ scale });
+    const effectiveScale = scale ?? (window.innerWidth < 768 ? 0.85 : 1.15);
+    const viewport = page.getViewport({ scale: effectiveScale });
     const canvas = document.createElement("canvas");
     canvas.width = Math.floor(viewport.width);
     canvas.height = Math.floor(viewport.height);
@@ -71,28 +91,23 @@ export async function renderPdfPageToImage(
       viewport: viewport,
     }).promise;
 
-    let dataUrl = "";
     let mimeType = "image/webp";
-    try {
-      dataUrl = canvas.toDataURL("image/webp", 0.72);
-    } catch {
-      // Fallback nếu browser cũ không hỗ trợ toDataURL webp
-    }
-
-    if (!dataUrl || !dataUrl.startsWith("data:image/webp")) {
-      dataUrl = canvas.toDataURL("image/jpeg", 0.72);
+    let blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/webp", 0.72));
+    if (!blob || blob.type !== "image/webp") {
       mimeType = "image/jpeg";
+      blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.72));
     }
 
-    // Thu dọn canvas ngay để giải phóng RAM
+    // Thu dọn canvas ngay lập tức để giải phóng bộ nhớ GPU/RAM
     canvas.width = 0;
     canvas.height = 0;
 
-    const commaIdx = dataUrl.indexOf(",");
-    if (commaIdx === -1) return null;
+    if (!blob) return null;
+    const base64 = await blobToBase64Async(blob);
+    if (!base64) return null;
 
     return {
-      base64: dataUrl.substring(commaIdx + 1),
+      base64,
       mimeType,
     };
   } catch (err) {
@@ -144,13 +159,18 @@ export async function uploadPageImagesInBatches(
 }
 
 /**
- * Trích xuất text và chụp ảnh toàn bộ các trang từ file PDF thực tế
+ * Trích xuất text và chụp ảnh toàn bộ các trang từ file PDF thực tế theo cơ chế cuốn chiếu (Streaming Batch)
+ * Tuyệt đối không tích trữ toàn bộ 200 ảnh Base64 trong RAM và không ghi Base64 fallback vào CSDL
  */
-export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
+export async function extractTextFromPDF(
+  file: File,
+  onProgress?: (currentPage: number, totalPages: number) => void
+): Promise<ExtractedDoc> {
   if (file.size > MAX_UPLOAD_FILE_BYTES) {
-    throw new Error("Kích thước file PDF vượt quá giới hạn tối đa 30MB.");
+    throw new Error("Kích thước file PDF vượt quá giới hạn tối đa 20MB.");
   }
   try {
+    const pdfjsLib = await getPdfJs();
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({
       data: new Uint8Array(arrayBuffer),
@@ -165,11 +185,24 @@ export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
       throw new Error(`Tài liệu vượt quá giới hạn ${MAX_DOCUMENT_PAGES} trang. Vui lòng tách nhỏ file.`);
     }
     const rawPagesText: { pageNum: number; text: string }[] = [];
-    const imagesToUpload: { pageNum: number; base64: string; mimeType: string }[] = [];
-    const localImgMap = new Map<number, string>();
+    let pendingUploadBatch: { pageNum: number; base64: string; mimeType: string }[] = [];
+    const urlMap = new Map<number, string>();
+
+    const flushUploadBatch = async () => {
+      if (pendingUploadBatch.length === 0) return;
+      const batchToUpload = pendingUploadBatch;
+      pendingUploadBatch = [];
+      try {
+        const batchUrls = await uploadPageImagesInBatches(batchToUpload);
+        batchUrls.forEach((url, pNum) => urlMap.set(pNum, url));
+      } catch (upErr) {
+        console.warn("Không thể upload lô ảnh trang PDF lên Storage:", upErr);
+      }
+    };
 
     for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
       try {
+        onProgress?.(pageNum, totalPages);
         const page = await pdf.getPage(pageNum);
 
         // 1. Trích xuất text cho AI và tìm kiếm
@@ -182,39 +215,35 @@ export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
 
         rawPagesText.push({ pageNum, text: pageText });
 
-        // 2. Chụp ảnh trang PDF (Snapshot) bảo toàn 100% hình ảnh, sơ đồ gốc
-        const imgObj = await renderPdfPageToImage(page, 1.15);
+        // 2. Chụp ảnh trang PDF bất đồng bộ qua toBlob và đẩy cuốn chiếu từng cụm 3 trang
+        const imgObj = await renderPdfPageToImage(page);
         if (imgObj && imgObj.base64) {
-          imagesToUpload.push({ pageNum, base64: imgObj.base64, mimeType: imgObj.mimeType });
-          // Lưu dự phòng Data URL WebP để đảm bảo 100% luôn có ảnh hiển thị
-          localImgMap.set(pageNum, `data:${imgObj.mimeType};base64,${imgObj.base64}`);
+          pendingUploadBatch.push({ pageNum, base64: imgObj.base64, mimeType: imgObj.mimeType });
+          if (pendingUploadBatch.length >= 3) {
+            await flushUploadBatch();
+          }
         }
 
-        // Nhả microtask để giao diện trình duyệt luôn mượt mà
-        if (pageNum % 2 === 0) {
-          await new Promise((r) => setTimeout(r, 0));
-        }
+        // Giải phóng tài nguyên trang PDF ngay sau khi xử lý xong
+        try {
+          page.cleanup?.();
+        } catch {}
+
+        // Nhả microtask mỗi trang để giao diện trình duyệt luôn mượt mà 60fps
+        await new Promise((r) => setTimeout(r, 0));
       } catch (pageErr) {
         console.warn(`Lỗi bóc tách trang ${pageNum}:`, pageErr);
         rawPagesText.push({ pageNum, text: "" });
       }
     }
 
-    // 3. Thử upload ảnh các trang lên Supabase Storage bucket 'slides'
-    let urlMap = new Map<number, string>();
-    if (imagesToUpload.length > 0) {
-      try {
-        urlMap = await uploadPageImagesInBatches(imagesToUpload);
-      } catch (upErr) {
-        console.warn("Không thể upload ảnh trang PDF lên Storage, chuyển sang dùng ảnh nén nội bộ:", upErr);
-      }
-    }
+    // 3. Upload nốt các trang còn lại trong lô cuối cùng
+    await flushUploadBatch();
 
-    // 4. Ghép nội dung hoàn chỉnh cho từng trang:
-    // Ưu tiên: Storage URL -> Data URL WebP nội bộ. KHÔNG BAO GIỜ BỎ RƠI ẢNH!
+    // 4. Ghép nội dung hoàn chỉnh cho từng trang (chỉ nhúng URL từ Storage, tuyệt đối không nhồi Base64 vào JSONB)
     const pages: string[] = [];
     for (const item of rawPagesText) {
-      const imgUrl = urlMap.get(item.pageNum) || localImgMap.get(item.pageNum);
+      const imgUrl = urlMap.get(item.pageNum);
       const text = item.text;
 
       if (imgUrl) {
@@ -355,16 +384,20 @@ export async function uploadExtractedImagesFromMarkdown(markdownText: string): P
  */
 export async function extractTextFromDocx(file: File): Promise<ExtractedDoc> {
   if (file.size > MAX_UPLOAD_FILE_BYTES) {
-    throw new Error("Kích thước file DOCX vượt quá giới hạn tối đa 30MB.");
+    throw new Error("Kích thước file DOCX vượt quá giới hạn tối đa 20MB.");
   }
   try {
+    const [{ default: JSZipLib }, { default: mammoth }] = await Promise.all([
+      import("jszip"),
+      import("mammoth"),
+    ]);
     const arrayBuffer = await file.arrayBuffer();
 
     // 1. Đọc metadata số trang thực tế mà Microsoft Word đã tính toán và lưu trong docProps/app.xml
     let zip: JSZip | null = null;
     let wordDeclaredPages = 0;
     try {
-      zip = await JSZip.loadAsync(arrayBuffer);
+      zip = await JSZipLib.loadAsync(arrayBuffer);
       validateZipSafety(zip);
       const appXmlFile = zip.file("docProps/app.xml");
       if (appXmlFile) {
@@ -519,11 +552,12 @@ export async function extractTextFromDocx(file: File): Promise<ExtractedDoc> {
  */
 export async function extractTextFromPptx(file: File): Promise<ExtractedDoc> {
   if (file.size > MAX_UPLOAD_FILE_BYTES) {
-    throw new Error("Kích thước file PPTX vượt quá giới hạn tối đa 30MB.");
+    throw new Error("Kích thước file PPTX vượt quá giới hạn tối đa 20MB.");
   }
   try {
+    const { default: JSZipLib } = await import("jszip");
     const arrayBuffer = await file.arrayBuffer();
-    const zip = await JSZip.loadAsync(arrayBuffer);
+    const zip = await JSZipLib.loadAsync(arrayBuffer);
     validateZipSafety(zip);
 
     // Tìm tất cả các slide trong ppt/slides/slide{N}.xml
@@ -594,11 +628,14 @@ export async function extractTextFromTextFile(file: File): Promise<ExtractedDoc>
 /**
  * Trích xuất văn bản từ bất kỳ file nào được hỗ trợ (.pdf, .docx, .pptx, .txt, .md)
  */
-export async function extractDocumentContent(file: File): Promise<ExtractedDoc> {
+export async function extractDocumentContent(
+  file: File,
+  onProgress?: (currentPage: number, totalPages: number) => void
+): Promise<ExtractedDoc> {
   const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
 
   if (ext === ".pdf") {
-    return extractTextFromPDF(file);
+    return extractTextFromPDF(file, onProgress);
   }
 
   if (ext === ".docx") {

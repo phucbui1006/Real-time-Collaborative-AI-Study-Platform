@@ -1,5 +1,5 @@
 // components/documents/AIChat.tsx — Khung chat AI đa năng hỗ trợ Phóng to / Thu nhỏ & Drag resize
-import { useRef, useState, useEffect } from "react";
+import { memo, useRef, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
@@ -22,7 +22,7 @@ import {
   Square,
 } from "lucide-react";
 import { DocumentItem, ChatMessage, askAI } from "../../services/aiService";
-import { hasGeminiApiKey } from "../../services/geminiClient";
+import { hasGeminiApiKey, abortActiveGeminiRequest } from "../../services/geminiClient";
 import { MiniBarChart } from "./MiniBarChart";
 
 type AIChatProps = {
@@ -37,7 +37,7 @@ export type ChatSizeMode = "normal" | "expanded" | "minimized";
 /**
  * Component hiển thị tin nhắn AI chuẩn định dạng Markdown & Công thức toán học KaTeX / LaTeX
  */
-function FormattedAIMessage({ text }: { text: string }) {
+const FormattedAIMessage = memo(function FormattedAIMessage({ text }: { text: string }) {
   // Tiền xử lý văn bản:
   // 1. Chuyển đổi toàn diện các ký hiệu chữ Hy Lạp (kể cả có backslash hoặc không có backslash) sang ký hiệu Unicode chuẩn (α, β, γ, θ, φ, π...)
   //    QUAN TRỌNG: Khớp cả dấu gạch chéo ngược "\" nếu có (\\?alpha) để tránh để lại "\" biến thành "\α", "\θ", "\φ" khiến KaTeX báo lỗi đỏ
@@ -127,7 +127,7 @@ function FormattedAIMessage({ text }: { text: string }) {
       </ReactMarkdown>
     </div>
   );
-}
+});
 
 export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -246,6 +246,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
   // 4. DỪNG TẠO CÂU TRẢ LỜI (STOP GENERATING)
   const handleStopGenerating = () => {
     isAbortedRef.current = true;
+    abortActiveGeminiRequest();
     if (typingTimerRef.current) {
       clearInterval(typingTimerRef.current);
       typingTimerRef.current = null;
@@ -305,7 +306,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
 
       // 1. HIỆU ỨNG ĐANG SUY NGHĨ: giữ tối thiểu 1.6 giây
       const elapsed = Date.now() - startTime;
-      const minWait = 1600;
+      const minWait = 0;
       if (elapsed < minWait) {
         await new Promise((r) => setTimeout(r, minWait - elapsed));
       }
@@ -330,8 +331,8 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
 
       // Tốc độ khoảng 25-35ms mỗi bước:
       // Tùy theo độ dài chuỗi mà điều chỉnh bước nhảy để mượt mà và không bắt người dùng đợi quá lâu
-      const step = totalLength > 800 ? 5 : totalLength > 400 ? 3 : 2;
-      const delay = 28;
+      const step = totalLength > 800 ? 14 : totalLength > 400 ? 8 : 4;
+      const delay = 56;
 
       await new Promise<void>((resolve) => {
         const timer = setInterval(() => {

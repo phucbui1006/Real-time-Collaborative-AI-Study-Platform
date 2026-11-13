@@ -51,12 +51,14 @@ import {
 } from "../services/liveExamSync";
 
 
-function useNow(ms = 1000) {
+function useNow(ms = 1000, enabled = true) {
   const [n, setN] = useState(Date.now());
   useEffect(() => {
+    if (!enabled) return;
+    setN(Date.now());
     const t = setInterval(() => setN(Date.now()), ms);
     return () => clearInterval(t);
-  }, [ms]);
+  }, [ms, enabled]);
   return n;
 }
 
@@ -205,7 +207,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   const [joinErr, setJoinErr] = useState("");
   const [joining, setJoining] = useState(false);
   const channelRef = useRef<ReturnType<typeof subscribeExamRealtime> | null>(null);
-  const now = useNow();
+  const isTimerNeeded = Boolean(live && live.status === "running");
+  const now = useNow(1000, isTimerNeeded);
 
   const remaining = live ? Math.max(0, Math.ceil((live.endAt - now) / 1000)) : 0;
   const isHost = Boolean(

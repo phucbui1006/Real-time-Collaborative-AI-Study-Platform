@@ -179,6 +179,27 @@ interface FloatingReaction {
   left: number
 }
 
+// Component con độc lập đếm thời lượng buổi học để tránh re-render toàn bộ RoomView mỗi 1 giây
+function RoomDurationTimer() {
+  const [durationSeconds, setDurationSeconds] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDurationSeconds((s) => s + 1)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const hrs = Math.floor(durationSeconds / 3600)
+  const mins = Math.floor((durationSeconds % 3600) / 60)
+  const secs = durationSeconds % 60
+  const formatted =
+    hrs > 0
+      ? `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+      : `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+
+  return <span>{formatted}</span>
+}
+
 export default function RoomView({
   room,
   isHost: initialIsHost = false,
@@ -242,25 +263,6 @@ export default function RoomView({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
-
-  // Thời lượng buổi học
-  const [durationSeconds, setDurationSeconds] = useState(0)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setDurationSeconds((s) => s + 1)
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [])
-
-  const formattedDuration = useMemo(() => {
-    const hrs = Math.floor(durationSeconds / 3600)
-    const mins = Math.floor((durationSeconds % 3600) / 60)
-    const secs = durationSeconds % 60
-    if (hrs > 0) {
-      return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-    }
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }, [durationSeconds])
 
   // Trạng thái Sân khấu: Zoom, Tạm dừng, Tránh lặp vô hạn (Infinity Mirror)
   const [stageZoom, setStageZoom] = useState<number>(1)
@@ -686,11 +688,11 @@ export default function RoomView({
       try {
         const list: DocPickerItem[] = []
 
-        // 1. Tải từ Supabase (nếu đã đăng nhập với tài khoản thật)
+        // 1. Tải Metadata từ Supabase (KHÔNG tải pages_content của toàn bộ thư viện khi mở popup chọn tài liệu)
         if (isValidUUID(userId)) {
           const { data, error } = await supabase
             .from('documents')
-            .select('id, original_name, filename, subject, pages_content, total_pages, created_at')
+            .select('id, original_name, filename, subject, total_pages, created_at')
             .eq('owner_user_id', userId)
             .order('created_at', { ascending: false })
 
@@ -699,31 +701,11 @@ export default function RoomView({
           } else if (data && Array.isArray(data)) {
             data.forEach((d) => {
               const docTitle = d.original_name || d.filename || 'Tài liệu'
-              let rawPages: string[] = []
-              if (Array.isArray(d.pages_content)) {
-                rawPages = d.pages_content
-              } else if (typeof d.pages_content === 'string') {
-                try {
-                  const parsed = JSON.parse(d.pages_content)
-                  if (Array.isArray(parsed)) rawPages = parsed
-                } catch {
-                  if (d.pages_content.includes('[[--PERMIND_PAGE_BREAK--]]')) {
-                    rawPages = d.pages_content
-                      .split(/\[\[--PERMIND_PAGE_BREAK--\]\]/)
-                      .map((p: string) => p.trim())
-                  } else {
-                    rawPages = [d.pages_content]
-                  }
-                }
-              }
-
-              const safePages = rawPages.length > 0 ? rawPages : [`# ${docTitle}\n\nNội dung tài liệu học tập.`]
-
               list.push({
                 id: d.id,
                 title: docTitle,
                 color: '#0ea5e9',
-                pagesContent: safePages,
+                pagesContent: [],
               })
             })
           }
@@ -849,14 +831,42 @@ export default function RoomView({
     }, 2200)
   }
 
-  // Chọn tài liệu trình chiếu
-  const handleSelectDoc = (selectedDoc: DocPickerItem) => {
+  // Chọn tài liệu trình chiếu (nếu chưa có pagesContent trong RAM thì tải đúng 1 tài liệu từ Supabase)
+  const handleSelectDoc = async (selectedDoc: DocPickerItem) => {
+    let loadedPages = selectedDoc.pagesContent && selectedDoc.pagesContent.length > 0 ? selectedDoc.pagesContent : []
+
+    if (loadedPages.length === 0 && typeof selectedDoc.id === 'number' && selectedDoc.id > 0) {
+      try {
+        const { data } = await supabase
+          .from('documents')
+          .select('pages_content')
+          .eq('id', selectedDoc.id)
+          .single()
+        if (data?.pages_content) {
+          if (Array.isArray(data.pages_content)) {
+            loadedPages = data.pages_content
+          } else if (typeof data.pages_content === 'string') {
+            try {
+              const parsed = JSON.parse(data.pages_content)
+              if (Array.isArray(parsed)) loadedPages = parsed
+            } catch {
+              loadedPages = data.pages_content.includes('[[--PERMIND_PAGE_BREAK--]]')
+                ? data.pages_content.split(/\[\[--PERMIND_PAGE_BREAK--\]\]/).map((p: string) => p.trim())
+                : [data.pages_content]
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Không thể tải nội dung chi tiết tài liệu trình chiếu:', err)
+      }
+    }
+
     const rawPages =
-      selectedDoc.pagesContent && selectedDoc.pagesContent.length > 0
-        ? selectedDoc.pagesContent
-        : selectedDoc.slides
+      loadedPages.length > 0
+        ? loadedPages
+        : selectedDoc.slides && selectedDoc.slides.length > 0
         ? selectedDoc.slides.map((s: any) => (Array.isArray(s) ? s[0] : s.title))
-        : ['Trang 1']
+        : [`# ${selectedDoc.title}\n\nNội dung tài liệu học tập.`]
 
     const docData: RoomDocumentData = {
       id: selectedDoc.id,
@@ -1105,7 +1115,7 @@ export default function RoomView({
         <div className="hidden md:flex items-center gap-3 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-800/60 text-xs text-slate-300">
           <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-300">
             <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span>{formattedDuration}</span>
+            <RoomDurationTimer />
           </div>
 
           <div className="w-px h-3 bg-slate-700/60" />

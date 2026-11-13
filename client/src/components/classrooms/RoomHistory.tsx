@@ -1,19 +1,19 @@
 import { useState, useMemo } from "react";
 import {
-  MagnifyingGlass,
+  Search as MagnifyingGlass,
   Copy,
   Check,
   Plus,
-  SignIn,
+  LogIn as SignIn,
   X,
   Clock,
   Hash,
-  Function as FunctionIcon,
-  TreeStructure,
+  Sigma as FunctionIcon,
+  GitFork as TreeStructure,
   Kanban,
   Network,
   ArrowRight,
-} from "@phosphor-icons/react";
+} from "lucide-react";
 import { RoomItem } from "../../services/roomService";
 
 interface RoomHistoryProps {
@@ -134,14 +134,14 @@ export function RoomHistory({
               onClick={onOpenJoin}
               className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-sm bg-[#000000] dark:bg-[#2a2a3a] text-white dark:text-[#f0f6ff] text-lg font-normal border border-[#111118] dark:border-[#2dd4bf] shadow-[0_4px_0_0_#0b7a75] dark:shadow-[0_4px_0_0_#2dd4bf] active:translate-y-[2px] transition-transform cursor-pointer"
             >
-              <SignIn size={22} weight="regular" />
+              <SignIn size={22} />
               <span>Tham gia bằng mã</span>
             </button>
             <button
               onClick={onOpenCreate}
               className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-pill bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white text-lg font-normal border border-[#111118] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] active:translate-y-[2px] transition-transform cursor-pointer"
             >
-              <Plus size={22} weight="regular" />
+              <Plus size={22} />
               <span>Tạo phòng học mới</span>
             </button>
           </div>
@@ -157,7 +157,6 @@ export function RoomHistory({
             <div className="relative flex-1 max-w-md">
               <MagnifyingGlass
                 size={20}
-                weight="regular"
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-[#111118]/60 dark:text-[#f0f6ff]/60 pointer-events-none"
               />
               <input
@@ -231,7 +230,7 @@ export function RoomHistory({
                         className="w-13 h-13 rounded-sm flex items-center justify-center text-[#111118] border border-[#111118] shadow-[0_2px_0_0_#111118] shrink-0"
                         style={{ backgroundColor: subject.bg }}
                       >
-                        <SubjectIcon size={26} weight="regular" />
+                        <SubjectIcon size={26} />
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -261,7 +260,7 @@ export function RoomHistory({
                         aria-label={`Xoá ${r.name} khỏi danh sách`}
                         className="w-8 h-8 rounded-sm flex items-center justify-center text-[#111118]/60 dark:text-[#f0f6ff]/60 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer shrink-0"
                       >
-                        <X size={16} weight="regular" />
+                        <X size={16} />
                       </button>
                     </div>
 
@@ -269,7 +268,7 @@ export function RoomHistory({
                     <div className="mt-4 bg-[#e1edff] dark:bg-[#242436] rounded-[4px] p-4 space-y-2.5">
                       <div className="flex items-center justify-between">
                         <span className="inline-flex items-center gap-1.5 text-sm text-[#111118]/85 dark:text-[#f0f6ff]/85">
-                          <Hash size={16} weight="regular" /> Mã phòng:
+                          <Hash size={16} /> Mã phòng:
                         </span>
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-base tracking-[0.18em] bg-white dark:bg-[#1b1b26] text-[#111118] dark:text-[#f0f6ff] px-3 py-1 rounded-[4px] border border-[#e1edff] dark:border-[#2a2a3a] shadow-[0_1px_0_0_#111118] dark:shadow-[0_1px_0_0_#000000]">
@@ -281,16 +280,16 @@ export function RoomHistory({
                             title="Sao chép mã phòng"
                           >
                             {copiedCode === r.code ? (
-                              <Check size={16} weight="regular" className="text-[#16ab59]" />
+                              <Check size={16} className="text-[#16ab59]" />
                             ) : (
-                              <Copy size={16} weight="regular" />
+                              <Copy size={16} />
                             )}
                           </button>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 text-sm text-[#111118]/80 dark:text-[#f0f6ff]/80">
-                        <Clock size={16} weight="regular" />
+                        <Clock size={16} />
                         <span>Vào gần nhất: {r.lastVisit || "Vừa xong"}</span>
                       </div>
                     </div>
@@ -303,7 +302,7 @@ export function RoomHistory({
                       className="inline-flex items-center gap-1.5 h-10 px-5 rounded-pill bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:text-[#111118] text-white text-sm font-normal border border-[#111118] shadow-[0_3px_0_0_#111118] dark:shadow-[0_3px_0_0_#000000] active:translate-y-[1px] transition-transform cursor-pointer"
                     >
                       <span>Vào lại</span>
-                      <ArrowRight size={14} weight="regular" />
+                      <ArrowRight size={14} />
                     </button>
                   </div>
                 </article>

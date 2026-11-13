@@ -3,8 +3,25 @@
 // Giúp mở tài liệu ngay lập tức (< 300ms), bảo toàn 100% hình ảnh và chống duplicate fetch
 import { supabase } from "./supabaseClient";
 
-// 1. RAM Cache cho từng trang: Key = `${docId}_${pageIndex}`
+// 1. RAM Cache cho từng trang: Key = `${docId}_${pageIndex}` (Giới hạn LRU tối đa 50 trang để chống rò rỉ bộ nhớ)
+const MAX_PAGE_CACHE_ENTRIES = 50;
 const pageContentCache = new Map<string, string>();
+
+function setPageCacheLRU(key: string, value: string): void {
+  if (pageContentCache.has(key)) {
+    pageContentCache.delete(key);
+  } else if (pageContentCache.size >= MAX_PAGE_CACHE_ENTRIES) {
+    const oldestKey = pageContentCache.keys().next().value;
+    if (oldestKey) pageContentCache.delete(oldestKey);
+  }
+  pageContentCache.set(key, value);
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("permind:clear-user-cache", () => {
+    pageContentCache.clear();
+  });
+}
 
 // 2. Flight Cache chống duplicate fetch (nếu 2 component cùng gọi đồng thời)
 const ongoingPageFetches = new Map<string, Promise<string>>();
@@ -55,7 +72,7 @@ export async function fetchDocumentPage(
       const finalContent = content.trim() || fallbackTitle || `Trang ${pageIndex + 1}`;
 
       // Lưu vào RAM Cache
-      pageContentCache.set(cacheKey, finalContent);
+      setPageCacheLRU(cacheKey, finalContent);
       return finalContent;
     } catch (err) {
       console.warn(`Lỗi ngoại lệ khi nạp trang ${pageIndex + 1}:`, err);
@@ -93,7 +110,7 @@ export function cacheAllDocumentPages(docId: number, pages: string[]): void {
   if (!pages || !Array.isArray(pages)) return;
   pages.forEach((page, idx) => {
     if (page) {
-      pageContentCache.set(`${docId}_${idx}`, page);
+      setPageCacheLRU(`${docId}_${idx}`, page);
     }
   });
 }

@@ -60,7 +60,6 @@ export async function joinRoom(
 export function leaveRoom(roomCode: string) {
   if (socket.connected) {
     socket.emit('ROOM:LEAVE', { roomCode })
-    socket.disconnect()
   }
 }
 

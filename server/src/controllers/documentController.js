@@ -97,7 +97,7 @@ async function getDocuments(req, res, next) {
 
     const { data, error } = await supabaseAdmin
       .from('documents')
-      .select('*')
+      .select('id, filename, original_name, subject, total_pages, file_url, created_at, owner_user_id')
       .eq('owner_user_id', userId)
       .order('created_at', { ascending: false })
 

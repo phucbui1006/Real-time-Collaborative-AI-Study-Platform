@@ -15,6 +15,7 @@ const MAX_ANNOTATION_BYTES = 256 * 1024
 // Bộ nhớ RAM lưu trữ trạng thái các phòng đang hoạt động
 const activeRooms = new Map()
 const docSaveTimers = new Map()
+const annotationSaveTimers = new Map()
 const roomCloseTimers = new Map()
 
 function getActiveRooms() {
@@ -983,6 +984,34 @@ function roomHandler(io, socket) {
       annotations: room.annotationsByPage[idx],
       by: socket.id,
     })
+
+    // Debounce ghi chú thích xuống Supabase 1.5s sau nét vẽ cuối cùng để tránh quá tải DB
+    if (room.activeDocument?.id) {
+      const annoKey = `${roomCode}_${room.activeDocument.id}_${idx}`
+      if (annotationSaveTimers.has(annoKey)) {
+        clearTimeout(annotationSaveTimers.get(annoKey))
+      }
+      const timer = setTimeout(async () => {
+        try {
+          if (room.activeDocument?.id && room.annotationsByPage?.[idx]) {
+            await supabaseAdmin.from('room_annotations').upsert(
+              {
+                room_document_id: room.activeDocument.id,
+                page_index: idx,
+                annotations: room.annotationsByPage[idx],
+                updated_at: new Date(),
+              },
+              { onConflict: 'room_document_id,page_index' }
+            )
+          }
+        } catch {
+          // Bỏ qua nếu bảng room_annotations không tồn tại hoặc lỗi tạm thời
+        } finally {
+          annotationSaveTimers.delete(annoKey)
+        }
+      }, 1500)
+      annotationSaveTimers.set(annoKey, timer)
+    }
   })
 
   socket.on('DOC:CLEAR_ANNOTATIONS', ({ roomCode, pageIndex } = {}) => {
