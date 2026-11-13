@@ -301,6 +301,17 @@ export default function RoomView({
     return 'viewer'
   }, [isHost, currentMember?.role])
 
+  // Kiểm tra người dùng hiện tại có phải là người đang trình chiếu tài liệu không
+  const isCurrentDocPresenter = useMemo(() => {
+    const doc = roomState.activeDocument
+    if (!doc) return false
+    if (doc.presenterUserId && userId && doc.presenterUserId === userId) return true
+    if (doc.presenterSocketId && currentSocketId && doc.presenterSocketId === currentSocketId) return true
+    return false
+  }, [roomState.activeDocument, userId, currentSocketId])
+
+  const canManageActiveDoc = isHost || currentUserRole === 'speaker' || isCurrentDocPresenter
+
   const isMyHandRaised = useMemo(() => {
     return (
       Boolean(currentMember?.isHandRaised) ||
@@ -446,12 +457,29 @@ export default function RoomView({
     socket.on('connect', handleConnect)
     socket.on('disconnect', handleDisconnect)
 
+    const mergeDocumentContent = (
+      incoming: RoomDocumentData | null | undefined,
+      existing: RoomDocumentData | null
+    ): RoomDocumentData | null => {
+      if (incoming === undefined) return existing
+      if (incoming === null) return null
+      const hasIncomingPages = Array.isArray(incoming.pagesContent) && incoming.pagesContent.length > 0
+      if (hasIncomingPages) return incoming
+      if (existing && (existing.id === incoming.id || existing.title === incoming.title)) {
+        return {
+          ...incoming,
+          pagesContent: existing.pagesContent,
+        }
+      }
+      return incoming
+    }
+
     const onRoomState = (state: RoomState) => {
       setRoomState((prev) => ({
         ...prev,
         ...state,
         members: state.members || [],
-        activeDocument: state.activeDocument !== undefined ? state.activeDocument : prev.activeDocument,
+        activeDocument: mergeDocumentContent(state.activeDocument, prev.activeDocument),
       }))
       if (state.annotationsByPage) {
         setAnnotationsByPage(state.annotationsByPage)
@@ -517,7 +545,7 @@ export default function RoomView({
     const onDocSync = (document: RoomDocumentData | null) => {
       setRoomState((prev) => ({
         ...prev,
-        activeDocument: document,
+        activeDocument: mergeDocumentContent(document, prev.activeDocument),
       }))
     }
 
@@ -644,9 +672,107 @@ export default function RoomView({
     if (activeDrawerTab === 'chat') setUnreadCount(0)
   }, [activeDrawerTab])
 
-  // Throttle timer cho ghi chú vẽ
+  // Throttle timer cho ghi chú vẽ & kênh đồng bộ tài liệu trực tiếp qua Supabase Realtime Broadcast
   const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingAnnotationsRef = useRef<{ pageIndex: number; annotations: DocumentAnnotation[] } | null>(null)
+  const docChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const activeDocumentRef = useRef<RoomDocumentData | null>(null)
+  activeDocumentRef.current = roomState.activeDocument
+  const annotationsByPageRef = useRef<AnnotationsByPage>({})
+  annotationsByPageRef.current = annotationsByPage
+
+  useEffect(() => {
+    if (!room.code) return
+    const channel = supabase.channel(`permind_doc_sync_${room.code}`, {
+      config: { broadcast: { self: false } },
+    })
+
+    channel
+      .on('broadcast', { event: 'doc_sync' }, ({ payload }) => {
+        if (!payload) return
+        if (payload.document) {
+          setRoomState((prev) => ({
+            ...prev,
+            activeDocument: payload.document,
+          }))
+        }
+        if (payload.annotationsByPage) {
+          setAnnotationsByPage(payload.annotationsByPage)
+        }
+      })
+      .on('broadcast', { event: 'doc_stop' }, () => {
+        setRoomState((prev) => ({
+          ...prev,
+          activeDocument: null,
+        }))
+        setAnnotationsByPage({})
+      })
+      .on('broadcast', { event: 'doc_page' }, ({ payload }) => {
+        if (typeof payload?.pageIndex !== 'number') return
+        setRoomState((prev) => {
+          if (!prev.activeDocument) return prev
+          return {
+            ...prev,
+            activeDocument: {
+              ...prev.activeDocument,
+              currentPage: payload.pageIndex,
+            },
+          }
+        })
+      })
+      .on('broadcast', { event: 'doc_annotate' }, ({ payload }) => {
+        if (typeof payload?.pageIndex !== 'number' || !Array.isArray(payload?.annotations)) return
+        setAnnotationsByPage((prev) => ({
+          ...prev,
+          [payload.pageIndex]: payload.annotations,
+        }))
+      })
+      .on('broadcast', { event: 'doc_clear_annotations' }, ({ payload }) => {
+        if (payload?.pageIndex !== undefined && payload?.pageIndex !== null) {
+          setAnnotationsByPage((prev) => {
+            const next = { ...prev }
+            delete next[payload.pageIndex]
+            return next
+          })
+        } else {
+          setAnnotationsByPage({})
+        }
+      })
+      .on('broadcast', { event: 'doc_request_state' }, () => {
+        // Nếu máy hiện tại đang giữ tài liệu trình chiếu, phản hồi ngay cho thành viên vừa vào phòng
+        const currDoc = activeDocumentRef.current
+        if (currDoc && Array.isArray(currDoc.pagesContent) && currDoc.pagesContent.length > 0) {
+          channel
+            .send({
+              type: 'broadcast',
+              event: 'doc_sync',
+              payload: {
+                document: currDoc,
+                annotationsByPage: annotationsByPageRef.current,
+              },
+            })
+            .catch(() => {})
+        }
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          channel
+            .send({
+              type: 'broadcast',
+              event: 'doc_request_state',
+              payload: { requesterId: userId },
+            })
+            .catch(() => {})
+        }
+      })
+
+    docChannelRef.current = channel
+
+    return () => {
+      docChannelRef.current = null
+      supabase.removeChannel(channel)
+    }
+  }, [room.code, userId])
 
   // Lắng nghe phím tắt toàn cục (M, V, S, H)
   useEffect(() => {
@@ -876,6 +1002,9 @@ export default function RoomView({
       pagesContent: rawPages,
       currentPage: 0,
       updatedAt: new Date().toISOString(),
+      presenterSocketId: currentSocketId || null,
+      presenterUserId: userId || null,
+      presenterName: userName || 'Thành viên',
     }
 
     setRoomState((prev) => ({
@@ -890,12 +1019,27 @@ export default function RoomView({
       totalPages: docData.totalPages,
     })
 
+    docChannelRef.current
+      ?.send({
+        type: 'broadcast',
+        event: 'doc_sync',
+        payload: { document: docData, annotationsByPage: {} },
+      })
+      .catch(() => {})
+
     setDocPickerOpen(false)
   }
 
-  // Host dừng trình chiếu tài liệu
+  // Chủ phòng hoặc người đang trình chiếu dừng chiếu tài liệu
   const handleStopDocPresentation = () => {
     stopDocument(room.code)
+    docChannelRef.current
+      ?.send({
+        type: 'broadcast',
+        event: 'doc_stop',
+        payload: {},
+      })
+      .catch(() => {})
     setRoomState((prev) => ({
       ...prev,
       activeDocument: null,
@@ -916,6 +1060,13 @@ export default function RoomView({
       }
     })
     changeDocumentPage(room.code, pageIndex)
+    docChannelRef.current
+      ?.send({
+        type: 'broadcast',
+        event: 'doc_page',
+        payload: { pageIndex },
+      })
+      .catch(() => {})
   }
 
   // Chú thích trực quan (Throttle và batch gửi socket 80ms)
@@ -926,16 +1077,20 @@ export default function RoomView({
       [pageIndex]: newAnnotations,
     }))
 
-    // 2. Throttle gửi socket 80ms
+    // 2. Throttle gửi socket & Supabase Broadcast 80ms
     pendingAnnotationsRef.current = { pageIndex, annotations: newAnnotations }
     if (!throttleTimerRef.current) {
       throttleTimerRef.current = setTimeout(() => {
         if (pendingAnnotationsRef.current) {
-          sendDocumentAnnotations(
-            room.code,
-            pendingAnnotationsRef.current.pageIndex,
-            pendingAnnotationsRef.current.annotations
-          )
+          const { pageIndex: pIdx, annotations: annos } = pendingAnnotationsRef.current
+          sendDocumentAnnotations(room.code, pIdx, annos)
+          docChannelRef.current
+            ?.send({
+              type: 'broadcast',
+              event: 'doc_annotate',
+              payload: { pageIndex: pIdx, annotations: annos },
+            })
+            .catch(() => {})
           pendingAnnotationsRef.current = null
         }
         throttleTimerRef.current = null
@@ -954,6 +1109,13 @@ export default function RoomView({
       setAnnotationsByPage({})
     }
     clearDocumentAnnotations(room.code, pageIndex)
+    docChannelRef.current
+      ?.send({
+        type: 'broadcast',
+        event: 'doc_clear_annotations',
+        payload: { pageIndex },
+      })
+      .catch(() => {})
   }
 
   // Quản trị thành viên (Host)
@@ -1131,8 +1293,8 @@ export default function RoomView({
 
         {/* Bên phải: Mời bạn, Dừng chiếu (Host), Toàn màn hình */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Nút Host Dừng chiếu tài liệu / Đổi tài liệu khi đang chiếu */}
-          {isHost && roomState.activeDocument && (
+          {/* Nút Đừng chiếu tài liệu / Đổi tài liệu khi đang chiếu (Chủ phòng hoặc Người đang chiếu) */}
+          {canManageActiveDoc && roomState.activeDocument && (
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setDocPickerOpen(true)}

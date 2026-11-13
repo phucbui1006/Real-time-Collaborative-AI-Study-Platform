@@ -47,6 +47,9 @@ export interface RoomDocumentData {
   pagesContent?: string[];             // Mảng nội dung văn bản (tùy chọn khi nạp lazy)
   currentPage: number;                 // Trang hiện tại đang chiếu (bắt đầu từ 0)
   updatedAt: string;                   // Thời điểm cập nhật nội dung gần nhất
+  presenterSocketId?: string | null;   // Socket ID của người đang chiếu tài liệu
+  presenterUserId?: string | null;     // User ID của người đang chiếu tài liệu
+  presenterName?: string;              // Tên hiển thị của người đang chiếu tài liệu
 }
 
 /**

@@ -24,6 +24,7 @@ import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
 import { authFetch } from '../../services/api'
+import { supabase } from '../../services/supabaseClient'
 import type { RoomDocumentData, DocumentAnnotation } from '../../types/classroom'
 
 export type AnnotationTool = 'select' | 'rect' | 'highlight' | 'text'
@@ -52,12 +53,14 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
   isHost,
   userRole,
   roomCode,
+  currentUserId,
   annotations = [],
   onPageChange,
   onUpdateAnnotations,
   onClearAnnotations,
 }) => {
-  const canAnnotate = isHost || userRole === 'speaker'
+  const isDocPresenter = Boolean(currentUserId && document.presenterUserId && document.presenterUserId === currentUserId)
+  const canAnnotate = isHost || userRole === 'speaker' || isDocPresenter
   const hostPage = document.currentPage || 0
   const [localPage, setLocalPage] = useState<number>(hostPage)
   const [isFreeView, setIsFreeView] = useState<boolean>(false)
@@ -130,50 +133,100 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
 
   const totalPages = Math.max(1, document.totalPages || 0, document.pagesContent?.length || 0)
   const pageCacheRef = useRef<Map<number, string>>(new Map())
+  const lastDocKeyRef = useRef<string>(`${document.id}_${document.title}`)
   const [pageContent, setPageContent] = useState<string>(() => {
     return document.pagesContent?.[localPage] || ''
   })
   const [isLoadingPage, setIsLoadingPage] = useState<boolean>(false)
 
-  // Khởi tạo cache từ pagesContent nếu có sẵn
+  // Khi đổi sang tài liệu mới (id hoặc title thay đổi), xóa cache cũ và đồng bộ về trang hiện tại
   useEffect(() => {
-    if (document.pagesContent && Array.isArray(document.pagesContent)) {
+    const nextKey = `${document.id}_${document.title}`
+    if (lastDocKeyRef.current !== nextKey) {
+      lastDocKeyRef.current = nextKey
+      pageCacheRef.current.clear()
+      setIsFreeView(false)
+      const targetPage = document.currentPage || 0
+      setLocalPage(targetPage)
+      setPageContent(document.pagesContent?.[targetPage] || '')
+    }
+  }, [document.id, document.title, document.currentPage, document.pagesContent])
+
+  // Khởi tạo / cập nhật cache từ pagesContent nếu có sẵn
+  useEffect(() => {
+    if (document.pagesContent && Array.isArray(document.pagesContent) && document.pagesContent.length > 0) {
       document.pagesContent.forEach((txt, idx) => {
-        if (txt && !pageCacheRef.current.has(idx)) {
+        if (typeof txt === 'string') {
           pageCacheRef.current.set(idx, txt)
         }
       })
+      if (document.pagesContent[localPage] !== undefined) {
+        setPageContent(document.pagesContent[localPage] || '')
+        setIsLoadingPage(false)
+      }
     }
-  }, [document.pagesContent])
+  }, [document.pagesContent, document.updatedAt, localPage])
 
   // Lazy-load trang hiện tại và prefetch trước/sau 1-2 trang
   useEffect(() => {
     let isMounted = true
 
-    if (pageCacheRef.current.has(localPage)) {
-      setPageContent(pageCacheRef.current.get(localPage) || '')
-      setIsLoadingPage(false)
-    } else if (document.pagesContent?.[localPage]) {
+    if (document.pagesContent?.[localPage]) {
       const content = document.pagesContent[localPage]
       pageCacheRef.current.set(localPage, content)
       setPageContent(content)
       setIsLoadingPage(false)
+    } else if (pageCacheRef.current.has(localPage)) {
+      setPageContent(pageCacheRef.current.get(localPage) || '')
+      setIsLoadingPage(false)
     } else if (roomCode) {
       setIsLoadingPage(true)
       authFetch(`/api/rooms/${roomCode}/document/page/${localPage}`)
-        .then((res) => {
-          if (!res.ok) throw new Error('Không thể tải nội dung trang')
+        .then(async (res) => {
+          const contentType = res.headers.get('content-type') || ''
+          if (!res.ok || !contentType.includes('application/json')) {
+            throw new Error('Không thể tải nội dung trang từ API')
+          }
           return res.json()
         })
         .then((data) => {
-          if (isMounted) {
-            const c = data.content || ''
-            pageCacheRef.current.set(localPage, c)
-            setPageContent(c)
+          if (isMounted && data?.content) {
+            pageCacheRef.current.set(localPage, data.content)
+            setPageContent(data.content)
           }
         })
-        .catch((err) => {
-          console.warn('[DocViewer] Lỗi tải nội dung trang:', err)
+        .catch(async (err) => {
+          console.warn('[DocViewer] Fallback tải trang từ Supabase:', err)
+          // Dự phòng truy vấn trực tiếp từ bảng room_documents hoặc documents trên Supabase
+          try {
+            let pages: string[] = []
+            if (document.id > 0) {
+              const { data: roomDoc } = await supabase
+                .from('room_documents')
+                .select('pages_content')
+                .eq('id', document.id)
+                .maybeSingle()
+              if (Array.isArray(roomDoc?.pages_content)) {
+                pages = roomDoc.pages_content
+              }
+            }
+            if (pages.length === 0 && document.originalDocumentId && document.originalDocumentId > 0) {
+              const { data: origDoc } = await supabase
+                .from('documents')
+                .select('pages_content')
+                .eq('id', document.originalDocumentId)
+                .maybeSingle()
+              if (Array.isArray(origDoc?.pages_content)) {
+                pages = origDoc.pages_content
+              }
+            }
+            if (isMounted && pages.length > 0) {
+              pages.forEach((txt, idx) => {
+                if (typeof txt === 'string') pageCacheRef.current.set(idx, txt)
+              })
+              setPageContent(pages[localPage] || '')
+            }
+          } catch {}
         })
         .finally(() => {
           if (isMounted) setIsLoadingPage(false)
@@ -181,13 +234,13 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
     }
 
     // Prefetch trước/sau 1-2 trang
-    if (roomCode) {
+    if (roomCode && (!document.pagesContent || document.pagesContent.length === 0)) {
       const pagesToPrefetch = [localPage - 1, localPage + 1, localPage + 2].filter(
         (p) => p >= 0 && p < totalPages && !pageCacheRef.current.has(p)
       )
       pagesToPrefetch.forEach((p) => {
         authFetch(`/api/rooms/${roomCode}/document/page/${p}`)
-          .then((res) => res.json())
+          .then((res) => (res.ok ? res.json() : null))
           .then((data) => {
             if (data?.content) {
               pageCacheRef.current.set(p, data.content)
@@ -200,7 +253,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
     return () => {
       isMounted = false
     }
-  }, [localPage, roomCode, totalPages, document.pagesContent])
+  }, [localPage, roomCode, totalPages, document.id, document.title, document.updatedAt, document.pagesContent, document.originalDocumentId])
 
   const currentPageContent = pageContent || document.pagesContent?.[localPage] || ''
 

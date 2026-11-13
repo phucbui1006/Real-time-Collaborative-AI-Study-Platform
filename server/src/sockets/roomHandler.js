@@ -49,6 +49,55 @@ function isHostOrSpeaker(room, socketId) {
   return role === 'host' || role === 'speaker'
 }
 
+/**
+ * Cho phép Chủ phòng, Diễn giả, hoặc chính thành viên đang trình chiếu tài liệu đó điều khiển trang/chú thích/dừng chiếu
+ */
+function canControlDocument(room, socketId) {
+  if (isHostOrSpeaker(room, socketId)) return true
+  const member = room.members.get(socketId)
+  if (!member || !room.activeDocument) return false
+  if (room.activeDocument.presenterSocketId && room.activeDocument.presenterSocketId === socketId) {
+    return true
+  }
+  if (
+    room.activeDocument.presenterUserId &&
+    member.userId &&
+    room.activeDocument.presenterUserId === member.userId
+  ) {
+    return true
+  }
+  return false
+}
+
+/**
+ * Chuẩn hóa pages_content từ DB hoặc payload client thành mảng chuỗi an toàn
+ */
+function normalizePagesArray(raw) {
+  if (!raw) return []
+  let arr = []
+  if (Array.isArray(raw)) {
+    arr = raw
+  } else if (typeof raw === 'string') {
+    const trimmed = raw.trim()
+    if (!trimmed) return []
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (Array.isArray(parsed)) {
+        arr = parsed
+      } else {
+        arr = [trimmed]
+      }
+    } catch {
+      arr = trimmed.includes('[[--PERMIND_PAGE_BREAK--]]')
+        ? trimmed.split(/\[\[--PERMIND_PAGE_BREAK--\]\]/).map((p) => p.trim())
+        : [trimmed]
+    }
+  }
+  return arr
+    .slice(0, MAX_PAGE_COUNT)
+    .map((p) => String(p ?? '').slice(0, MAX_PAGE_CHARS))
+}
+
 function formatRoomState(room) {
   const docMeta = room.activeDocument
     ? {
@@ -58,16 +107,18 @@ function formatRoomState(room) {
         totalPages:
           room.activeDocument.totalPages ||
           (room.activeDocument.pagesContent ? room.activeDocument.pagesContent.length : 1),
+        pagesContent: Array.isArray(room.activeDocument.pagesContent)
+          ? room.activeDocument.pagesContent
+          : [],
         currentPage: room.activeDocument.currentPage || 0,
         updatedAt: room.activeDocument.updatedAt,
+        presenterSocketId: room.activeDocument.presenterSocketId || null,
+        presenterUserId: room.activeDocument.presenterUserId || null,
+        presenterName: room.activeDocument.presenterName || '',
       }
     : null
 
-  const currPage = room.activeDocument ? room.activeDocument.currentPage || 0 : 0
-  const annotationsSnapshot =
-    room.annotationsByPage && room.annotationsByPage[currPage]
-      ? { [currPage]: room.annotationsByPage[currPage] }
-      : {}
+  const annotationsSnapshot = room.annotationsByPage ? { ...room.annotationsByPage } : {}
 
   return {
     code: room.code,
@@ -738,16 +789,30 @@ function roomHandler(io, socket) {
         return socket.emit('ERROR', { message: 'Phòng học không tồn tại.' })
       }
 
-      if (!isHost(room, socket.id)) {
+      // Cho phép cả Chủ phòng và bất kỳ thành viên nào đang trong phòng trình chiếu tài liệu
+      let member = room.members.get(socket.id)
+      if (!member && socket.user?.id) {
+        for (const m of room.members.values()) {
+          if (m.userId === socket.user.id) {
+            room.members.delete(m.socketId)
+            m.socketId = socket.id
+            room.members.set(socket.id, m)
+            member = m
+            break
+          }
+        }
+      }
+      if (!member) {
         return socket.emit('ERROR', {
-          message: 'Chỉ Chủ phòng mới có quyền chọn tài liệu trình chiếu.',
+          message: 'Bạn cần tham gia phòng học để trình chiếu tài liệu.',
           code: 'FORBIDDEN',
         })
       }
-      room.hostSocketId = socket.id
 
-      // 1. Tìm tài liệu từ database kèm kiểm tra quyền sở hữu (chống IDOR)
+      // 1. Ưu tiên nội dung trang do client gửi kèm (đã được nạp từ Thư viện hoặc tài liệu mẫu)
+      const clientPages = docData ? normalizePagesArray(docData.pagesContent) : []
       let sourceDoc = null
+
       if (typeof documentId === 'number' && Number.isInteger(documentId) && documentId > 0) {
         const { data: foundDoc } = await supabaseAdmin
           .from('documents')
@@ -756,27 +821,37 @@ function roomHandler(io, socket) {
           .maybeSingle()
 
         if (foundDoc) {
-          if (foundDoc.owner_user_id && foundDoc.owner_user_id !== socket.user.id) {
-            return socket.emit('ERROR', {
-              message: 'Bạn không có quyền trình chiếu tài liệu thuộc sở hữu của người khác.',
-              code: 'FORBIDDEN',
-            })
+          const isDocOwnerOrPublic =
+            !foundDoc.owner_user_id || foundDoc.owner_user_id === socket.user?.id
+          if (isDocOwnerOrPublic) {
+            const dbPages = normalizePagesArray(foundDoc.pages_content)
+            sourceDoc = {
+              id: foundDoc.id,
+              original_name:
+                docData?.title || foundDoc.original_name || foundDoc.filename || 'Tài liệu bài giảng',
+              filename: foundDoc.filename || docData?.title || 'Tài liệu bài giảng',
+              total_pages:
+                (clientPages.length > 0 ? clientPages.length : dbPages.length) ||
+                foundDoc.total_pages ||
+                1,
+              pages_content: clientPages.length > 0 ? clientPages : dbPages,
+            }
           }
-          sourceDoc = foundDoc
         }
       }
 
-      // 2. Fallback docData cục bộ (giới hạn kích thước an toàn)
-      if (!sourceDoc && docData && Array.isArray(docData.pagesContent)) {
-        const safePages = docData.pagesContent
-          .slice(0, MAX_PAGE_COUNT)
-          .map((p) => String(p || '').slice(0, MAX_PAGE_CHARS))
+      // 2. Fallback docData trực tiếp từ client (tài liệu mẫu hoặc tài liệu cục bộ)
+      if (!sourceDoc && docData) {
+        const fallbackPages =
+          clientPages.length > 0
+            ? clientPages
+            : [`# ${String(docData.title || 'Tài liệu bài giảng').slice(0, 200)}\n\nNội dung tài liệu học tập.`]
         sourceDoc = {
           id: typeof documentId === 'number' ? documentId : Date.now(),
           original_name: String(docData.title || 'Tài liệu bài giảng').slice(0, 200),
           filename: String(docData.title || 'Tài liệu bài giảng').slice(0, 200),
-          total_pages: safePages.length || 1,
-          pages_content: safePages,
+          total_pages: fallbackPages.length || 1,
+          pages_content: fallbackPages,
         }
       }
 
@@ -784,9 +859,14 @@ function roomHandler(io, socket) {
         return socket.emit('ERROR', { message: 'Không tìm thấy tài liệu trong kho lưu trữ.' })
       }
 
-      const pages = Array.isArray(sourceDoc.pages_content)
-        ? sourceDoc.pages_content.slice(0, MAX_PAGE_COUNT)
-        : []
+      const pages = normalizePagesArray(sourceDoc.pages_content)
+      const safePages =
+        pages.length > 0
+          ? pages
+          : [`# ${sourceDoc.original_name || 'Tài liệu bài giảng'}\n\nNội dung tài liệu học tập.`]
+
+      const presenterUserId = socket.user?.id || member.userId || null
+      const presenterName = member.userName || 'Thành viên'
 
       let roomDocData = null
       if (room.dbRoomId) {
@@ -798,23 +878,34 @@ function roomHandler(io, socket) {
               original_document_id:
                 typeof sourceDoc.id === 'number' && sourceDoc.id > 0 ? sourceDoc.id : null,
               title: sourceDoc.original_name || sourceDoc.filename || 'Tài liệu bài giảng',
-              total_pages: sourceDoc.total_pages || pages.length || 1,
-              pages_content: pages,
+              total_pages: safePages.length || sourceDoc.total_pages || 1,
+              pages_content: safePages,
               updated_at: new Date(),
             })
             .select()
             .single()
 
           if (!insertError && inserted) {
+            const insertedPages = normalizePagesArray(inserted.pages_content)
             roomDocData = {
               id: inserted.id,
               originalDocumentId: sourceDoc.id,
               title: inserted.title,
-              totalPages: inserted.total_pages,
-              pagesContent: Array.isArray(inserted.pages_content) ? inserted.pages_content : pages,
+              totalPages: inserted.total_pages || safePages.length,
+              pagesContent: insertedPages.length > 0 ? insertedPages : safePages,
               currentPage: 0,
               updatedAt: inserted.updated_at,
+              presenterSocketId: socket.id,
+              presenterUserId,
+              presenterName,
             }
+            // Đồng bộ current_document_id và current_page lên bảng rooms
+            try {
+              await supabaseAdmin
+                .from('rooms')
+                .update({ current_document_id: inserted.id, current_page: 0 })
+                .eq('id', room.dbRoomId)
+            } catch {}
           }
         } catch (dbErr) {
           console.warn('Không thể lưu room_documents vào DB:', dbErr.message)
@@ -826,10 +917,13 @@ function roomHandler(io, socket) {
           id: typeof sourceDoc.id === 'number' ? sourceDoc.id : Date.now(),
           originalDocumentId: sourceDoc.id,
           title: sourceDoc.original_name || sourceDoc.filename || 'Tài liệu bài giảng',
-          totalPages: sourceDoc.total_pages || pages.length || 1,
-          pagesContent: pages,
+          totalPages: safePages.length || sourceDoc.total_pages || 1,
+          pagesContent: safePages,
           currentPage: 0,
           updatedAt: new Date().toISOString(),
+          presenterSocketId: socket.id,
+          presenterUserId,
+          presenterName,
         }
       }
 
@@ -849,9 +943,9 @@ function roomHandler(io, socket) {
     const room = activeRooms.get(roomCode)
     if (!room) return
 
-    if (!isHost(room, socket.id)) {
+    if (!canControlDocument(room, socket.id)) {
       return socket.emit('ERROR', {
-        message: 'Chỉ Chủ phòng mới có quyền dừng trình chiếu tài liệu.',
+        message: 'Chỉ Chủ phòng hoặc người đang trình chiếu mới có quyền dừng chiếu tài liệu.',
         code: 'FORBIDDEN',
       })
     }
@@ -866,9 +960,9 @@ function roomHandler(io, socket) {
     const room = activeRooms.get(roomCode)
     if (!room) return
 
-    if (!isHostOrSpeaker(room, socket.id)) {
+    if (!canControlDocument(room, socket.id)) {
       return socket.emit('ERROR', {
-        message: 'Chỉ Chủ phòng và Diễn giả mới có quyền điều khiển trang tài liệu.',
+        message: 'Chỉ Chủ phòng, Diễn giả hoặc người đang trình chiếu mới có quyền lật trang.',
         code: 'FORBIDDEN',
       })
     }
@@ -899,9 +993,9 @@ function roomHandler(io, socket) {
     const room = activeRooms.get(roomCode)
     if (!room) return
 
-    if (!isHostOrSpeaker(room, socket.id)) {
+    if (!canControlDocument(room, socket.id)) {
       return socket.emit('ERROR', {
-        message: 'Chỉ Chủ phòng và Diễn giả mới có quyền chỉnh sửa tài liệu.',
+        message: 'Chỉ Chủ phòng, Diễn giả hoặc người đang trình chiếu mới có quyền chỉnh sửa tài liệu.',
         code: 'FORBIDDEN',
       })
     }
@@ -957,9 +1051,9 @@ function roomHandler(io, socket) {
     const room = activeRooms.get(roomCode)
     if (!room) return
 
-    if (!isHostOrSpeaker(room, socket.id)) {
+    if (!canControlDocument(room, socket.id)) {
       return socket.emit('ERROR', {
-        message: 'Chỉ Chủ phòng và Diễn giả mới có quyền chú thích lên tài liệu.',
+        message: 'Chỉ Chủ phòng, Diễn giả hoặc người đang trình chiếu mới có quyền chú thích lên tài liệu.',
         code: 'FORBIDDEN',
       })
     }
@@ -1018,9 +1112,9 @@ function roomHandler(io, socket) {
     const room = activeRooms.get(roomCode)
     if (!room) return
 
-    if (!isHostOrSpeaker(room, socket.id)) {
+    if (!canControlDocument(room, socket.id)) {
       return socket.emit('ERROR', {
-        message: 'Chỉ Chủ phòng và Diễn giả mới có quyền xóa chú thích.',
+        message: 'Chỉ Chủ phòng, Diễn giả hoặc người đang trình chiếu mới có quyền xóa chú thích.',
         code: 'FORBIDDEN',
       })
     }

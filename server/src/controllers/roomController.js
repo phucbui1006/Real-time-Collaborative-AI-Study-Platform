@@ -337,21 +337,47 @@ async function getDocumentPage(req, res, next) {
     }
 
     const dbRoom = authCheck.dbRoom
-    if (!dbRoom || !dbRoom.current_document_id) {
+    if (!dbRoom) {
+      return res.status(404).json({ success: false, error: 'Phòng không tồn tại.' })
+    }
+
+    let roomDoc = null
+    if (dbRoom.current_document_id) {
+      const { data } = await supabaseAdmin
+        .from('room_documents')
+        .select('id, title, total_pages, pages_content')
+        .eq('id', dbRoom.current_document_id)
+        .maybeSingle()
+      roomDoc = data
+    }
+
+    // Dự phòng tìm bản ghi tài liệu mới nhất của phòng nếu current_document_id chưa được gắn
+    if (!roomDoc && dbRoom.id) {
+      const { data } = await supabaseAdmin
+        .from('room_documents')
+        .select('id, title, total_pages, pages_content')
+        .eq('room_id', dbRoom.id)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      roomDoc = data
+    }
+
+    if (!roomDoc) {
       return res.status(404).json({ success: false, error: 'Phòng hiện chưa chiếu tài liệu nào.' })
     }
 
-    const { data: roomDoc } = await supabaseAdmin
-      .from('room_documents')
-      .select('id, title, total_pages, pages_content')
-      .eq('id', dbRoom.current_document_id)
-      .maybeSingle()
-
-    if (!roomDoc) {
-      return res.status(404).json({ success: false, error: 'Tài liệu không tồn tại.' })
+    let pages = []
+    if (Array.isArray(roomDoc.pages_content)) {
+      pages = roomDoc.pages_content
+    } else if (typeof roomDoc.pages_content === 'string') {
+      try {
+        const parsed = JSON.parse(roomDoc.pages_content)
+        if (Array.isArray(parsed)) pages = parsed
+      } catch {
+        pages = [roomDoc.pages_content]
+      }
     }
-
-    const pages = Array.isArray(roomDoc.pages_content) ? roomDoc.pages_content : []
     const content = pages[pageNum] || ''
 
     res.json({
