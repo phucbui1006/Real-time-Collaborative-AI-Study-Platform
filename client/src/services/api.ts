@@ -1,12 +1,11 @@
 import axios from 'axios'
+import { supabase } from './supabaseClient'
 
 const rawApiUrl = import.meta.env.VITE_API_URL as string | undefined
 export const API_ORIGIN = rawApiUrl ? rawApiUrl.replace(/\/$/, '') : ''
 
 /**
  * Trả về URL đầy đủ cho một endpoint API.
- * Hỗ trợ chuyển đổi tự động giữa môi trường local (dùng proxy Vite) và production (gọi trực tiếp tới VITE_API_URL).
- * Ví dụ: getApiUrl('/api/rooms/123/livekit-token') -> 'https://backend.com/api/rooms/123/livekit-token' (trên production)
  */
 export function getApiUrl(path: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
@@ -14,22 +13,47 @@ export function getApiUrl(path: string): string {
 }
 
 /**
- * api — Axios instance đã được cấu hình sẵn cho Permind Backend.
- *
- * Tất cả request đến /api/* sẽ được chuyển đến VITE_API_URL (production)
- * hoặc Vite proxy chuyển đến server:3001 (development).
- *
- * Dùng trong services hoặc hooks:
- * ```ts
- * import { api } from './api'
- * const { data } = await api.post('/ai/generate-quiz', { roomCode })
- * ```
+ * Lấy Access Token hiện tại của Supabase Auth (nếu đã đăng nhập)
+ */
+export async function getAccessToken(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getSession()
+    return data.session?.access_token || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Wrapper cho fetch() tự động gắn Supabase Bearer Access Token
+ */
+export async function authFetch(pathOrUrl: string, init: RequestInit = {}): Promise<Response> {
+  const url = /^https?:\/\//i.test(pathOrUrl) ? pathOrUrl : getApiUrl(pathOrUrl)
+  const token = await getAccessToken()
+  const headers = new Headers(init.headers || {})
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+  return fetch(url, { ...init, headers })
+}
+
+/**
+ * api — Axios instance đã được cấu hình sẵn cho Permind Backend (kèm JWT interceptor).
  */
 export const api = axios.create({
   baseURL: API_ORIGIN ? `${API_ORIGIN}/api` : '/api',
   headers: {
     'Content-Type': 'application/json',
   },
+})
+
+api.interceptors.request.use(async (config) => {
+  const token = await getAccessToken()
+  if (token) {
+    config.headers = config.headers || {}
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
 })
 
 // ─── Documents ────────────────────────────────────────────────────────────────

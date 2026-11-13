@@ -13,8 +13,71 @@ export interface ExamSyncPayload {
   status: "running" | "ended";
 }
 
+function isMissingRpcError(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  if (err.code === "42883" || err.code === "PGRST202") return true;
+  const msg = String(err.message || "").toLowerCase();
+  return msg.includes("could not find the function") || (msg.includes("function") && msg.includes("does not exist"));
+}
+
+function stripQuestionAnswers(exam: LiveExam): LiveExam {
+  return {
+    ...exam,
+    set: {
+      ...exam.set,
+      questions: (exam.set?.questions || []).map((q) => ({
+        id: q.id,
+        text: q.text,
+        options: Array.isArray(q.options) ? [...q.options] : [],
+        correct: -1,
+      })),
+    },
+  };
+}
+
+function extractAnswerKey(exam: LiveExam): Record<string, number> {
+  const key: Record<string, number> = {};
+  for (const q of exam.set?.questions || []) {
+    if (typeof q.correct === "number" && q.correct >= 0) {
+      key[q.id] = q.correct;
+    }
+  }
+  return key;
+}
+
+interface HostParticipantRow {
+  user_id?: string | null;
+  participant_name?: string | null;
+  answered?: number | null;
+  correct?: number | null;
+  score?: number | null;
+  done?: boolean | null;
+  updated_at?: string | null;
+}
+
+async function fetchHostExamParticipants(code: string): Promise<LiveParticipant[] | null> {
+  try {
+    const { data, error } = await supabase.rpc("get_host_exam_participants", {
+      p_code: code.trim(),
+    });
+    if (error || !Array.isArray(data)) return null;
+    return (data as HostParticipantRow[]).map((p) => ({
+      id: p.user_id ? String(p.user_id) : undefined,
+      name: String(p.participant_name || "Thí sinh"),
+      answered: Number(p.answered) || 0,
+      correct: Number(p.correct) || 0,
+      score: Number(p.score) || 0,
+      done: Boolean(p.done),
+      joinedAt: p.updated_at ? new Date(p.updated_at).getTime() : Date.now(),
+    }));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 1. Mở bài kiểm tra lên đám mây Supabase để bất kỳ thiết bị nào cũng có thể nhập mã và tham gia
+ *    Bảo mật: Tách answer_key sang bảng live_exams qua RPC SECURITY DEFINER, không phát đáp án đúng cho thí sinh.
  */
 export async function publishLiveExam(
   exam: LiveExam,
@@ -23,7 +86,7 @@ export async function publishLiveExam(
 ): Promise<boolean> {
   const code = exam.code.trim();
 
-  // Lưu bản sao cục bộ vào localStorage làm cache dự phòng
+  // Lưu bản sao cục bộ cho Host (cùng thiết bị) làm cache dự phòng
   if (typeof window !== "undefined") {
     try {
       localStorage.setItem(`permind_active_exam_${code}`, JSON.stringify(exam));
@@ -33,7 +96,40 @@ export async function publishLiveExam(
     }
   }
 
-  // Đóng các phòng thi cũ của cùng mã nếu có
+  const publicExam = stripQuestionAnswers({ ...exam, participants: [], bots: [] });
+  const answerKey = extractAnswerKey(exam);
+
+  const publicSyncData: ExamSyncPayload = {
+    __type: "PERMIND_EXAM",
+    exam: publicExam,
+    hostUserId: hostUserId || null,
+    hostName: hostName || "Chủ phòng",
+    startedAt: exam.startedAt || Date.now(),
+    endAt: exam.endAt,
+    status: "running",
+  };
+
+  try {
+    const { error: rpcError } = await supabase.rpc("publish_live_exam", {
+      p_code: code,
+      p_public_payload: publicSyncData,
+      p_answer_key: answerKey,
+      p_end_at: new Date(exam.endAt || Date.now() + 15 * 60 * 1000).toISOString(),
+    });
+
+    if (!rpcError) {
+      return true;
+    }
+
+    if (!isMissingRpcError(rpcError)) {
+      console.warn("Xuất bản bài kiểm tra qua RPC thất bại:", rpcError.message);
+      return false;
+    }
+  } catch (rpcEx) {
+    console.warn("Lỗi gọi RPC publish_live_exam:", rpcEx);
+  }
+
+  // Fallback chỉ chạy khi migration SQL v2 chưa được chạy trên Supabase
   try {
     await supabase.from("rooms").update({ is_active: false }).eq("code", code);
   } catch {}
@@ -137,11 +233,58 @@ export async function fetchLiveExam(code: string, activeOnly: boolean = false): 
   const cleanCode = code.trim();
   if (!cleanCode) return null;
 
-  // 1. Thử lấy từ Supabase Cloud trước
+  // 1a. Ưu tiên RPC bảo mật (không trả answer_key cho thí sinh)
+  try {
+    const { data: rpcRow, error: rpcError } = await supabase.rpc("get_live_exam_public", {
+      p_code: cleanCode,
+      p_active_only: activeOnly,
+    });
+
+    if (!rpcError && rpcRow) {
+      const record = Array.isArray(rpcRow) ? rpcRow[0] : rpcRow;
+      if (record && record.public_payload) {
+        const parsed = (
+          typeof record.public_payload === "string"
+            ? JSON.parse(record.public_payload)
+            : record.public_payload
+        ) as ExamSyncPayload;
+
+        if (parsed && parsed.__type === "PERMIND_EXAM" && parsed.exam) {
+          const exam = stripQuestionAnswers(parsed.exam);
+          exam.startedAt = parsed.startedAt || exam.startedAt;
+          exam.endAt = parsed.endAt || exam.endAt;
+          exam.hostUserId = record.host_user_id || parsed.hostUserId || exam.hostUserId || null;
+          exam.hostName = parsed.hostName || exam.hostName;
+          exam.status = (!record.is_active || parsed.status === "ended") ? "ended" : (parsed.status || exam.status);
+
+          const [hostParticipants, memberParticipants] = await Promise.all([
+            fetchHostExamParticipants(cleanCode),
+            record.room_id ? fetchRoomParticipants(record.room_id) : Promise.resolve([]),
+          ]);
+
+          if (hostParticipants && hostParticipants.length > 0) {
+            exam.participants = hostParticipants;
+          } else {
+            exam.participants = memberParticipants;
+          }
+          return exam;
+        }
+      }
+      return null;
+    }
+
+    if (rpcError && !isMissingRpcError(rpcError)) {
+      console.warn("Lỗi gọi get_live_exam_public:", rpcError.message);
+    }
+  } catch (rpcNetErr) {
+    console.warn("Không thể gọi get_live_exam_public:", rpcNetErr);
+  }
+
+  // 1b. Dự phòng cho schema cũ (khi chưa chạy supabase_security_hardening_v2.sql)
   try {
     let query = supabase
       .from("rooms")
-      .select("id, name, code, is_active, created_at")
+      .select("id, name, code, is_active, created_at, host_user_id")
       .eq("code", cleanCode)
       .order("created_at", { ascending: false })
       .limit(1);
@@ -158,12 +301,12 @@ export async function fetchLiveExam(code: string, activeOnly: boolean = false): 
         const parsed = JSON.parse(row.name) as ExamSyncPayload;
         if (parsed && parsed.__type === "PERMIND_EXAM" && parsed.exam) {
           const exam = parsed.exam;
-          // Đồng bộ lại mốc thời gian tuyệt đối chính xác
           exam.startedAt = parsed.startedAt || exam.startedAt;
           exam.endAt = parsed.endAt || exam.endAt;
+          exam.hostUserId = (row as any).host_user_id || parsed.hostUserId || exam.hostUserId || null;
+          exam.hostName = parsed.hostName || exam.hostName;
           exam.status = (!row.is_active || parsed.status === "ended") ? "ended" : (parsed.status || exam.status);
-          
-          // Lấy danh sách thí sinh đã lưu trên room_members (Cloud)
+
           const memberParticipants = await fetchRoomParticipants(row.id);
           const mergedMap = new Map<string, LiveParticipant>();
           for (const p of (parsed.exam.participants || [])) {
@@ -217,7 +360,12 @@ export async function fetchLiveExam(code: string, activeOnly: boolean = false): 
 export async function closeLiveExam(code: string): Promise<void> {
   const cleanCode = code.trim();
   try {
-    await supabase.from("rooms").update({ is_active: false }).eq("code", cleanCode);
+    const { error: rpcError } = await supabase.rpc("close_live_exam", {
+      p_code: cleanCode,
+    });
+    if (rpcError && isMissingRpcError(rpcError)) {
+      await supabase.from("rooms").update({ is_active: false }).eq("code", cleanCode);
+    }
   } catch (e) {
     console.warn("Lỗi đóng bài kiểm tra trên cloud:", e);
   }
@@ -321,12 +469,18 @@ export async function fetchHostActiveExam(hostUserId: string): Promise<LiveExam 
   if (!hostUserId) return null;
 
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("rooms")
       .select("id, name, code, is_active, created_at, host_user_id")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .limit(30);
+
+    if (isValidUUID(hostUserId)) {
+      query = query.eq("host_user_id", hostUserId);
+    }
+
+    const { data, error } = await query;
 
     if (!error && Array.isArray(data)) {
       const now = Date.now();
@@ -345,9 +499,17 @@ export async function fetchHostActiveExam(hostUserId: string): Promise<LiveExam 
             exam.endAt = parsed.endAt || exam.endAt;
             exam.status = parsed.status || "running";
             exam.hostUserId = hostUserId;
-            
-            // Lấy danh sách thí sinh từ room_members
-            const memberParticipants = await fetchRoomParticipants(row.id);
+
+            const [hostParticipants, memberParticipants] = await Promise.all([
+              fetchHostExamParticipants(row.code),
+              fetchRoomParticipants(row.id),
+            ]);
+
+            if (hostParticipants && hostParticipants.length > 0) {
+              exam.participants = hostParticipants;
+              return exam;
+            }
+
             const mergedMap = new Map<string, LiveParticipant>();
             for (const p of (parsed.exam.participants || [])) {
               mergedMap.set(p.name, p);
@@ -465,5 +627,62 @@ export async function syncParticipantToCloud(
     } catch {}
   } catch (err) {
     console.warn("Lỗi đồng bộ thí sinh lên Supabase Cloud (room_members):", err);
+  }
+}
+
+export interface ServerGradedResult {
+  serverGraded: boolean;
+  answered: number;
+  correct?: number;
+  score?: number;
+  perQ?: (boolean | null)[];
+}
+
+/**
+ * Nộp đáp án để Postgres RPC (SECURITY DEFINER) chấm điểm phía máy chủ.
+ * Chỉ trả chi tiết correct / score / perQ sau khi done = true để chống dò đáp án giữa giờ.
+ */
+export async function submitLiveExamAnswers(
+  code: string,
+  participantName: string,
+  originalAnswers: Record<string, number>,
+  questionOrder: string[],
+  done: boolean
+): Promise<ServerGradedResult | null> {
+  const cleanCode = code.trim();
+  if (!cleanCode) return null;
+
+  try {
+    const { data, error } = await supabase.rpc("submit_live_exam_answers", {
+      p_code: cleanCode,
+      p_participant_name: participantName,
+      p_answers: originalAnswers,
+      p_question_order: questionOrder,
+      p_done: done,
+    });
+
+    if (error) {
+      if (!isMissingRpcError(error)) {
+        console.warn("Lỗi chấm bài phía server:", error.message);
+      }
+      return null;
+    }
+
+    if (!data || typeof data !== "object") return null;
+    const payload = data as {
+      answered?: number;
+      correct?: number;
+      score?: number;
+      per_q?: (boolean | null)[];
+    };
+    return {
+      serverGraded: true,
+      answered: Number(payload.answered) || 0,
+      ...(typeof payload.correct === "number" ? { correct: payload.correct } : {}),
+      ...(typeof payload.score === "number" ? { score: payload.score } : {}),
+      ...(Array.isArray(payload.per_q) ? { perQ: payload.per_q } : {}),
+    };
+  } catch {
+    return null;
   }
 }

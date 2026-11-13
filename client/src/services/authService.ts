@@ -9,13 +9,14 @@ export async function loginWithEmail(email: string, password: string): Promise<U
   });
 
   if (error) {
-    if (error.message.includes("Invalid login credentials")) {
-      throw new Error("Email hoặc mật khẩu không chính xác.");
+    // Thông báo lỗi chung để chống rò rỉ thông tin tài khoản (account enumeration)
+    if (
+      error.message.includes("Invalid login credentials") ||
+      error.message.includes("Email not confirmed")
+    ) {
+      throw new Error("Email hoặc mật khẩu không chính xác, hoặc tài khoản chưa được xác thực.");
     }
-    if (error.message.includes("Email not confirmed")) {
-      throw new Error("Email này chưa được xác thực. Hãy kiểm tra hộp thư hoặc bật Auto-confirm trên Supabase.");
-    }
-    throw new Error(error.message || "Đăng nhập thất bại.");
+    throw new Error("Đăng nhập thất bại. Vui lòng thử lại.");
   }
 
   if (!data.user) throw new Error("Không tìm thấy thông tin tài khoản.");
@@ -39,12 +40,14 @@ export async function registerWithEmail(
 
   if (error) {
     if (error.message.includes("User already registered")) {
-      throw new Error("Email này đã được đăng ký tài khoản trước đó.");
+      throw new Error(
+        "Không thể hoàn tất đăng ký với email này. Nếu đã có tài khoản, vui lòng đăng nhập hoặc đặt lại mật khẩu."
+      );
     }
     if (error.message.includes("Password should be")) {
       throw new Error("Mật khẩu phải có tối thiểu 6 ký tự.");
     }
-    throw new Error(error.message || "Đăng ký thất bại.");
+    throw new Error("Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.");
   }
 
   // Tự động ghi nhận hồ sơ vào bảng profiles nếu có
@@ -63,8 +66,31 @@ export async function registerWithEmail(
   return { user: data.user, session: data.session };
 }
 
+export async function resetPasswordForEmail(email: string): Promise<void> {
+  const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo,
+  });
+  if (error) {
+    // Ghi log nội bộ nhưng vẫn giữ phản hồi chung phía UI chống account enumeration
+    console.warn("resetPasswordForEmail warning:", error.message);
+  }
+}
+
+export async function loginAsGuest(): Promise<{ user: User | null; isSupabaseAnonymous: boolean }> {
+  try {
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (!error && data?.user) {
+      return { user: data.user, isSupabaseAnonymous: true };
+    }
+  } catch {
+    // Fallback an toàn về guest offline nếu Anonymous Auth chưa bật trên Supabase Dashboard
+  }
+  return { user: null, isSupabaseAnonymous: false };
+}
+
 export async function logoutUser(): Promise<void> {
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "global" });
 }
 
 export async function getCurrentUser(): Promise<User | null> {

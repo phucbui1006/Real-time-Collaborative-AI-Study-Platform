@@ -17,7 +17,7 @@ import {
   requestScreenShare,
   stopScreenShare as emitStopShare,
 } from '../services/socket'
-import { getApiUrl } from '../services/api'
+import { authFetch } from '../services/api'
 import type { RoomMember } from '../types/classroom'
 
 interface UseLiveKitRoomOptions {
@@ -163,7 +163,7 @@ export function useLiveKitRoom({
       try {
         // Lấy token xác thực từ server
         const activeSocketId = socket.id || ''
-        const res = await fetch(getApiUrl(`/api/rooms/${roomCode}/livekit-token`), {
+        const res = await authFetch(`/api/rooms/${roomCode}/livekit-token`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

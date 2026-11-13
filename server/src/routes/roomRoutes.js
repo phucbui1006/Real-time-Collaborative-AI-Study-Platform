@@ -1,7 +1,10 @@
 // routes/roomRoutes.js — /api/rooms
 
 const express = require('express')
+const rateLimit = require('express-rate-limit')
+const { ipKeyGenerator } = rateLimit
 const router = express.Router()
+const { requireAuth } = require('../middlewares/authMiddleware')
 const {
   createRoom,
   verifyRoom,
@@ -11,6 +14,17 @@ const {
   getRoomMessages,
   getLiveKitToken,
 } = require('../controllers/roomController')
+
+const verifyRoomLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id || ipKeyGenerator(req.ip || 'unknown'),
+  message: { success: false, error: 'Thử mã phòng quá nhiều lần. Vui lòng đợi 5 phút.' },
+})
+
+router.use(requireAuth)
 
 // GET  /api/rooms                                 — Danh sách các phòng học
 router.get('/', getRooms)
@@ -31,9 +45,9 @@ router.post('/:code/livekit-token', getLiveKitToken)
 router.post('/create', createRoom)
 
 // POST /api/rooms/verify                          — Xác thực mã phòng & mật khẩu
-router.post('/verify', verifyRoom)
+router.post('/verify', verifyRoomLimiter, verifyRoom)
 
 // GET  /api/rooms/verify/:code                    — Kiểm tra mã phòng có tồn tại không
-router.get('/verify/:code', verifyRoom)
+router.get('/verify/:code', verifyRoomLimiter, verifyRoom)
 
 module.exports = router

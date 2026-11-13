@@ -194,10 +194,11 @@ export default function ClassroomsPage({
     return () => clearInterval(interval);
   }, [userId, localKey, isRealUser]);
 
-  // Trạng thái phòng hiện tại đang vào (nếu có)
+  // Trạng thái phòng hiện tại đang vào (password chỉ giữ trong RAM phiên hiện tại, không lưu storage)
   const [activeRoom, setActiveRoom] = useState<{
     name: string;
     code: string;
+    password?: string;
     isHost?: boolean;
   } | null>(null);
 
@@ -230,7 +231,7 @@ export default function ClassroomsPage({
   const handleJoinSubmit = async (data: { code: string; password: string }) => {
     const room = await joinRoomApi(data);
     remember(room);
-    setActiveRoom({ name: room.name, code: room.code, isHost: false });
+    setActiveRoom({ name: room.name, code: room.code, password: data.password, isHost: false });
     onEnterRoom(room);
   };
 

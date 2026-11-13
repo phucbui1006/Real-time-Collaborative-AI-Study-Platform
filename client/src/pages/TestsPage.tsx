@@ -15,6 +15,7 @@ import {
   LiveParticipant,
   MyExamState,
   ExamResult,
+  Question,
   board,
   QuizDocItem,
   loadUserQuizDocs,
@@ -46,6 +47,7 @@ import {
   closeLiveExam,
   subscribeExamRealtime,
   syncParticipantToCloud,
+  submitLiveExamAnswers,
 } from "../services/liveExamSync";
 
 
@@ -209,7 +211,7 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
   const isHost = Boolean(
     live && (
       (userId && live.hostUserId === userId) ||
-      (userName && live.hostName === userName)
+      (!live.hostUserId && userName && live.hostName === userName)
     )
   );
   // Phòng thi coi là đang hoạt động nếu bài đang running, còn thời gian và:
@@ -438,7 +440,13 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
           if (!curr) return curr;
           const parts = (curr.participants || []).map((p) =>
             p.name === data.name
-              ? { ...p, answered: data.answered, correct: data.correct, score: data.score, done: data.done }
+              ? {
+                  ...p,
+                  answered: data.answered,
+                  correct: !data.done && data.correct === 0 && (p.correct || 0) > 0 ? p.correct : data.correct,
+                  score: !data.done && data.score === 0 && (p.score || 0) > 0 ? p.score : data.score,
+                  done: data.done,
+                }
               : p
           );
           if (!parts.some((p) => p.name === data.name)) {
@@ -565,10 +573,33 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     return () => clearInterval(interval);
   }, [live?.code, live?.status, userId]);
 
-  const finishTake = () => {
+  const toOriginalAnswers = (ansMap: Record<string, number>, qs: Question[]): Record<string, number> => {
+    const mapped: Record<string, number> = {};
+    for (const q of qs) {
+      const chosenIdx = ansMap[q.id];
+      if (chosenIdx !== undefined) {
+        mapped[q.id] = q.optionOrder && q.optionOrder[chosenIdx] !== undefined ? q.optionOrder[chosenIdx] : chosenIdx;
+      }
+    }
+    return mapped;
+  };
+
+  const finishTake = async () => {
     if (!mine || mine.done || !live) return;
+    setMine((m) => (m ? { ...m, done: true } : null));
+
     const qs = candidateQuestions.length ? candidateQuestions : live.set.questions;
     const ans = mine.answers;
+    const originalAnswers = toOriginalAnswers(ans, qs);
+
+    const serverRes = await submitLiveExamAnswers(
+      live.code,
+      userName,
+      originalAnswers,
+      qs.map((q) => q.id),
+      true
+    );
+
     const me: LeaderboardRow = rows.find((r) => r.me) || {
       name: userName,
       score: 0,
@@ -578,36 +609,70 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
       me: true,
       done: true,
     };
+
+    const finalCorrect =
+      serverRes?.serverGraded && typeof serverRes.correct === "number"
+        ? serverRes.correct
+        : me.correct;
+    const finalScore =
+      serverRes?.serverGraded && typeof serverRes.score === "number"
+        ? serverRes.score
+        : me.score;
+    const finalPerQ =
+      serverRes?.serverGraded && Array.isArray(serverRes.perQ)
+        ? serverRes.perQ
+        : qs.map((q) => (ans[q.id] === undefined ? null : ans[q.id] === q.correct));
+
+    const finalMe: LeaderboardRow = {
+      ...me,
+      correct: finalCorrect,
+      score: finalScore,
+      answered: qs.length,
+      done: true,
+    };
+
     const previousAttempts = history.filter(
       (h) => h.examCode === live.code || h.title === live.set.title
     );
     const prevBest = previousAttempts.length
       ? Math.max(...previousAttempts.map((h) => h.score))
       : 0;
-    const bestScore = Math.max(prevBest, me.score);
+    const bestScore = Math.max(prevBest, finalScore);
     const attempts = previousAttempts.length + 1;
     const res: ExamResult = {
       title: live.set.title,
       subject: live.set.subject,
-      correct: me.correct,
+      correct: finalCorrect,
       total: qs.length,
-      score: me.score,
+      score: finalScore,
       rank: me.rank,
       of: rows.length,
-      perQ: qs.map((q) => (ans[q.id] === undefined ? null : ans[q.id] === q.correct)),
+      perQ: finalPerQ,
       bestScore,
       attempts,
     };
-    channelRef.current?.sendStudentSubmit(userName, qs.length, me.correct, me.score);
-    syncParticipantToCloud(live.code, {
-      name: userName,
-      id: userId,
-      answered: qs.length,
-      correct: me.correct,
-      score: me.score,
-      done: true,
-    });
-    setMine((m) => (m ? { ...m, done: true } : null));
+    channelRef.current?.sendStudentSubmit(userName, qs.length, finalCorrect, finalScore);
+    if (!serverRes?.serverGraded) {
+      syncParticipantToCloud(live.code, {
+        name: userName,
+        id: userId,
+        answered: qs.length,
+        correct: finalCorrect,
+        score: finalScore,
+        done: true,
+      });
+    }
+    setMine((m) =>
+      m
+        ? {
+            ...m,
+            done: true,
+            serverCorrect: finalCorrect,
+            serverScore: finalScore,
+            serverPerQ: finalPerQ,
+          }
+        : null
+    );
     saveExamToHistory(live, res.score, res.rank, res.of);
 
     // Cập nhật danh sách thí sinh trong phòng trực tiếp
@@ -620,8 +685,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
           name: userName,
           id: userId,
           answered: qs.length,
-          correct: me.correct,
-          score: me.score,
+          correct: finalCorrect,
+          score: finalScore,
           done: true,
           isMe: true,
         },
@@ -638,8 +703,8 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     });
 
     const updatedRows = rows.some((r) => r.me)
-      ? rows.map((r) => (r.me ? me : r))
-      : [...rows, me];
+      ? rows.map((r) => (r.me ? finalMe : r))
+      : [...rows, finalMe];
     if (isHost) {
       saveHostedRecord(live, updatedRows);
     }
@@ -760,20 +825,38 @@ export default function TestsPage({ userId, userName = "Minh Anh" }: TestsPagePr
     const newAnswers = { ...mine.answers, [qid]: idx };
     setMine((m) => (m ? { ...m, answers: newAnswers } : null));
 
-    // Phát sóng tiến độ thời gian thực cho chủ phòng
     const qs = candidateQuestions.length ? candidateQuestions : live.set.questions;
     const answeredCount = Object.keys(newAnswers).length;
-    const correctCount = qs.filter((q) => newAnswers[q.id] === q.correct).length;
-    const currentScore = score10(correctCount, qs.length);
-    channelRef.current?.sendStudentProgress(userName, answeredCount, correctCount, currentScore, false);
-    syncParticipantToCloud(live.code, {
-      name: userName,
-      id: userId,
-      answered: answeredCount,
-      correct: correctCount,
-      score: currentScore,
-      done: false,
-    });
+    const hasLocalKey = qs.some((q) => typeof q.correct === "number" && q.correct >= 0);
+    const originalAnswers = toOriginalAnswers(newAnswers, qs);
+
+    // Chấm và lưu tiến độ lên Postgres phía server; chỉ broadcast số câu đã trả lời (không lộ đáp án đúng)
+    void (async () => {
+      const serverRes = await submitLiveExamAnswers(
+        live.code,
+        userName,
+        originalAnswers,
+        qs.map((q) => q.id),
+        false
+      );
+      if (serverRes?.serverGraded) {
+        channelRef.current?.sendStudentProgress(userName, answeredCount, 0, 0, false);
+        return;
+      }
+      if (hasLocalKey) {
+        const correctCount = qs.filter((q) => newAnswers[q.id] === q.correct).length;
+        const currentScore = score10(correctCount, qs.length);
+        channelRef.current?.sendStudentProgress(userName, answeredCount, correctCount, currentScore, false);
+        syncParticipantToCloud(live.code, {
+          name: userName,
+          id: userId,
+          answered: answeredCount,
+          correct: correctCount,
+          score: currentScore,
+          done: false,
+        });
+      }
+    })();
   };
 
   const saveSet = (s: ExamSet) => {

@@ -45,9 +45,13 @@ export async function connectSocket(): Promise<TypedSocket> {
 /**
  * Tham gia phòng học (gửi thông tin thành viên)
  */
-export async function joinRoom(roomCode: string, user: { id: string; name: string; avatarColor?: string }) {
+export async function joinRoom(
+  roomCode: string,
+  user: { id: string; name: string; avatarColor?: string },
+  password?: string
+) {
   await connectSocket()
-  socket.emit('ROOM:JOIN', { roomCode, user })
+  socket.emit('ROOM:JOIN', { roomCode, password, user } as any)
 }
 
 /**

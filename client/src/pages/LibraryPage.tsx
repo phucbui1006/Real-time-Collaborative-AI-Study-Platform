@@ -84,22 +84,16 @@ export function clearAllUserState() {
   userDocsCache.clear();
   if (typeof window !== "undefined") {
     try {
+      const preservedKeys = new Set(["permind_theme_v2"]);
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith("permind_")) {
-          // Giữ lại bộ câu hỏi, lịch sử làm bài và cache tài liệu của tài khoản thật
-          const isPersistentRealUserData =
-            (key.startsWith("permind_exam_sets_") && key !== "permind_exam_sets_guest") ||
-            (key.startsWith("permind_exam_history_") && key !== "permind_exam_history_guest") ||
-            (key.startsWith("permind_hosted_exams_") && key !== "permind_hosted_exams_guest") ||
-            (key.startsWith("permind_current_live_exam_") && key !== "permind_current_live_exam_guest") ||
-            key.startsWith("permind_active_exam_") ||
-            (key.startsWith("permind_docs_") && key !== "permind_docs_guest");
-
-          if (!isPersistentRealUserData) {
-            keysToRemove.push(key);
-          }
+        if (
+          key &&
+          !preservedKeys.has(key) &&
+          (key.startsWith("permind_") || key.startsWith("peermind_"))
+        ) {
+          keysToRemove.push(key);
         }
       }
       keysToRemove.forEach((k) => localStorage.removeItem(k));
@@ -107,7 +101,10 @@ export function clearAllUserState() {
       const sessionKeysToRemove: string[] = [];
       for (let i = 0; i < sessionStorage.length; i++) {
         const key = sessionStorage.key(i);
-        if (key && key.startsWith("permind_")) {
+        if (
+          key &&
+          (key.startsWith("permind_") || key.startsWith("peermind_") || key.startsWith("sb-"))
+        ) {
           sessionKeysToRemove.push(key);
         }
       }

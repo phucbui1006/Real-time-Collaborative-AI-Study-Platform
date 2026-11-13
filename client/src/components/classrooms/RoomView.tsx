@@ -53,7 +53,7 @@ import { VideoGrid } from './VideoGrid'
 import { ClassroomControls } from './ClassroomControls'
 import { ClassroomDrawer } from './ClassroomDrawer'
 import { DocumentCollaborativeViewer } from './DocumentCollaborativeViewer'
-import { supabase } from '../../services/supabase'
+import { supabase } from '../../services/supabaseClient'
 
 const isValidUUID = (id?: string) =>
   Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
@@ -118,7 +118,7 @@ export interface DocPickerItem {
 }
 
 interface RoomViewProps {
-  room: { name: string; code: string; isHost?: boolean }
+  room: { name: string; code: string; password?: string; isHost?: boolean }
   isHost?: boolean
   userId?: string
   userName?: string
@@ -416,11 +416,15 @@ export default function RoomView({
   // ─── ĐĂNG KÝ VÀ LẮNG NGHE SỰ KIỆN REALTIME SOCKET.IO ────────────────────
   useEffect(() => {
     const doJoin = () => {
-      joinRoom(room.code, {
-        id: userId,
-        name: userName,
-        avatarColor: '#0ea5e9',
-      })
+      joinRoom(
+        room.code,
+        {
+          id: userId,
+          name: userName,
+          avatarColor: '#0ea5e9',
+        },
+        room.password
+      )
     }
 
     doJoin()

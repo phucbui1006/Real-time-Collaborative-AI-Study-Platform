@@ -20,6 +20,10 @@ export async function fetchDocumentPage(
   pageIndex: number,
   fallbackTitle?: string
 ): Promise<string> {
+  if (!Number.isInteger(docId) || docId <= 0 || !Number.isInteger(pageIndex) || pageIndex < 0 || pageIndex > 2000) {
+    return fallbackTitle || "Trang không hợp lệ";
+  }
+
   const cacheKey = `${docId}_${pageIndex}`;
 
   // 1. Nếu đã có trong RAM cache -> trả về ngay tức thì (0ms)

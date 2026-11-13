@@ -27,8 +27,9 @@ import LibraryPage, { clearAllUserState } from "./pages/LibraryPage";
 import ClassroomsPage from "./pages/ClassroomsPage";
 import TestsPage from "./pages/TestsPage";
 import { ClassroomHeroAnimation } from "./components/common/ClassroomHeroAnimation";
-import { loginWithEmail, registerWithEmail, logoutUser, getCurrentUser } from "./services/authService";
+import { loginWithEmail, registerWithEmail, logoutUser, getCurrentUser, resetPasswordForEmail, loginAsGuest } from "./services/authService";
 import { supabase } from "./services/supabaseClient";
+import { socket } from "./services/socket";
 import { idleService, IdleState } from "./services/idleService";
 import { IdleWarningModal } from "./components/common/IdleWarningModal";
 import { MotionShowcaseModal } from "./components/motion";
@@ -314,16 +315,41 @@ export default function App() {
     }
   };
 
-  const handleGuestLogin = () => {
-    hasBeenLoggedIn.current = true;
-    setCurrentUser({ id: "guest-user-001", email: "guest@permind.demo", user_metadata: { full_name: "Khách trải nghiệm" } });
-    setIsLoginOpen(false);
-    setIsLoggedIn(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const handleGuestLogin = async () => {
+    setAuthLoading(true);
+    try {
+      const { user } = await loginAsGuest();
+      hasBeenLoggedIn.current = true;
+      if (user) {
+        setCurrentUser({
+          ...user,
+          user_metadata: {
+            ...(user.user_metadata || {}),
+            full_name: user.user_metadata?.full_name || "Khách trải nghiệm",
+          },
+        });
+      } else {
+        setCurrentUser({ id: "guest-user-001", email: "guest@permind.demo", user_metadata: { full_name: "Khách trải nghiệm" } });
+      }
+      setIsLoginOpen(false);
+      setIsLoggedIn(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
-  const handleIdleTimeout = () => {
+  const handleIdleTimeout = async () => {
     idleService.stop();
+    isExplicitLogout.current = true;
+    hasBeenLoggedIn.current = false;
+    try {
+      if (socket.connected) socket.disconnect();
+    } catch {}
+    try {
+      if (socket.connected) socket.disconnect();
+      await logoutUser();
+    } catch {}
     clearAllUserState();
     setCurrentUser(null);
     setIsLoggedIn(false);
@@ -333,6 +359,9 @@ export default function App() {
     setFullName("");
     setAuthView("login");
     setIsLoginOpen(true);
+    setTimeout(() => {
+      isExplicitLogout.current = false;
+    }, 1000);
   };
 
   useEffect(() => {
@@ -1403,15 +1432,24 @@ export default function App() {
                 {isSubmitted ? (
                   <AuthSuccess
                     title="Kiểm tra email của bạn"
-                    description="Liên kết đặt lại mật khẩu đã được gửi. Liên kết có hiệu lực trong 15 phút."
+                    description="Nếu email tồn tại trong hệ thống, liên kết đặt lại mật khẩu đã được gửi và có hiệu lực trong thời gian ngắn."
                     buttonText="Trở về đăng nhập"
                     onContinue={() => changeAuthView("login")}
                   />
                 ) : (
                   <form
-                    onSubmit={(e) => {
+                    onSubmit={async (e) => {
                       e.preventDefault();
-                      setIsSubmitted(true);
+                      setAuthError(null);
+                      setAuthLoading(true);
+                      try {
+                        await resetPasswordForEmail(email);
+                        setIsSubmitted(true);
+                      } catch {
+                        setAuthError("Không thể gửi yêu cầu khôi phục lúc này.");
+                      } finally {
+                        setAuthLoading(false);
+                      }
                     }}
                     className="mt-6 space-y-4"
                   >

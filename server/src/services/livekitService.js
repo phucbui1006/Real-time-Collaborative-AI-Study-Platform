@@ -34,4 +34,44 @@ async function deleteLiveKitRoom(roomName) {
   }
 }
 
-module.exports = { deleteLiveKitRoom }
+/**
+ * Ngắt kết nối một thành viên khỏi phòng LiveKit SFU ngay lập tức (khi bị Host kick)
+ * @param {string} roomName
+ * @param {string} identity
+ */
+async function removeParticipant(roomName, identity) {
+  const c = getClient()
+  if (!c || !roomName || !identity) return false
+  try {
+    await c.removeParticipant(String(roomName), String(identity))
+    console.log(`🚫 [LiveKit] Đã ngắt participant ${identity} khỏi phòng ${roomName}`)
+    return true
+  } catch (err) {
+    console.warn(`[LiveKit] Không xóa được participant ${identity}:`, err?.message || err)
+    return false
+  }
+}
+
+/**
+ * Cưỡng chế tắt các audio track đang phát của participant trên LiveKit SFU khi hạ xuống Viewer / Mute
+ * @param {string} roomName
+ * @param {string} identity
+ */
+async function muteParticipantAudio(roomName, identity) {
+  const c = getClient()
+  if (!c || !roomName || !identity) return false
+  try {
+    const participant = await c.getParticipant(String(roomName), String(identity))
+    const tracks = participant?.tracks || []
+    for (const track of tracks) {
+      if (track.type === 0 || String(track.source).toUpperCase().includes('MICROPHONE')) {
+        await c.mutePublishedTrack(String(roomName), String(identity), track.sid, true).catch(() => {})
+      }
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+module.exports = { deleteLiveKitRoom, removeParticipant, muteParticipantAudio }

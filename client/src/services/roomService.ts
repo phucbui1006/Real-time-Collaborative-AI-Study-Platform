@@ -1,7 +1,7 @@
-// services/roomService.ts — Service quản lý phòng học & dữ liệu Supabase Realtime
+// services/roomService.ts — Service quản lý phòng học & dữ liệu Supabase Realtime (không đọc/ghi plaintext password_hash)
 import { supabase } from "./supabaseClient";
 import { isValidUUID } from "../utils";
-import { getApiUrl } from "./api";
+import { authFetch, getAccessToken } from "./api";
 
 export type RoomItem = {
   id: number;
@@ -22,7 +22,7 @@ export const INITIAL_HISTORY: RoomItem[] = [
 export const COLORS = ["#0ea5e9", "#8b5cf6", "#10b981", "#f59e0b", "#ec4899", "#14b8a6"];
 
 /**
- * Lấy danh sách phòng học trực tiếp từ Supabase (có lọc theo chủ phòng nếu có userId)
+ * Lấy danh sách phòng học trực tiếp từ Supabase (KHÔNG truy vấn password_hash)
  */
 export async function fetchRoomsApi(userId?: string): Promise<RoomItem[]> {
   try {
@@ -30,7 +30,6 @@ export async function fetchRoomsApi(userId?: string): Promise<RoomItem[]> {
     const isRealUser = isValidUUID(userId);
 
     if (isRealUser) {
-      // Tài khoản thật: CHỈ lấy phòng do chính user tạo
       const { data: rooms, error } = await supabase
         .from("rooms")
         .select(SAFE_ROOM_FIELDS)
@@ -65,7 +64,6 @@ export async function fetchRoomsApi(userId?: string): Promise<RoomItem[]> {
       return [];
     }
 
-    // Tài khoản Demo / Khách: lấy phòng mẫu hệ thống (host_user_id IS NULL)
     const { data: allRooms } = await supabase
       .from("rooms")
       .select(SAFE_ROOM_FIELDS)
@@ -91,11 +89,13 @@ export async function fetchRoomsApi(userId?: string): Promise<RoomItem[]> {
 }
 
 /**
- * Lấy số lượng người dùng đang online thực tế trong các phòng từ máy chủ API
+ * Lấy số lượng người dùng đang online thực tế trong các phòng từ máy chủ API (cần JWT hợp lệ)
  */
 export async function fetchActiveRoomCountsApi(): Promise<Record<string, number>> {
   try {
-    const res = await fetch(getApiUrl("/api/rooms/active-counts"));
+    const token = await getAccessToken();
+    if (!token) return {};
+    const res = await authFetch("/api/rooms/active-counts");
     if (!res.ok) return {};
     const json = await res.json();
     return json.counts || {};
@@ -105,7 +105,7 @@ export async function fetchActiveRoomCountsApi(): Promise<Record<string, number>
 }
 
 /**
- * Kiểm tra mã phòng và mật khẩu trực tiếp trên Supabase
+ * Kiểm tra mã phòng và mật khẩu qua backend API / RPC phía server (tuyệt đối không kéo password_hash về client)
  */
 export async function joinRoomApi({
   code,
@@ -114,45 +114,79 @@ export async function joinRoomApi({
   code: string;
   password: string;
 }): Promise<{ name: string; code: string; documentId?: number | null }> {
-  try {
-    // Làm sạch mã phòng (chỉ chữ và số, tối đa 8 ký tự, tránh injection/bypass)
-    const cleanCode = code.trim().replace(/[^a-zA-Z0-9]/g, "").slice(0, 8);
-    const cleanPassword = password.trim();
+  const cleanCode = code.trim().replace(/[^a-zA-Z0-9]/g, "").slice(0, 8);
+  const cleanPassword = password.trim();
 
-    // 1. Kiểm tra trong Supabase
-    const { data: room, error } = await supabase
-      .from("rooms")
-      .select("id, name, code, document_id, is_active, password_hash")
-      .eq("code", cleanCode)
-      .maybeSingle();
-
-    if (error) {
-      console.warn("Lỗi truy vấn Supabase rooms:", error.message);
-    }
-
-    if (room) {
-      if (room.password_hash && room.password_hash !== cleanPassword) {
-        throw new Error("Mật khẩu phòng không chính xác.");
-      }
-      return { name: room.name, code: room.code, documentId: room.document_id };
-    }
-
-    // 2. Dự phòng kiểm tra trong danh sách mẫu cho chế độ demo
-    const mockRoom = INITIAL_HISTORY.find((r) => r.code === cleanCode);
-    if (mockRoom) {
-      return { name: mockRoom.name, code: mockRoom.code, documentId: mockRoom.documentId };
-    }
-
-    // Thông báo lỗi chung bảo mật theo Security.md mục 3.6 (không tiết lộ phòng tồn tại hay đã đóng)
-    throw new Error("Mã phòng không hợp lệ hoặc đã hết hạn.");
-  } catch (err: unknown) {
-    const e = err as Error;
-    throw new Error(e.message || "Có lỗi xảy ra khi xác thực phòng.");
+  if (!cleanCode) {
+    throw new Error("Vui lòng nhập mã phòng hợp lệ.");
   }
+
+  // 1. Ưu tiên xác thực qua Express Backend (/api/rooms/verify) bằng JWT
+  const token = await getAccessToken();
+  if (token) {
+    try {
+      const res = await authFetch("/api/rooms/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: cleanCode, password: cleanPassword }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.room) {
+          return {
+            name: data.room.name,
+            code: data.room.code,
+            documentId: data.room.document_id ?? null,
+          };
+        }
+      } else if (res.status < 500) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Mã phòng hoặc mật khẩu không chính xác.");
+      }
+    } catch (err: unknown) {
+      // Nếu lỗi nghiệp vụ (401/403/404) đã parse ở trên thì ném ra luôn
+      if (err instanceof Error && !err.message.includes("Failed to fetch")) {
+        throw err;
+      }
+    }
+  }
+
+  // 2. Dự phòng xác thực qua RPC SECURITY DEFINER phía PostgreSQL
+  try {
+    const { data: rpcData, error: rpcErr } = await supabase.rpc("verify_room_access", {
+      p_code: cleanCode,
+      p_password: cleanPassword,
+    });
+
+    if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
+      const r = rpcData[0];
+      return { name: r.name, code: r.code, documentId: r.document_id ?? null };
+    }
+    if (!rpcErr && rpcData && !Array.isArray(rpcData) && (rpcData as any).code) {
+      const r = rpcData as any;
+      return { name: r.name, code: r.code, documentId: r.document_id ?? null };
+    }
+    if (rpcErr && rpcErr.code !== "42883" && rpcErr.code !== "PGRST202") {
+      throw new Error(rpcErr.message || "Mã phòng hoặc mật khẩu không chính xác.");
+    }
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message.includes("Mật khẩu")) {
+      throw err;
+    }
+  }
+
+  // 3. Dự phòng kiểm tra trong danh sách mẫu cho chế độ demo offline
+  const mockRoom = INITIAL_HISTORY.find((r) => r.code === cleanCode);
+  if (mockRoom) {
+    return { name: mockRoom.name, code: mockRoom.code, documentId: mockRoom.documentId };
+  }
+
+  throw new Error("Mã phòng không hợp lệ hoặc bạn cần đăng nhập để tham gia phòng.");
 }
 
 /**
- * Tạo phòng học mới và lưu trực tiếp lên Supabase (gắn hostUserId)
+ * Tạo phòng học mới qua Backend (băm mật khẩu scrypt phía server) hoặc RPC PostgreSQL
  */
 export async function createRoomApi({
   name,
@@ -167,45 +201,68 @@ export async function createRoomApi({
 }): Promise<{ name: string; code: string }> {
   const roomName = name.trim();
   const roomCode = code.trim() || randomCode();
-  const roomPassword = password ? password.trim() : null;
+  const roomPassword = password ? password.trim() : "";
 
+  const token = await getAccessToken();
+  if (token) {
+    try {
+      const res = await authFetch("/api/rooms/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: roomName,
+          code: roomCode,
+          password: roomPassword || undefined,
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.room) {
+          return { name: json.room.name, code: json.room.code };
+        }
+      }
+    } catch (err) {
+      console.warn("Lỗi tạo phòng qua API server, thử RPC Supabase:", err);
+    }
+  }
+
+  // Dự phòng qua RPC băm mật khẩu trực tiếp trong PostgreSQL (không lưu plaintext từ browser)
   try {
-    const payload: any = {
-      name: roomName,
-      code: roomCode,
-      password_hash: roomPassword,
-      is_active: true,
-    };
-    if (isValidUUID(hostUserId)) {
-      payload.host_user_id = hostUserId;
-    }
-
-    const { data, error } = await supabase
-      .from("rooms")
-      .insert([payload])
-      .select()
-      .maybeSingle();
-
-    if (!error && data) {
-      return { name: data.name, code: data.code };
-    }
-
-    // Nếu cột host_user_id chưa tồn tại trên Supabase, fallback bỏ field này
-    if (error && (error.message.includes("host_user_id") || error.code === "42703")) {
-      delete payload.host_user_id;
-      const { data: d2 } = await supabase
-        .from("rooms")
-        .insert([payload])
-        .select()
-        .maybeSingle();
-      if (d2) return { name: d2.name, code: d2.code };
-    }
-
-    if (error) {
-      console.warn("Lỗi tạo phòng Supabase:", error.message);
+    const { data: rpcRoom, error: rpcErr } = await supabase.rpc("create_room_secure", {
+      p_name: roomName,
+      p_code: roomCode,
+      p_password: roomPassword || null,
+    });
+    if (!rpcErr && rpcRoom) {
+      const row = Array.isArray(rpcRoom) ? rpcRoom[0] : rpcRoom;
+      if (row?.code) {
+        return { name: row.name || roomName, code: row.code };
+      }
     }
   } catch (err) {
-    console.warn("Lỗi kết nối khi tạo phòng:", err);
+    console.warn("Lỗi tạo phòng RPC:", err);
+  }
+
+  // Chỉ cho phép ghi trực tiếp khi không đặt mật khẩu hoặc phòng offline
+  if (!roomPassword && isValidUUID(hostUserId)) {
+    try {
+      const { data, error } = await supabase
+        .from("rooms")
+        .insert([
+          {
+            name: roomName,
+            code: roomCode,
+            host_user_id: hostUserId,
+            is_active: true,
+          },
+        ])
+        .select("name, code")
+        .maybeSingle();
+
+      if (!error && data) {
+        return { name: data.name, code: data.code };
+      }
+    } catch {}
   }
 
   return { name: roomName, code: roomCode };

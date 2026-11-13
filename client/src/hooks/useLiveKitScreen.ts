@@ -10,7 +10,7 @@ import {
   RemoteTrackPublication,
   RemoteParticipant,
 } from 'livekit-client'
-import { getApiUrl } from '../services/api'
+import { authFetch } from '../services/api'
 
 interface UseLiveKitScreenOptions {
   roomCode: string
@@ -42,7 +42,7 @@ export function useLiveKitScreen({
   // Hàm lấy token LiveKit từ server
   const fetchToken = useCallback(async () => {
     try {
-      const res = await fetch(getApiUrl(`/api/rooms/${roomCode}/livekit-token`), {
+      const res = await authFetch(`/api/rooms/${roomCode}/livekit-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

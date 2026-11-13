@@ -18,6 +18,7 @@ export type Question = {
   text: string;
   options: string[];
   correct: number;
+  optionOrder?: number[];
 };
 
 export type ExamSet = {
@@ -98,6 +99,9 @@ export type MyExamState = {
   answers: Record<string, number>;
   done: boolean;
   startedAt?: number;
+  serverCorrect?: number;
+  serverScore?: number;
+  serverPerQ?: (boolean | null)[];
 };
 
 export type ExamResult = {
@@ -329,12 +333,13 @@ export function shuffleQuestionsForUser(questions: Question[], seedKey: string):
     }
 
     const newOptions = indexedOptions.map((o) => o.text);
-    const newCorrect = indexedOptions.findIndex((o) => o.originalIdx === q.correct);
+    const newCorrect = q.correct >= 0 ? indexedOptions.findIndex((o) => o.originalIdx === q.correct) : -1;
 
     return {
       ...q,
       options: newOptions,
       correct: newCorrect !== -1 ? newCorrect : q.correct,
+      optionOrder: indexedOptions.map((o) => o.originalIdx),
     };
   });
 
@@ -390,7 +395,13 @@ export function board(
   if (mine) {
     const ans = mine.answers;
     const answeredCount = Object.keys(ans).length;
-    const correctCount = qs.filter((q) => ans[q.id] === q.correct).length;
+    const hasLocalKey = qs.some((q) => typeof q.correct === "number" && q.correct >= 0);
+    const correctCount =
+      typeof mine.serverCorrect === "number"
+        ? mine.serverCorrect
+        : hasLocalKey
+        ? qs.filter((q) => ans[q.id] === q.correct).length
+        : 0;
     rowsMap.set(userName, {
       name: `${userName} (bạn)`,
       me: true,
@@ -402,7 +413,15 @@ export function board(
 
   const rows = Array.from(rowsMap.values());
   rows.sort((a, b) => b.correct - a.correct || b.answered - a.answered);
-  return rows.map((r, i) => ({ ...r, rank: i + 1, score: score10(r.correct, qs.length), done: r.done }));
+  return rows.map((r, i) => ({
+    ...r,
+    rank: i + 1,
+    score:
+      r.me && typeof mine?.serverScore === "number"
+        ? mine.serverScore
+        : score10(r.correct, qs.length),
+    done: r.done,
+  }));
 }
 
 export async function generateQuestionsApi({

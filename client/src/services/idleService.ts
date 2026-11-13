@@ -1,6 +1,7 @@
 // services/idleService.ts — Quản lý phiên làm việc & Tự động đăng xuất sau 15 phút không hoạt động
 
 export const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 phút
+export const MAX_PAUSE_DURATION_MS = 2 * 60 * 60 * 1000; // Giới hạn tạm dừng tối đa 2 giờ
 export const WARNING_DURATION_SEC = 60; // Cảnh báo trước 60 giây
 export const WARNING_THRESHOLD_MS = IDLE_TIMEOUT_MS - WARNING_DURATION_SEC * 1000; // 14 phút
 
@@ -13,6 +14,7 @@ type IdleListener = (state: IdleState) => void;
 
 class IdleService {
   private lastActive: number = Date.now();
+  private pausedSince: number | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private isWarning: boolean = false;
   private remainingSeconds: number = WARNING_DURATION_SEC;
@@ -64,6 +66,7 @@ class IdleService {
     this.isRunning = false;
     this.isWarning = false;
     this.remainingSeconds = WARNING_DURATION_SEC;
+    this.pausedSince = null;
 
     if (this.timer) {
       clearInterval(this.timer);
@@ -96,6 +99,9 @@ class IdleService {
    */
   public setPaused(reason: "classroom" | "test", paused: boolean) {
     if (paused) {
+      if (this.pausedReasons.size === 0) {
+        this.pausedSince = Date.now();
+      }
       this.pausedReasons.add(reason);
       this.lastActive = Date.now();
       if (this.isWarning) {
@@ -104,6 +110,9 @@ class IdleService {
       }
     } else {
       this.pausedReasons.delete(reason);
+      if (this.pausedReasons.size === 0) {
+        this.pausedSince = null;
+      }
       this.lastActive = Date.now();
     }
     this.notify();
@@ -168,15 +177,21 @@ class IdleService {
   private tick() {
     if (!this.isRunning) return;
 
-    // Khi đang trong phòng học hoặc thi: liên tục giữ lastActive để không tính idle
+    // Khi đang trong phòng học hoặc thi: liên tục giữ lastActive trong giới hạn tối đa MAX_PAUSE_DURATION_MS
     if (this.isPaused()) {
-      this.lastActive = Date.now();
-      if (this.isWarning) {
-        this.isWarning = false;
-        this.remainingSeconds = WARNING_DURATION_SEC;
-        this.notify();
+      const pauseElapsed = this.pausedSince ? Date.now() - this.pausedSince : 0;
+      if (pauseElapsed < MAX_PAUSE_DURATION_MS) {
+        this.lastActive = Date.now();
+        if (this.isWarning) {
+          this.isWarning = false;
+          this.remainingSeconds = WARNING_DURATION_SEC;
+          this.notify();
+        }
+        return;
       }
-      return;
+      // Quá giới hạn tạm dừng an toàn -> tự động bật lại bộ đếm idle
+      this.pausedReasons.clear();
+      this.pausedSince = null;
     }
 
     const elapsed = Date.now() - this.lastActive;

@@ -2,7 +2,30 @@
 import * as pdfjsLib from "pdfjs-dist";
 import mammoth from "mammoth";
 import JSZip from "jszip";
-import { getApiUrl } from "./api";
+import { authFetch } from "./api";
+
+const MAX_UPLOAD_FILE_BYTES = 30 * 1024 * 1024; // Giới hạn 30MB
+const MAX_DOCUMENT_PAGES = 200; // Tối đa 200 trang/slide
+const MAX_ZIP_ENTRIES = 2000;
+const MAX_ZIP_UNCOMPRESSED_BYTES = 60 * 1024 * 1024; // 60MB chống Zip Bomb
+
+function validateZipSafety(zip: JSZip) {
+  let entryCount = 0;
+  let totalUncompressedSize = 0;
+  zip.forEach((relativePath, entry) => {
+    entryCount += 1;
+    if (relativePath.includes("..") || relativePath.startsWith("/")) {
+      throw new Error("Tệp nén chứa đường dẫn không an toàn.");
+    }
+    const rawSize = Number((entry as any)?._data?.uncompressedSize || 0);
+    if (Number.isFinite(rawSize) && rawSize > 0) {
+      totalUncompressedSize += rawSize;
+    }
+    if (entryCount > MAX_ZIP_ENTRIES || totalUncompressedSize > MAX_ZIP_UNCOMPRESSED_BYTES) {
+      throw new Error("Tài liệu giải nén vượt quá giới hạn an toàn cho phép.");
+    }
+  });
+}
 
 // Nhập worker trực tiếp từ gói pdfjs-dist nội bộ qua Vite URL bundling (?url)
 // Giải pháp này giải quyết triệt để lỗi CSP (Content Security Policy) và không phụ thuộc CDN mạng ngoài
@@ -86,13 +109,12 @@ export async function uploadPageImagesInBatches(
 ): Promise<Map<number, string>> {
   const urlMap = new Map<number, string>();
   if (!imagesWithPage || imagesWithPage.length === 0) return urlMap;
-  const uploadUrl = getApiUrl("/api/documents/upload-images");
 
   const BATCH_SIZE = 3; // 3 trang / đợt
   for (let i = 0; i < imagesWithPage.length; i += BATCH_SIZE) {
     const batch = imagesWithPage.slice(i, i + BATCH_SIZE);
     try {
-      const response = await fetch(uploadUrl, {
+      const response = await authFetch("/api/documents/upload-images", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -125,6 +147,9 @@ export async function uploadPageImagesInBatches(
  * Trích xuất text và chụp ảnh toàn bộ các trang từ file PDF thực tế
  */
 export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
+  if (file.size > MAX_UPLOAD_FILE_BYTES) {
+    throw new Error("Kích thước file PDF vượt quá giới hạn tối đa 30MB.");
+  }
   try {
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({
@@ -136,6 +161,9 @@ export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
 
     const pdf = await loadingTask.promise;
     const totalPages = pdf.numPages;
+    if (totalPages > MAX_DOCUMENT_PAGES) {
+      throw new Error(`Tài liệu vượt quá giới hạn ${MAX_DOCUMENT_PAGES} trang. Vui lòng tách nhỏ file.`);
+    }
     const rawPagesText: { pageNum: number; text: string }[] = [];
     const imagesToUpload: { pageNum: number; base64: string; mimeType: string }[] = [];
     const localImgMap = new Map<number, string>();
@@ -216,6 +244,12 @@ export async function extractTextFromPDF(file: File): Promise<ExtractedDoc> {
 export function sanitizeExtractedText(text: string): string {
   if (!text) return "";
   return text
+    // 0. Loại bỏ các thẻ HTML nguy hiểm, trình xử lý sự kiện và URI javascript:/vbscript:/data:text/html
+    .replace(/<\s*(script|iframe|object|embed|form|style|svg|math)[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, "")
+    .replace(/<\s*(script|iframe|object|embed|form|link|meta|base)\b[^>]*\/?>/gi, "")
+    .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\b(?:javascript|vbscript)\s*:/gi, "")
+    .replace(/data\s*:\s*text\/html[^)\s"']*/gi, "")
     // 1. Xóa các bookmark anchor rỗng của Word dạng <a id="_Toc..."></a> hoặc <a name="_Toc..."></a>
     .replace(/<a\s+[^>]*?(?:id|name)=["'][^"']*["'][^>]*>\s*<\/a>/gi, "")
     // 2. Xóa các thẻ tự đóng <a ... />
@@ -277,9 +311,7 @@ export async function uploadExtractedImagesFromMarkdown(markdownText: string): P
   if (imageMatches.length === 0) return markdownText;
 
   try {
-    const uploadUrl = getApiUrl("/api/documents/upload-images");
-
-    const response = await fetch(uploadUrl, {
+    const response = await authFetch("/api/documents/upload-images", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -322,6 +354,9 @@ export async function uploadExtractedImagesFromMarkdown(markdownText: string): P
  * Trích xuất nội dung văn bản thực tế từ file Word (.docx) và phân trang thông minh
  */
 export async function extractTextFromDocx(file: File): Promise<ExtractedDoc> {
+  if (file.size > MAX_UPLOAD_FILE_BYTES) {
+    throw new Error("Kích thước file DOCX vượt quá giới hạn tối đa 30MB.");
+  }
   try {
     const arrayBuffer = await file.arrayBuffer();
 
@@ -330,6 +365,7 @@ export async function extractTextFromDocx(file: File): Promise<ExtractedDoc> {
     let wordDeclaredPages = 0;
     try {
       zip = await JSZip.loadAsync(arrayBuffer);
+      validateZipSafety(zip);
       const appXmlFile = zip.file("docProps/app.xml");
       if (appXmlFile) {
         const appXml = await appXmlFile.async("text");
@@ -482,9 +518,13 @@ export async function extractTextFromDocx(file: File): Promise<ExtractedDoc> {
  * Trích xuất slide theo từng trang từ file trình chiếu PowerPoint (.pptx)
  */
 export async function extractTextFromPptx(file: File): Promise<ExtractedDoc> {
+  if (file.size > MAX_UPLOAD_FILE_BYTES) {
+    throw new Error("Kích thước file PPTX vượt quá giới hạn tối đa 30MB.");
+  }
   try {
     const arrayBuffer = await file.arrayBuffer();
     const zip = await JSZip.loadAsync(arrayBuffer);
+    validateZipSafety(zip);
 
     // Tìm tất cả các slide trong ppt/slides/slide{N}.xml
     const slideEntries: { num: number; file: JSZip.JSZipObject }[] = [];
@@ -500,6 +540,9 @@ export async function extractTextFromPptx(file: File): Promise<ExtractedDoc> {
     });
 
     slideEntries.sort((a, b) => a.num - b.num);
+    if (slideEntries.length > MAX_DOCUMENT_PAGES) {
+      throw new Error(`File PowerPoint vượt quá giới hạn ${MAX_DOCUMENT_PAGES} slide.`);
+    }
 
     const pages: string[] = [];
 
@@ -529,6 +572,9 @@ export async function extractTextFromPptx(file: File): Promise<ExtractedDoc> {
  * Đọc file văn bản thuần túy (.txt, .md, .json)
  */
 export async function extractTextFromTextFile(file: File): Promise<ExtractedDoc> {
+  if (file.size > MAX_UPLOAD_FILE_BYTES) {
+    throw new Error("Kích thước file văn bản vượt quá giới hạn tối đa 30MB.");
+  }
   const content = await file.text();
   const lines = content.split("\n");
   const chunkSize = 60; // 60 dòng 1 trang ước lượng

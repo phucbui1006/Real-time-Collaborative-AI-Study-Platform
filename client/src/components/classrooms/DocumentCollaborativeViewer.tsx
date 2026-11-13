@@ -23,7 +23,7 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
-import { getApiUrl } from '../../services/api'
+import { authFetch } from '../../services/api'
 import type { RoomDocumentData, DocumentAnnotation } from '../../types/classroom'
 
 export type AnnotationTool = 'select' | 'rect' | 'highlight' | 'text'
@@ -160,7 +160,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
       setIsLoadingPage(false)
     } else if (roomCode) {
       setIsLoadingPage(true)
-      fetch(getApiUrl(`/api/rooms/${roomCode}/document/page/${localPage}`))
+      authFetch(`/api/rooms/${roomCode}/document/page/${localPage}`)
         .then((res) => {
           if (!res.ok) throw new Error('Không thể tải nội dung trang')
           return res.json()
@@ -186,7 +186,7 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
         (p) => p >= 0 && p < totalPages && !pageCacheRef.current.has(p)
       )
       pagesToPrefetch.forEach((p) => {
-        fetch(getApiUrl(`/api/rooms/${roomCode}/document/page/${p}`))
+        authFetch(`/api/rooms/${roomCode}/document/page/${p}`)
           .then((res) => res.json())
           .then((data) => {
             if (data?.content) {
