@@ -26,7 +26,31 @@ function initSockets(io) {
         return next(new Error('UNAUTHORIZED: Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'))
       }
 
-      socket.user = data.user
+      // Truy vấn username & display_name từ bảng profiles ở server để không tin dữ liệu client gửi lên
+      let profile = null
+      try {
+        const { data: profData } = await supabaseAdmin
+          .from('profiles')
+          .select('username, display_name, avatar_url')
+          .eq('id', data.user.id)
+          .maybeSingle()
+        if (profData) {
+          profile = profData
+        }
+      } catch {}
+
+      socket.user = {
+        ...data.user,
+        username: profile?.username || data.user.user_metadata?.username || null,
+        displayName:
+          profile?.display_name ||
+          profile?.username ||
+          data.user.user_metadata?.display_name ||
+          data.user.user_metadata?.full_name ||
+          data.user.email?.split('@')[0] ||
+          'Thành viên',
+        avatarUrl: profile?.avatar_url || data.user.user_metadata?.avatar_url || null,
+      }
       return next()
     } catch (err) {
       console.warn('Lỗi xác thực socket token:', err.message)

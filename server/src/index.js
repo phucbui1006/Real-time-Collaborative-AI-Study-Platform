@@ -14,6 +14,7 @@ const { startRoomCleanupJob } = require('./services/roomCleanup')
 const documentRoutes = require('./routes/documentRoutes')
 const aiRoutes = require('./routes/aiRoutes')
 const roomRoutes = require('./routes/roomRoutes')
+const authRoutes = require('./routes/authRoutes')
 const { errorHandler } = require('./middlewares/errorHandler')
 const { CLIENT_URL } = require('./config/env')
 
@@ -90,6 +91,7 @@ app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ limit: '2mb', extended: true }))
 
 // ── Routes REST API ───────────────────────────────────────────────────────────
+app.use('/api/auth', authRoutes)
 app.use('/api/documents', documentRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/rooms', roomRoutes)

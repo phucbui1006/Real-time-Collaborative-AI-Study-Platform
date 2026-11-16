@@ -155,8 +155,12 @@ function roomHandler(io, socket) {
         return socket.emit('ERROR', { message: 'Mã phòng không hợp lệ.' })
       }
 
+      // Lấy danh tính (displayName / username) đã được xác thực từ token & bảng profiles ở server
+      // thay vì tin dữ liệu user.name do client gửi lên (Mục 2.7)
       const rawName =
-        user?.name ||
+        socket.user?.displayName ||
+        socket.user?.username ||
+        socket.user?.user_metadata?.display_name ||
         socket.user?.user_metadata?.full_name ||
         socket.user?.email?.split('@')[0] ||
         'Thành viên'

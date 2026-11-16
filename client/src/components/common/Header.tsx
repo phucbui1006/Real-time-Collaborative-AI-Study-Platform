@@ -1,4 +1,4 @@
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -8,8 +8,10 @@ type HeaderProps = {
   activeTab: DashboardTab;
   onSelectTab: (tab: DashboardTab) => void;
   onLogout: () => void;
+  onOpenSettings?: () => void;
   userName?: string;
   userEmail?: string;
+  avatarUrl?: string | null;
 };
 
 const navigationItems: { id: DashboardTab; label: string }[] = [
@@ -18,7 +20,15 @@ const navigationItems: { id: DashboardTab; label: string }[] = [
   { id: "tests", label: "Bài kiểm tra" },
 ];
 
-export function Header({ activeTab, onSelectTab, onLogout, userName, userEmail }: HeaderProps) {
+export function Header({
+  activeTab,
+  onSelectTab,
+  onLogout,
+  onOpenSettings,
+  userName,
+  userEmail,
+  avatarUrl,
+}: HeaderProps) {
   const displayName = userName || (userEmail ? userEmail.split("@")[0] : "Minh Anh");
   const initials = displayName.slice(0, 2).toUpperCase();
   return (
@@ -55,21 +65,54 @@ export function Header({ activeTab, onSelectTab, onLogout, userName, userEmail }
           })}
         </nav>
 
-        {/* Cột 3 (Phải): Nút chuyển đổi Theme & Avatar */}
+        {/* Cột 3 (Phải): Nút chuyển đổi Theme & Avatar + Cài đặt + Đăng xuất */}
         <div className="flex flex-1 items-center justify-end gap-3 shrink-0">
           <ThemeToggle />
 
-          {/* User profile & Đăng xuất */}
+          {/* User profile & Cài đặt & Đăng xuất */}
           <div className="flex items-center gap-2 rounded-pill border border-[#e1edff] dark:border-[#2a2a3a] bg-[#e1edff] dark:bg-[#242436] px-3 py-1 text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] dark:shadow-[0_1px_0_0_#000000]">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#91d8ec] text-xs font-normal text-[#111118] border border-[#111118]">
-              {initials}
-            </span>
-            <div className="hidden text-left sm:block">
-              <p className="text-xs font-normal text-[#111118] dark:text-[#f0f6ff] leading-none truncate max-w-[120px]" title={displayName}>{displayName}</p>
-            </div>
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="flex items-center gap-2 cursor-pointer"
+              title="Cài đặt tài khoản"
+            >
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="h-7 w-7 rounded-full object-cover border border-[#111118]"
+                />
+              ) : (
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#91d8ec] text-xs font-normal text-[#111118] border border-[#111118]">
+                  {initials}
+                </span>
+              )}
+              <div className="hidden text-left sm:block">
+                <p
+                  className="text-xs font-normal text-[#111118] dark:text-[#f0f6ff] leading-none truncate max-w-[120px]"
+                  title={displayName}
+                >
+                  {displayName}
+                </p>
+              </div>
+            </button>
+
+            {onOpenSettings && (
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className="ml-0.5 rounded-sm text-[#111118]/60 dark:text-[#f0f6ff]/60 hover:text-[#0b7a75] dark:hover:text-[#2dd4bf] transition-colors p-1 cursor-pointer"
+                title="Cài đặt tài khoản"
+                aria-label="Cài đặt tài khoản"
+              >
+                <Settings className="h-3.5 w-3.5" strokeWidth={1.75} />
+              </button>
+            )}
+
             <button
               onClick={onLogout}
-              className="ml-1 rounded-sm text-[#111118]/60 dark:text-[#f0f6ff]/60 hover:text-rose-600 dark:hover:text-rose-400 transition-colors p-1 cursor-pointer"
+              className="rounded-sm text-[#111118]/60 dark:text-[#f0f6ff]/60 hover:text-rose-600 dark:hover:text-rose-400 transition-colors p-1 cursor-pointer"
               title="Đăng xuất"
               aria-label="Đăng xuất"
             >

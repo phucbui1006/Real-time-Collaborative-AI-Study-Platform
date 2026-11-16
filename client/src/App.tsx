@@ -1,11 +1,9 @@
-import { FormEvent, lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Sparkles,
   X,
-  Check,
   Menu,
-  ArrowLeft,
   Bot,
   Network,
   Presentation,
@@ -20,6 +18,7 @@ import {
   Monitor,
   HelpCircle,
 } from "lucide-react";
+import type { User } from "@supabase/supabase-js";
 import { Logo } from "./components/common/Logo";
 import { ThemeToggle } from "./components/common/ThemeToggle";
 import { Header, DashboardTab } from "./components/common/Header";
@@ -27,29 +26,94 @@ const LibraryPage = lazy(() => import("./pages/LibraryPage"));
 const ClassroomsPage = lazy(() => import("./pages/ClassroomsPage"));
 const TestsPage = lazy(() => import("./pages/TestsPage"));
 import { ClassroomHeroAnimation } from "./components/common/ClassroomHeroAnimation";
-import { loginWithEmail, registerWithEmail, logoutUser, getCurrentUser, resetPasswordForEmail, loginAsGuest, clearAllUserState } from "./services/authService";
+import {
+  logoutUser,
+  getCurrentUser,
+  loginAsGuest,
+  clearAllUserState,
+  fetchUserProfile,
+  detectGuestDataInStorage,
+  migrateGuestDataToAccount,
+  discardGuestDataInStorage,
+  UserProfile,
+  GuestDataSummary,
+} from "./services/authService";
 import { supabase } from "./services/supabaseClient";
 import { socket } from "./services/socket";
 import { idleService, IdleState } from "./services/idleService";
 import { IdleWarningModal } from "./components/common/IdleWarningModal";
-const MotionShowcaseModal = lazy(() => import("./components/motion/MotionShowcaseModal").then((m) => ({ default: m.MotionShowcaseModal })));
+import {
+  AuthSplitScreen,
+  AuthScreenMode,
+  SessionExpiredModal,
+  GuestMigrationModal,
+  ProfileSettingsModal,
+} from "./components/common/AuthScreens";
+import { isValidUUID } from "./utils";
+const MotionShowcaseModal = lazy(() =>
+  import("./components/motion/MotionShowcaseModal").then((m) => ({
+    default: m.MotionShowcaseModal,
+  }))
+);
 
-type AuthView = "login" | "register" | "forgot";
+const RETURN_URL_STORAGE_KEY = "permind_return_after_login";
+
+function parseInitialAuthRoute(): {
+  showScreen: boolean;
+  mode: AuthScreenMode;
+  expiredError?: string | null;
+} {
+  if (typeof window === "undefined") {
+    return { showScreen: false, mode: "login" };
+  }
+  const path = window.location.pathname.toLowerCase().replace(/\/+$/, "") || "/";
+  const hash = window.location.hash.toLowerCase();
+  const search = window.location.search.toLowerCase();
+
+  // Kiểm tra lỗi link hết hạn từ Supabase redirect (#error=access_denied&error_code=otp_expired...)
+  if (
+    hash.includes("error_code=otp_expired") ||
+    hash.includes("error=access_denied") ||
+    search.includes("error_code=otp_expired")
+  ) {
+    return {
+      showScreen: true,
+      mode: "reset-password",
+      expiredError:
+        "Liên kết đặt lại mật khẩu hoặc xác thực này đã hết hạn hoặc đã được sử dụng trước đó. Vui lòng yêu cầu gửi lại liên kết mới.",
+    };
+  }
+
+  if (path === "/reset-password" || hash.includes("type=recovery")) {
+    return { showScreen: true, mode: "reset-password" };
+  }
+  if (path === "/register" || path === "/signup") {
+    return { showScreen: true, mode: "register" };
+  }
+  if (path === "/forgot-password") {
+    return { showScreen: true, mode: "forgot-password" };
+  }
+  if (path === "/login" || path === "/signin") {
+    return { showScreen: true, mode: "login" };
+  }
+  // Bảo vệ route: nếu chưa đăng nhập mà vào thẳng các đường dẫn chức năng thì chuyển hướng sang /login
+  if (["/dashboard", "/documents", "/classrooms", "/tests", "/workspace"].includes(path)) {
+    try {
+      sessionStorage.setItem(RETURN_URL_STORAGE_KEY, `${window.location.pathname}${window.location.hash}`);
+    } catch {}
+    return { showScreen: true, mode: "login" };
+  }
+
+  return { showScreen: false, mode: "login" };
+}
 
 // ─── Hệ thống class dùng chung cho landing page ─────────────────────────────
-// Viền thẻ thống nhất: 1.5px, xanh ngọc nhạt (sáng) / xám xanh (tối)
 const CARD = "rounded-[2rem] border-[1.5px] border-[#cfe5e2] dark:border-[#1f3a3d]";
-// Viền cho khối con bên trong thẻ (cùng màu viền)
 const INNER = "border-[1.5px] border-[#cfe5e2] dark:border-[#1f3a3d]";
-// Chữ mô tả trong thẻ: tối thiểu 15px, line-height 1.6, tương phản ≥ 4.5:1 trên nền pastel
 const CARD_BODY = "text-[15px] leading-[1.6] text-slate-800 dark:text-slate-200";
-// Đoạn giới thiệu dưới tiêu đề phần
 const SECTION_LEAD = "text-base sm:text-lg leading-[1.6] text-slate-700 dark:text-slate-300";
-// Tiêu đề phần (h2): 700–800, tối thiểu 32px (≥ 2× chữ thường 16px)
 const H2 = "text-[2rem] sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight text-slate-900 dark:text-white";
-// Tiêu đề thẻ (h3): 600
 const H3 = "font-semibold tracking-tight text-slate-900 dark:text-white";
-// Huy hiệu duy nhất của mỗi thẻ
 const BADGE = "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-sm font-semibold";
 
 const studentSteps = [
@@ -79,68 +143,157 @@ const studentSteps = [
   },
 ];
 
-// TODO: thay bằng nhận xét thật của sinh viên (tên, trường, ảnh đại diện, nội dung).
-// Ảnh đại diện đặt trong client/public/landing/ (khuyến nghị 400 × 400px).
-// Không thêm số liệu nếu chưa có nguồn kiểm chứng.
 const studentTestimonials = [
   {
-    name: "Nguyễn Minh Anh", // TODO: tên thật
-    role: "Sinh viên năm 3 • ĐH Kinh tế Quốc dân", // TODO: trường / năm học thật
-    avatarSrc: "/landing/avatar1.jpg", // TODO: ảnh thật
+    name: "Nguyễn Minh Anh",
+    role: "Sinh viên năm 3 • ĐH Kinh tế Quốc dân",
+    avatarSrc: "/landing/avatar1.jpg",
     quote:
       "Giáo trình Kinh tế vĩ mô dày quá, mình thả vào Permind là có ngay sơ đồ tư duy kèm số trang để dò lại, đỡ phải lật tìm từng chương.",
   },
   {
-    name: "Trần Hải Đăng", // TODO: tên thật
-    role: "Sinh viên năm 2 • ĐH Bách Khoa", // TODO: trường / năm học thật
-    avatarSrc: "/landing/avatar2.jpg", // TODO: ảnh thật
+    name: "Trần Hải Đăng",
+    role: "Sinh viên năm 2 • ĐH Bách Khoa",
+    avatarSrc: "/landing/avatar2.jpg",
     quote:
       "Thích nhất là lúc học nhóm trước ngày thi: cả nhóm xem chung một slide có highlight trực tiếp, rồi mở bảng xếp hạng trắc nghiệm thi đua như chơi game.",
   },
   {
-    name: "Lê Thảo Vy", // TODO: tên thật
-    role: "Sinh viên năm 4 • ĐH Ngoại thương", // TODO: trường / năm học thật
-    avatarSrc: "/landing/avatar3.jpg", // TODO: ảnh thật
+    name: "Lê Thảo Vy",
+    role: "Sinh viên năm 4 • ĐH Ngoại thương",
+    avatarSrc: "/landing/avatar3.jpg",
     quote:
       "Ôn thi khuya thắc mắc chỗ nào hỏi AI là có câu trả lời, lại chỉ rõ nằm ở trang mấy trong slide của thầy cô nên mình yên tâm tự kiểm tra lại.",
   },
 ];
 
 export default function App() {
-  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const initialRoute = parseInitialAuthRoute();
+
+  const [isLoginOpen, setIsLoginOpen] = useState<boolean>(initialRoute.showScreen);
+  const [authMode, setAuthMode] = useState<AuthScreenMode>(initialRoute.mode);
+  const [recoveryExpiredError, setRecoveryExpiredError] = useState<string | null>(
+    initialRoute.expiredError || null
+  );
+
   const [isMotionLabOpen, setIsMotionLabOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [authView, setAuthView] = useState<AuthView>("login");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ id?: string; email?: string; user_metadata?: { full_name?: string } } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    id?: string;
+    email?: string;
+    is_anonymous?: boolean;
+    app_metadata?: { provider?: string; providers?: string[] };
+    user_metadata?: { full_name?: string; display_name?: string; username?: string; avatar_url?: string; picture?: string };
+  } | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  // Interactive quiz option state in Bento Grid
   const [selectedQuizOption, setSelectedQuizOption] = useState<number>(1);
-
-  // Form input states
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(false);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // Modal hết phiên đăng nhập (Mục 2.2)
+  const [sessionExpiredModalOpen, setSessionExpiredModalOpen] = useState(false);
+
+  // Modal đồng bộ dữ liệu chế độ khách -> tài khoản (Mục 2.6)
+  const [guestSummary, setGuestSummary] = useState<GuestDataSummary | null>(null);
+  const [guestModalOpen, setGuestModalOpen] = useState(false);
+  const [guestSyncLoading, setGuestSyncLoading] = useState(false);
+  const [guestSyncError, setGuestSyncError] = useState<string | null>(null);
+  const [docRefreshVersion, setDocRefreshVersion] = useState(0);
+
+  // Modal cài đặt tài khoản (Mục 2.5)
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // ── Idle session state ─────────────────────────────────────────────────────
   const [idleState, setIdleState] = useState<IdleState>({ isWarning: false, remainingSeconds: 60 });
   const idleTimeoutRef = useRef<() => void>(() => {});
   const hasBeenLoggedIn = useRef(false);
-  // Cờ đánh dấu người dùng chủ động bấm đăng xuất (tránh việc listener tự bật modal thông báo hết hạn phiên)
   const isExplicitLogout = useRef(false);
 
-  useEffect(() => {
-    document.body.style.overflow = isLoginOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isLoginOpen]);
+  // Đồng bộ URL khi mở màn hình xác thực (/login, /register, /forgot-password, /reset-password)
+  const updateBrowserUrlForAuth = (open: boolean, mode: AuthScreenMode) => {
+    if (typeof window === "undefined") return;
+    if (!open) {
+      const p = window.location.pathname.toLowerCase();
+      if (["/login", "/register", "/forgot-password", "/reset-password", "/signin", "/signup"].includes(p)) {
+        window.history.replaceState(null, "", `/${window.location.hash || ""}`);
+      }
+      return;
+    }
+    const targetPath =
+      mode === "register"
+        ? "/register"
+        : mode === "forgot-password"
+        ? "/forgot-password"
+        : mode === "reset-password"
+        ? "/reset-password"
+        : "/login";
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState(null, "", targetPath);
+    }
+  };
 
-  // Hỗ trợ mở phòng thử nghiệm Motion nội bộ qua phím tắt Ctrl+Shift+M hoặc window.openMotionLab()
+  // Kiểm tra hồ sơ user sau khi đăng nhập (xử lý Google lần đầu chưa có username + phát hiện dữ liệu khách)
+  const handleAuthenticatedUser = async (user: User, providedProfile?: UserProfile | null) => {
+    hasBeenLoggedIn.current = true;
+    setCurrentUser(user);
+
+    const isAnon = Boolean((user as any).is_anonymous) || user.id === "guest-user-001";
+    if (isAnon) {
+      setIsLoginOpen(false);
+      setIsLoggedIn(true);
+      return;
+    }
+
+    let profile = providedProfile !== undefined ? providedProfile : await fetchUserProfile(user.id);
+    const metaUsername = user.user_metadata?.username || null;
+    const isGoogleSignIn =
+      user.app_metadata?.provider === "google" ||
+      (Array.isArray(user.app_metadata?.providers) && user.app_metadata.providers.includes("google"));
+
+    // Nếu đăng nhập bằng Google lần đầu và chưa có username trong bảng profiles -> hiện bước "Chọn tên người dùng"
+    if (isGoogleSignIn && !profile?.username && !metaUsername) {
+      setUserProfile(profile);
+      setAuthMode("choose-username");
+      setIsLoginOpen(true);
+      setIsLoggedIn(false);
+      return;
+    }
+
+    if (profile) {
+      setUserProfile(profile);
+    }
+
+    setIsLoginOpen(false);
+    setIsLoggedIn(true);
+
+    // Khôi phục lại trang/tab đang xem trước khi đăng nhập (Mục 2.2 & 2.7)
+    if (typeof window !== "undefined") {
+      try {
+        const savedReturn = sessionStorage.getItem(RETURN_URL_STORAGE_KEY);
+        if (savedReturn) {
+          sessionStorage.removeItem(RETURN_URL_STORAGE_KEY);
+          const hashIdx = savedReturn.indexOf("#");
+          const targetHash = hashIdx >= 0 ? savedReturn.slice(hashIdx) : "#documents";
+          window.history.replaceState(null, "", `/${targetHash}`);
+        } else {
+          updateBrowserUrlForAuth(false, "login");
+        }
+      } catch {}
+    }
+
+    // Kiểm tra xem có dữ liệu chế độ khách trong localStorage cần đồng bộ không (Mục 2.6)
+    if (isValidUUID(user.id)) {
+      const summary = detectGuestDataInStorage();
+      if (summary.hasGuestData) {
+        setGuestSummary(summary);
+        setGuestModalOpen(true);
+      }
+    }
+  };
+
+  // Hỗ trợ mở phòng thử nghiệm Motion nội bộ qua phím tắt Ctrl+Shift+M
   useEffect(() => {
     (window as unknown as { openMotionLab?: () => void }).openMotionLab = () => setIsMotionLabOpen(true);
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -163,42 +316,77 @@ export default function App() {
     async function checkAuth() {
       const user = await getCurrentUser();
       if (user) {
-        hasBeenLoggedIn.current = true;
-        setCurrentUser(user);
-        setIsLoggedIn(true);
+        // Nếu đang ở màn hình /reset-password thì giữ nguyên để người dùng đặt mật khẩu mới
+        const path = window.location.pathname.toLowerCase();
+        const hash = window.location.hash.toLowerCase();
+        if (path === "/reset-password" || hash.includes("type=recovery")) {
+          setCurrentUser(user);
+          setAuthMode("reset-password");
+          setIsLoginOpen(true);
+          return;
+        }
+        await handleAuthenticatedUser(user);
       }
     }
     checkAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setTimeout(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setTimeout(async () => {
+        if (event === "PASSWORD_RECOVERY") {
+          if (session?.user) {
+            setCurrentUser(session.user);
+          }
+          setRecoveryExpiredError(null);
+          setAuthMode("reset-password");
+          setIsLoginOpen(true);
+          setIsLoggedIn(false);
+          return;
+        }
+
         if (event === "SIGNED_OUT" || !session) {
-          // Nếu người dùng chưa từng đăng nhập hoặc chủ động bấm đăng xuất, không mở popup và không báo hết hạn
           if (!hasBeenLoggedIn.current || isExplicitLogout.current) {
-            setIsLoginOpen(false);
-            setAuthNotice(null);
             return;
           }
+
+          // Lưu lại trang/tab đang xem để quay lại sau khi đăng nhập lại (Mục 2.2)
+          try {
+            const currentUrl = `${window.location.pathname}${window.location.hash}`;
+            sessionStorage.setItem(RETURN_URL_STORAGE_KEY, currentUrl);
+          } catch {}
 
           idleService.stop();
           clearAllUserState();
           setCurrentUser(null);
+          setUserProfile(null);
           setIsLoggedIn(false);
-          setAuthNotice("Phiên đã hết hạn, vui lòng đăng nhập lại.");
-          setEmail("");
-          setPassword("");
-          setFullName("");
-          setAuthView("login");
-          setIsLoginOpen(true);
-        } else if (event === "SIGNED_IN" && session) {
+          setSessionExpiredModalOpen(true);
+        } else if (event === "SIGNED_IN" && session?.user) {
           hasBeenLoggedIn.current = true;
+          const path = window.location.pathname.toLowerCase();
+          if (path !== "/reset-password") {
+            await handleAuthenticatedUser(session.user);
+          }
         }
       }, 0);
     });
 
+    const handlePopState = () => {
+      const parsed = parseInitialAuthRoute();
+      if (parsed.showScreen && !hasBeenLoggedIn.current) {
+        setAuthMode(parsed.mode);
+        setIsLoginOpen(true);
+      } else if (!parsed.showScreen && !hasBeenLoggedIn.current) {
+        setIsLoginOpen(false);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+
     return () => {
       subscription.unsubscribe();
       idleService.stop();
+      window.removeEventListener("popstate", handlePopState);
     };
   }, []);
 
@@ -211,12 +399,9 @@ export default function App() {
     };
   }, [isLoggedIn]);
 
-  // Hiệu ứng hiện dần khi cuộn (Scroll Reveal) — có phương án dự phòng:
-  // - Nội dung LUÔN hiển thị mặc định; chỉ bị ẩn khi JS bật class "reveal-ready" trên <html>.
-  // - Trình duyệt không hỗ trợ IntersectionObserver hoặc người dùng chọn giảm chuyển động → hiện ngay.
-  // - Kiểm tra dự phòng khi cuộn / sau 1.2s: phần tử đã vào hoặc đã đi qua màn hình luôn được hiện.
+  // Hiệu ứng hiện dần khi cuộn (Scroll Reveal) trên Landing Page
   useEffect(() => {
-    if (isLoggedIn) return;
+    if (isLoggedIn || isLoginOpen) return;
     const root = document.documentElement;
     const elements = Array.from(document.querySelectorAll<HTMLElement>(".reveal-on-scroll"));
     const reveal = (el: Element) => el.classList.add("is-visible");
@@ -258,107 +443,72 @@ export default function App() {
       window.removeEventListener("scroll", revealPassed);
       root.classList.remove("reveal-ready");
     };
-  }, [isLoggedIn]);
+  }, [isLoggedIn, isLoginOpen]);
 
   const openLogin = () => {
-    setIsSubmitted(false);
     setAuthError(null);
     setAuthNotice(null);
-    setAuthView("login");
+    setRecoveryExpiredError(null);
+    setAuthMode("login");
     setIsLoginOpen(true);
     setIsMenuOpen(false);
+    updateBrowserUrlForAuth(true, "login");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const changeAuthView = (view: AuthView) => {
-    setAuthView(view);
-    setAuthError(null);
-    setAuthNotice(null);
-    setIsSubmitted(false);
-  };
-
-  const handleLoginSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setAuthError(null);
-    setAuthNotice(null);
-    setAuthLoading(true);
-    try {
-      const user = await loginWithEmail(email, password);
-      setCurrentUser(user);
-      setIsLoginOpen(false);
-      setIsLoggedIn(true);
-      hasBeenLoggedIn.current = true;
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (err: unknown) {
-      const e = err as Error;
-      setAuthError(e.message || "Email hoặc mật khẩu không chính xác.");
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleRegisterSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setAuthError(null);
-    setAuthNotice(null);
-    setAuthLoading(true);
-    try {
-      const res = await registerWithEmail(email, password, fullName);
-      if (res.user) {
-        setAuthNotice("Tạo tài khoản thành công! Bạn có thể đăng nhập ngay.");
-        setAuthView("login");
-      }
-    } catch (err: unknown) {
-      const e = err as Error;
-      setAuthError(e.message || "Đăng ký thất bại.");
-    } finally {
-      setAuthLoading(false);
-    }
+  const handleModeChange = (nextMode: AuthScreenMode) => {
+    setAuthMode(nextMode);
+    setRecoveryExpiredError(null);
+    updateBrowserUrlForAuth(true, nextMode);
   };
 
   const handleGuestLogin = async () => {
-    setAuthLoading(true);
     try {
       const { user } = await loginAsGuest();
       hasBeenLoggedIn.current = true;
       if (user) {
         setCurrentUser({
           ...user,
+          is_anonymous: true,
           user_metadata: {
             ...(user.user_metadata || {}),
             full_name: user.user_metadata?.full_name || "Khách trải nghiệm",
           },
         });
       } else {
-        setCurrentUser({ id: "guest-user-001", email: "guest@permind.demo", user_metadata: { full_name: "Khách trải nghiệm" } });
+        setCurrentUser({
+          id: "guest-user-001",
+          email: "guest@permind.demo",
+          is_anonymous: true,
+          user_metadata: { full_name: "Khách trải nghiệm" },
+        });
       }
+      setUserProfile(null);
       setIsLoginOpen(false);
       setIsLoggedIn(true);
+      updateBrowserUrlForAuth(false, "login");
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } finally {
-      setAuthLoading(false);
-    }
+    } catch {}
   };
 
   const handleIdleTimeout = async () => {
+    try {
+      const currentUrl = `${window.location.pathname}${window.location.hash}`;
+      sessionStorage.setItem(RETURN_URL_STORAGE_KEY, currentUrl);
+    } catch {}
+
     idleService.stop();
     isExplicitLogout.current = true;
     hasBeenLoggedIn.current = false;
-    try {
-      if (socket.connected) socket.disconnect();
-    } catch {}
     try {
       if (socket.connected) socket.disconnect();
       await logoutUser();
     } catch {}
     clearAllUserState();
     setCurrentUser(null);
+    setUserProfile(null);
     setIsLoggedIn(false);
-    setAuthNotice("Phiên đã hết hạn, vui lòng đăng nhập lại.");
-    setEmail("");
-    setPassword("");
-    setFullName("");
-    setAuthView("login");
-    setIsLoginOpen(true);
+    setSessionExpiredModalOpen(true);
     setTimeout(() => {
       isExplicitLogout.current = false;
     }, 1000);
@@ -368,19 +518,22 @@ export default function App() {
     idleTimeoutRef.current = handleIdleTimeout;
   });
 
-  // Xử lý đăng xuất chủ động: ẩn popup, chuyển về trang giới thiệu và đăng xuất Supabase
+  // Xử lý đăng xuất chủ động
   const handleLogout = async () => {
     idleService.stop();
     clearAllUserState();
     isExplicitLogout.current = true;
     hasBeenLoggedIn.current = false;
     setIsLoginOpen(false);
+    setSettingsOpen(false);
     setAuthNotice(null);
     setCurrentUser(null);
+    setUserProfile(null);
     setIsLoggedIn(false);
-    // Cuộn mượt lên đầu trang giới thiệu
+    updateBrowserUrlForAuth(false, "login");
     window.scrollTo({ top: 0, behavior: "smooth" });
     try {
+      if (socket.connected) socket.disconnect();
       await logoutUser();
     } catch (err) {
       console.error("Logout error:", err);
@@ -391,20 +544,124 @@ export default function App() {
     }
   };
 
+  // Xử lý đồng bộ dữ liệu chế độ khách lên tài khoản mới (Mục 2.6)
+  const handleConfirmGuestSync = async () => {
+    if (!currentUser?.id || guestSyncLoading) return;
+    setGuestSyncLoading(true);
+    setGuestSyncError(null);
+    try {
+      await migrateGuestDataToAccount(currentUser.id);
+      setGuestModalOpen(false);
+      setGuestSummary(null);
+      setDocRefreshVersion((v) => v + 1);
+    } catch (err: any) {
+      setGuestSyncError(
+        err?.message || "Có lỗi xảy ra khi đồng bộ. Dữ liệu dùng thử của bạn vẫn được giữ an toàn."
+      );
+    } finally {
+      setGuestSyncLoading(false);
+    }
+  };
+
+  const handleSkipGuestSync = () => {
+    discardGuestDataInStorage();
+    setGuestModalOpen(false);
+    setGuestSummary(null);
+  };
+
+  const resolvedDisplayName =
+    userProfile?.display_name ||
+    userProfile?.username ||
+    currentUser?.user_metadata?.display_name ||
+    currentUser?.user_metadata?.full_name ||
+    currentUser?.user_metadata?.username ||
+    (currentUser?.email ? currentUser.email.split("@")[0] : "Minh Anh");
+
+  const resolvedAvatarUrl =
+    userProfile?.avatar_url ||
+    currentUser?.user_metadata?.avatar_url ||
+    currentUser?.user_metadata?.picture ||
+    null;
+
+  // 1. Nếu đã đăng nhập vào ứng dụng
   if (isLoggedIn) {
     return (
       <>
         <Dashboard
+          key={`dashboard_${currentUser?.id || "guest"}_${docRefreshVersion}`}
           onLogout={handleLogout}
+          onOpenSettings={() => setSettingsOpen(true)}
           userId={currentUser?.id}
-          userName={currentUser?.user_metadata?.full_name}
+          userName={resolvedDisplayName}
           userEmail={currentUser?.email}
+          avatarUrl={resolvedAvatarUrl}
         />
         <IdleWarningModal
           open={idleState.isWarning}
           remainingSeconds={idleState.remainingSeconds}
           onContinue={() => idleService.resetTimer()}
           onLogout={handleLogout}
+        />
+        <GuestMigrationModal
+          open={guestModalOpen}
+          summary={guestSummary}
+          loading={guestSyncLoading}
+          error={guestSyncError}
+          onConfirmSync={handleConfirmGuestSync}
+          onSkipSync={handleSkipGuestSync}
+        />
+        <ProfileSettingsModal
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          userId={currentUser?.id}
+          username={userProfile?.username || currentUser?.user_metadata?.username || null}
+          displayName={resolvedDisplayName}
+          userEmail={currentUser?.email}
+          avatarUrl={resolvedAvatarUrl}
+          onProfileUpdated={(newName) => {
+            setUserProfile((prev) =>
+              prev
+                ? { ...prev, display_name: newName }
+                : {
+                    id: currentUser?.id || "",
+                    username: currentUser?.user_metadata?.username || null,
+                    display_name: newName,
+                    avatar_url: resolvedAvatarUrl,
+                  }
+            );
+          }}
+          onLogout={handleLogout}
+        />
+      </>
+    );
+  }
+
+  // 2. Nếu đang mở màn hình Đăng nhập / Đăng ký / Quên mật khẩu / Đặt lại mật khẩu / Chọn tên người dùng (chia đôi màn hình trên Desktop)
+  if (isLoginOpen) {
+    return (
+      <>
+        <AuthSplitScreen
+          mode={authMode}
+          onModeChange={handleModeChange}
+          onBackToLanding={() => {
+            setIsLoginOpen(false);
+            updateBrowserUrlForAuth(false, "login");
+          }}
+          onAuthSuccess={(user, prof) => handleAuthenticatedUser(user, prof)}
+          onGuestLogin={handleGuestLogin}
+          currentUser={currentUser as User | null}
+          initialNotice={authNotice}
+          initialError={authError}
+          recoveryExpiredError={recoveryExpiredError}
+        />
+        <SessionExpiredModal
+          open={sessionExpiredModalOpen}
+          onConfirmRelogin={() => {
+            setSessionExpiredModalOpen(false);
+            setAuthMode("login");
+            setIsLoginOpen(true);
+            updateBrowserUrlForAuth(true, "login");
+          }}
         />
       </>
     );
@@ -511,16 +768,13 @@ export default function App() {
           id="gioi-thieu"
           className="relative overflow-hidden pt-10 pb-20 lg:pt-16 lg:pb-24"
         >
-          {/* Đốm màu nền pastel tươi sáng kiểu SuperHi */}
           <div className="pointer-events-none absolute -top-24 left-1/4 h-80 w-80 rounded-full bg-teal-200/40 dark:bg-teal-900/20 blur-3xl" />
           <div className="pointer-events-none absolute top-20 right-10 h-72 w-72 rounded-full bg-amber-200/40 dark:bg-amber-900/15 blur-3xl" />
           <div className="pointer-events-none absolute bottom-0 left-10 h-64 w-64 rounded-full bg-pink-200/35 dark:bg-pink-900/15 blur-3xl" />
 
           <div className="relative mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
             <div className="grid gap-12 lg:grid-cols-12 lg:items-center lg:gap-10">
-              {/* Cột trái: Tiêu đề ngắn, mạnh + 2 nút + Dòng "Dưới 5 giây" ngay sát hero */}
               <div className="lg:col-span-6 min-w-0">
-                {/* Pill label: chỉ giữ ở hero */}
                 <div className="inline-flex flex-wrap items-center gap-2 rounded-full bg-teal-100/90 dark:bg-teal-950/80 border-[1.5px] border-[#cfe5e2] dark:border-[#1f3a3d] px-4 py-1.5 text-sm font-semibold text-teal-900 dark:text-teal-200">
                   <span className="h-2.5 w-2.5 rounded-full bg-teal-600" />
                   <span>Nền tảng học tập AI cho sinh viên đại học</span>
@@ -539,7 +793,6 @@ export default function App() {
                   <strong className="font-semibold text-slate-900 dark:text-white">sơ đồ tư duy có trích dẫn trang</strong>, mở phòng học đồng bộ slide và tạo đề trắc nghiệm thi cùng hội bạn.
                 </p>
 
-                {/* Hai nút hành động chính */}
                 <div className="mt-8 flex flex-col gap-3.5 sm:flex-row sm:items-center">
                   <button
                     onClick={openLogin}
@@ -556,7 +809,6 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Dòng "Dưới 5 giây" & "Hỗ trợ AI 24/7" đặt ngay sát dưới nút */}
                 <div className="mt-6 flex flex-wrap items-center gap-3">
                   <div className="inline-flex items-center gap-2 rounded-2xl bg-amber-100 dark:bg-amber-950/70 px-4 py-2 text-[15px] font-semibold text-slate-900 dark:text-amber-100">
                     <Zap className="h-5 w-5 text-amber-600 dark:text-amber-400 fill-amber-500 shrink-0" />
@@ -569,7 +821,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Cột phải: Vùng Demo Động kéo thả PDF -> tự vẽ sơ đồ tư duy */}
               <div className="lg:col-span-6 min-w-0">
                 <ClassroomHeroAnimation />
               </div>
@@ -593,7 +844,6 @@ export default function App() {
             </div>
 
             <div className="grid gap-8 lg:grid-cols-12 lg:items-stretch">
-              {/* Cột trái (5 cột): Ảnh sinh viên học nhóm */}
               <div className={`lg:col-span-5 min-w-0 flex flex-col justify-between gap-5 ${CARD} bg-amber-50/70 dark:bg-slate-900 p-6 sm:p-7`}>
                 <figure className="relative overflow-hidden rounded-3xl shadow-md group">
                   <img
@@ -606,7 +856,6 @@ export default function App() {
                   </figcaption>
                 </figure>
 
-                {/* Cụm avatar bạn bè đang online */}
                 <div className={`rounded-2xl bg-white dark:bg-slate-800 ${INNER} p-4 flex flex-wrap items-center justify-between gap-3`}>
                   <div className="flex -space-x-2.5">
                     <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-teal-700 text-white text-sm font-bold ring-2 ring-white dark:ring-slate-900">
@@ -633,10 +882,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Cột phải (7 cột): Mockup phòng học nhóm trong khung trình duyệt */}
               <div className="lg:col-span-7 min-w-0">
                 <div className={`h-full ${CARD} bg-white dark:bg-slate-900 shadow-xl overflow-hidden`}>
-                  {/* Thanh trình duyệt */}
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#cfe5e2] dark:border-[#1f3a3d] bg-slate-100 dark:bg-slate-800/90 px-5 py-3">
                     <div className="flex min-w-0 items-center gap-2">
                       <span className="h-3.5 w-3.5 shrink-0 rounded-full bg-rose-400" />
@@ -652,7 +899,6 @@ export default function App() {
                     </span>
                   </div>
 
-                  {/* Nội dung phòng học: Slide bên trái + Tin nhắn nhóm bên phải */}
                   <div className="grid grid-cols-1 md:grid-cols-12">
                     <div className="md:col-span-7 p-5 sm:p-6 border-b md:border-b-0 md:border-r border-[#cfe5e2] dark:border-[#1f3a3d] bg-slate-50/60 dark:bg-slate-900">
                       <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400 mb-3">
@@ -693,7 +939,6 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Avatar, tên bạn bè & tin nhắn ngắn trong phòng học */}
                     <div className="md:col-span-5 p-5 bg-white dark:bg-slate-900 flex flex-col justify-between">
                       <div>
                         <div className="flex items-center justify-between mb-3">
@@ -773,7 +1018,6 @@ export default function App() {
             </div>
 
             <div className="grid gap-8 lg:grid-cols-12 lg:items-stretch">
-              {/* TRƯỚC: Giáo trình 120 trang */}
               <div className={`lg:col-span-5 min-w-0 ${CARD} bg-slate-100/80 dark:bg-slate-900/80 p-6 sm:p-8`}>
                 <span className={`${BADGE} bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200`}>
                   😩 Trước khi dùng Permind
@@ -803,7 +1047,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Mũi tên chuyển đổi ở giữa */}
               <div className="lg:col-span-2 flex items-center justify-center">
                 <div className="flex flex-col items-center gap-2">
                   <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-teal-700 text-white shadow-xl shadow-teal-700/30 rotate-90 lg:rotate-0">
@@ -815,7 +1058,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* SAU: 1 sơ đồ + 10 câu hỏi ôn tập */}
               <div className={`lg:col-span-5 min-w-0 ${CARD} bg-teal-50 dark:bg-teal-950/30 p-6 sm:p-8 shadow-lg shadow-teal-700/5`}>
                 <span className={`${BADGE} bg-teal-700 text-white`}>
                   <Sparkles className="h-4 w-4" />
@@ -875,7 +1117,6 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              {/* Ô BENTO 1 (7 cột): Tài liệu + AI kiểu NotebookLM */}
               <div className={`md:col-span-7 min-w-0 ${CARD} bg-teal-50/70 dark:bg-slate-900 p-6 sm:p-8 flex flex-col`}>
                 <span className={`${BADGE} self-start bg-teal-700 text-white`}>
                   <BookOpen className="h-4 w-4" />
@@ -888,7 +1129,6 @@ export default function App() {
                   Tải lên PDF, PPTX hoặc DOCX rồi đặt câu hỏi về bài học — AI giải thích dễ hiểu và chỉ rõ kiến thức nằm ở trang nào trong giáo trình của bạn.
                 </p>
 
-                {/* Minh họa trong khung trình duyệt */}
                 <div className={`mt-6 rounded-2xl ${INNER} bg-white dark:bg-slate-800 overflow-hidden`}>
                   <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-900 px-4 py-2 border-b border-[#cfe5e2] dark:border-[#1f3a3d] text-xs font-semibold text-slate-700 dark:text-slate-300">
                     <Monitor className="h-3.5 w-3.5 shrink-0 text-teal-700 dark:text-teal-400" />
@@ -921,7 +1161,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Ô BENTO 2 (5 cột): Dưới 5 giây & Hỗ trợ AI 24/7 */}
               <div className={`md:col-span-5 min-w-0 ${CARD} bg-amber-50 dark:bg-slate-900 p-6 sm:p-8 flex flex-col justify-between`}>
                 <div>
                   <span className={`${BADGE} bg-amber-300 text-slate-950`}>
@@ -953,7 +1192,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Ô BENTO 3 (6 cột): Kiểm tra trực tuyến & Bảng xếp hạng (khung điện thoại nằm gọn trong thẻ) */}
               <div className={`md:col-span-6 min-w-0 relative isolate overflow-hidden ${CARD} bg-rose-50/70 dark:bg-slate-900 p-6 sm:p-8 flex flex-col`}>
                 <span className={`${BADGE} self-start bg-rose-600 text-white`}>
                   <Trophy className="h-4 w-4" />
@@ -971,7 +1209,6 @@ export default function App() {
                   className="mt-4 h-36 w-full rounded-2xl object-cover"
                 />
 
-                {/* Khung điện thoại: nằm gọn trong luồng thẻ, không đè hay tràn mép dưới */}
                 <div className="mt-5 w-full">
                   <div className={`relative z-0 mx-auto w-full max-w-[20rem] overflow-hidden rounded-[1.75rem] ${INNER} bg-white dark:bg-slate-800 p-4 shadow-sm`}>
                     <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-slate-300 dark:bg-slate-600" aria-hidden="true" />
@@ -1028,7 +1265,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Ô BENTO 4 (6 cột): Phòng học nhóm kiểu Google Meet */}
               <div className={`md:col-span-6 min-w-0 ${CARD} bg-violet-50/70 dark:bg-slate-900 p-6 sm:p-8 flex flex-col justify-between`}>
                 <div>
                   <span className={`${BADGE} bg-violet-600 text-white`}>
@@ -1094,7 +1330,6 @@ export default function App() {
                   key={step.number}
                   className={`${CARD} ${step.cardBg} p-7 transition-transform duration-200 hover:-translate-y-1`}
                 >
-                  {/* Yếu tố phụ duy nhất: số bước */}
                   <span
                     className={`flex h-12 w-12 items-center justify-center rounded-2xl text-xl font-extrabold ${step.numberBg}`}
                     aria-label={`Bước ${step.number}`}
@@ -1228,252 +1463,22 @@ export default function App() {
       </footer>
 
       {/* ─── PHÒNG THỬ NGHIỆM MOTION (NỘI BỘ) ───────────────────────────────── */}
-      {isMotionLabOpen && <Suspense fallback={null}><MotionShowcaseModal isOpen={isMotionLabOpen} onClose={() => setIsMotionLabOpen(false)} /></Suspense>}
-
-      {/* ─── AUTH MODAL ──────────────────────────────────────────────────────── */}
-      {isLoginOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="relative w-full max-w-md rounded-lg border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl sm:p-8 transition-colors duration-150">
-            <button
-              onClick={() => setIsLoginOpen(false)}
-              className="absolute top-5 right-5 flex h-9 w-9 items-center justify-center rounded-sm text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
-              aria-label="Đóng cửa sổ"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            {authView === "login" && (
-              <>
-                <h2 id="login-title" className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
-                  Chào mừng bạn trở lại! 👋
-                </h2>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Đăng nhập để đồng bộ tài liệu và phòng học nhóm của bạn.
-                </p>
-
-                <form onSubmit={handleLoginSubmit} className="mt-6 space-y-4">
-                  {authNotice && (
-                    <div className="p-3.5 text-sm rounded-sharp bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-800 text-teal-800 dark:text-teal-200">
-                      {authNotice}
-                    </div>
-                  )}
-                  {authError && (
-                    <div className="p-3.5 text-sm rounded-sharp bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">
-                      {authError}
-                    </div>
-                  )}
-
-                  <label className="block">
-                    <span className="form-label">Email sinh viên / cá nhân</span>
-                    <input
-                      required
-                      type="email"
-                      placeholder="ban@student.edu.vn"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="form-input"
-                      disabled={authLoading}
-                    />
-                  </label>
-                  <label className="block">
-                    <div className="flex items-center justify-between">
-                      <span className="form-label">Mật khẩu</span>
-                      <button
-                        type="button"
-                        onClick={() => changeAuthView("forgot")}
-                        className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
-                      >
-                        Quên mật khẩu?
-                      </button>
-                    </div>
-                    <input
-                      required
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="form-input"
-                      disabled={authLoading}
-                    />
-                  </label>
-
-                  <button
-                    type="submit"
-                    disabled={authLoading}
-                    className="primary-button w-full h-11 justify-center cursor-pointer disabled:opacity-60"
-                  >
-                    {authLoading ? "Đang xác thực..." : "Đăng nhập ngay"}
-                  </button>
-
-                  <div className="relative my-2">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-200 dark:border-slate-800" />
-                    </div>
-                    <div className="relative flex justify-center text-xs">
-                      <span className="bg-white dark:bg-slate-900 px-2 text-slate-400 font-semibold">Hoặc</span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleGuestLogin}
-                    className="secondary-button w-full h-11 justify-center cursor-pointer text-sm"
-                  >
-                    Dùng thử ngay không cần đăng ký
-                  </button>
-
-                  <p className="text-center text-sm text-slate-600 dark:text-slate-400 pt-1">
-                    Chưa có tài khoản?{" "}
-                    <button
-                      type="button"
-                      onClick={() => changeAuthView("register")}
-                      className="font-extrabold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
-                    >
-                      Đăng ký miễn phí
-                    </button>
-                  </p>
-                </form>
-              </>
-            )}
-
-            {authView === "register" && (
-              <>
-                <h2 id="login-title" className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
-                  Tạo tài khoản mới ✨
-                </h2>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Miễn phí cho sinh viên đại học. Chỉ mất 30 giây.
-                </p>
-
-                <form onSubmit={handleRegisterSubmit} className="mt-6 space-y-4">
-                  {authError && (
-                    <div className="p-3.5 text-sm rounded-sharp bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">
-                      {authError}
-                    </div>
-                  )}
-
-                  <label className="block">
-                    <span className="form-label">Họ và tên</span>
-                    <input
-                      required
-                      type="text"
-                      placeholder="Nguyễn Minh Anh"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="form-input"
-                      disabled={authLoading}
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="form-label">Email</span>
-                    <input
-                      required
-                      type="email"
-                      placeholder="ban@student.edu.vn"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="form-input"
-                      disabled={authLoading}
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="form-label">Mật khẩu (tối thiểu 6 ký tự)</span>
-                    <input
-                      required
-                      minLength={6}
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="form-input"
-                      disabled={authLoading}
-                    />
-                  </label>
-
-                  <button
-                    type="submit"
-                    disabled={authLoading}
-                    className="primary-button w-full h-11 justify-center cursor-pointer disabled:opacity-60"
-                  >
-                    {authLoading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
-                  </button>
-
-                  <p className="text-center text-sm text-slate-600 dark:text-slate-400">
-                    Đã có tài khoản?{" "}
-                    <button
-                      type="button"
-                      onClick={() => changeAuthView("login")}
-                      className="font-extrabold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
-                    >
-                      Đăng nhập
-                    </button>
-                  </p>
-                </form>
-              </>
-            )}
-
-            {authView === "forgot" && (
-              <>
-                <button type="button" onClick={() => changeAuthView("login")} className="auth-back-button cursor-pointer">
-                  <ArrowLeft className="h-4 w-4" />
-                  Quay lại đăng nhập
-                </button>
-                <h2 id="login-title" className="mt-4 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
-                  Quên mật khẩu?
-                </h2>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Nhập email đã đăng ký, chúng tôi sẽ gửi hướng dẫn đặt lại mật khẩu cho bạn.
-                </p>
-
-                {isSubmitted ? (
-                  <AuthSuccess
-                    title="Kiểm tra email của bạn"
-                    description="Nếu email tồn tại trong hệ thống, liên kết đặt lại mật khẩu đã được gửi và có hiệu lực trong thời gian ngắn."
-                    buttonText="Trở về đăng nhập"
-                    onContinue={() => changeAuthView("login")}
-                  />
-                ) : (
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      setAuthError(null);
-                      setAuthLoading(true);
-                      try {
-                        await resetPasswordForEmail(email);
-                        setIsSubmitted(true);
-                      } catch {
-                        setAuthError("Không thể gửi yêu cầu khôi phục lúc này.");
-                      } finally {
-                        setAuthLoading(false);
-                      }
-                    }}
-                    className="mt-6 space-y-4"
-                  >
-                    <label className="block">
-                      <span className="form-label">Email</span>
-                      <input
-                        required
-                        type="email"
-                        placeholder="ban@student.edu.vn"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="form-input"
-                      />
-                    </label>
-                    <button type="submit" className="primary-button w-full h-11 justify-center cursor-pointer">
-                      Gửi liên kết khôi phục
-                    </button>
-                  </form>
-                )}
-              </>
-            )}
-          </div>
-        </div>
+      {isMotionLabOpen && (
+        <Suspense fallback={null}>
+          <MotionShowcaseModal isOpen={isMotionLabOpen} onClose={() => setIsMotionLabOpen(false)} />
+        </Suspense>
       )}
+
+      {/* ─── MODAL HẾT PHIÊN ĐĂNG NHẬP ───────────────────────────────────────── */}
+      <SessionExpiredModal
+        open={sessionExpiredModalOpen}
+        onConfirmRelogin={() => {
+          setSessionExpiredModalOpen(false);
+          setAuthMode("login");
+          setIsLoginOpen(true);
+          updateBrowserUrlForAuth(true, "login");
+        }}
+      />
     </div>
   );
 }
@@ -1482,14 +1487,18 @@ export default function App() {
 
 function Dashboard({
   onLogout,
+  onOpenSettings,
   userId,
   userName,
   userEmail,
+  avatarUrl,
 }: {
   onLogout: () => void;
+  onOpenSettings?: () => void;
   userId?: string;
   userName?: string;
   userEmail?: string;
+  avatarUrl?: string | null;
 }) {
   const getTabFromHash = (hash: string): DashboardTab => {
     const h = hash.replace(/^#\/?/, "").toLowerCase();
@@ -1499,7 +1508,9 @@ function Dashboard({
   };
 
   const [activeTab, setActiveTab] = useState<DashboardTab>(() => getTabFromHash(window.location.hash));
-  const [visitedTabs, setVisitedTabs] = useState<Set<DashboardTab>>(() => new Set([getTabFromHash(window.location.hash)]));
+  const [visitedTabs, setVisitedTabs] = useState<Set<DashboardTab>>(
+    () => new Set([getTabFromHash(window.location.hash)])
+  );
 
   useEffect(() => {
     setVisitedTabs((prev) => {
@@ -1542,13 +1553,18 @@ function Dashboard({
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
         onLogout={onLogout}
+        onOpenSettings={onOpenSettings}
         userName={userName}
         userEmail={userEmail}
+        avatarUrl={avatarUrl}
       />
 
       {/* Mobile navigation fallback */}
       <div className="mb-2 overflow-x-auto md:hidden px-5 pt-3">
-        <nav className="flex min-w-max gap-2 rounded-sm bg-white dark:bg-[#1b1b26] p-1.5 border border-[#e1edff] dark:border-[#2a2a3a]" aria-label="Điều hướng mobile">
+        <nav
+          className="flex min-w-max gap-2 rounded-sm bg-white dark:bg-[#1b1b26] p-1.5 border border-[#e1edff] dark:border-[#2a2a3a]"
+          aria-label="Điều hướng mobile"
+        >
           {[
             { id: "documents" as const, label: "Tài liệu" },
             { id: "classrooms" as const, label: "Phòng học" },
@@ -1558,7 +1574,9 @@ function Dashboard({
               key={item.id}
               onClick={() => handleSelectTab(item.id)}
               className={`flex items-center gap-2 px-4 py-1.5 text-xs font-normal transition cursor-pointer ${
-                activeTab === item.id ? "rounded-pill bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] shadow-[0_2px_0_0_#111118]" : "rounded-[8px] text-[#111118]/70 dark:text-[#f0f6ff]/70 hover:text-[#111118] dark:hover:text-white"
+                activeTab === item.id
+                  ? "rounded-pill bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] shadow-[0_2px_0_0_#111118]"
+                  : "rounded-[8px] text-[#111118]/70 dark:text-[#f0f6ff]/70 hover:text-[#111118] dark:hover:text-white"
               }`}
             >
               {item.label}
@@ -1568,33 +1586,30 @@ function Dashboard({
       </div>
 
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6 py-6">
-        <Suspense fallback={<div className="py-16 flex items-center justify-center text-sm font-medium text-slate-500 dark:text-slate-400">Đang tải không gian học tập...</div>}>{visitedTabs.has("documents") && <div style={{ display: activeTab === "documents" ? "block" : "none" }}>
-          <LibraryPage userId={userId} userName={userName} /></div>}{visitedTabs.has("classrooms") && <div style={{ display: activeTab === "classrooms" ? "block" : "none" }}>
-          <ClassroomsPage userId={userId} userName={userName} /></div>}{visitedTabs.has("tests") && <div style={{ display: activeTab === "tests" ? "block" : "none" }}>
-          <TestsPage userId={userId} userName={userName} /></div>}</Suspense>
+        <Suspense
+          fallback={
+            <div className="py-16 flex items-center justify-center text-sm font-medium text-slate-500 dark:text-slate-400">
+              Đang tải không gian học tập...
+            </div>
+          }
+        >
+          {visitedTabs.has("documents") && (
+            <div style={{ display: activeTab === "documents" ? "block" : "none" }}>
+              <LibraryPage userId={userId} userName={userName} />
+            </div>
+          )}
+          {visitedTabs.has("classrooms") && (
+            <div style={{ display: activeTab === "classrooms" ? "block" : "none" }}>
+              <ClassroomsPage userId={userId} userName={userName} />
+            </div>
+          )}
+          {visitedTabs.has("tests") && (
+            <div style={{ display: activeTab === "tests" ? "block" : "none" }}>
+              <TestsPage userId={userId} userName={userName} />
+            </div>
+          )}
+        </Suspense>
       </div>
-    </div>
-  );
-}
-
-type AuthSuccessProps = {
-  title: string;
-  description: string;
-  buttonText: string;
-  onContinue: () => void;
-};
-
-function AuthSuccess({ title, description, buttonText, onContinue }: AuthSuccessProps) {
-  return (
-    <div className="mt-6 rounded-2xl border border-teal-200 bg-teal-50/70 p-5 text-center">
-      <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-teal-600 text-white">
-        <Check className="h-5 w-5" strokeWidth={2.25} />
-      </span>
-      <p className="mt-3 font-extrabold text-teal-950 text-base">{title}</p>
-      <p className="mt-1 text-sm text-teal-800 leading-relaxed">{description}</p>
-      <button onClick={onContinue} className="primary-button mt-4 w-full justify-center cursor-pointer">
-        {buttonText}
-      </button>
     </div>
   );
 }
