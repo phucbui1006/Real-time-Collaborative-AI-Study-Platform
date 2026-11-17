@@ -675,19 +675,19 @@ export default function App() {
           <Logo size="md" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
 
           <nav className="hidden items-center gap-8 md:flex" aria-label="Điều hướng chính">
-            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors" href="#hoc-nhom">
+            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 rounded-xs transition-colors" href="#hoc-nhom">
               Học nhóm
             </a>
-            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors" href="#truoc-sau">
+            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 rounded-xs transition-colors" href="#truoc-sau">
               Trước &amp; Sau
             </a>
-            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors" href="#tinh-nang">
+            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 rounded-xs transition-colors" href="#tinh-nang">
               Tính năng
             </a>
-            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors" href="#ba-buoc">
+            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 rounded-xs transition-colors" href="#ba-buoc">
               3 bước bắt đầu
             </a>
-            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors" href="#nhan-xet">
+            <a className="text-base font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 rounded-xs transition-colors" href="#nhan-xet">
               Nhận xét
             </a>
           </nav>
@@ -697,13 +697,13 @@ export default function App() {
             <ThemeToggle />
             <button
               onClick={handleGuestLogin}
-              className="rounded-sm border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-200 hover:border-teal-500 hover:text-teal-600 transition-all cursor-pointer"
+              className="rounded-sm border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-200 hover:border-teal-500 hover:text-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 transition-all cursor-pointer"
             >
               Dùng thử ngay
             </button>
             <button
               onClick={openLogin}
-              className="inline-flex items-center gap-2 rounded-pill bg-teal-700 hover:bg-teal-800 text-white px-5 py-2.5 text-sm font-bold shadow-sm shadow-teal-700/20 transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-pill bg-teal-700 hover:bg-teal-800 text-white px-5 py-2.5 text-sm font-bold shadow-sm shadow-teal-700/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 transition-all cursor-pointer"
             >
               <span>Đăng nhập</span>
               <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
@@ -715,8 +715,8 @@ export default function App() {
             <ThemeToggle />
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="flex h-10 w-10 items-center justify-center rounded-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"
-              aria-label="Mở menu"
+              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2"
+              aria-label={isMenuOpen ? "Đóng menu điều hướng" : "Mở menu điều hướng"}
               aria-expanded={isMenuOpen}
             >
               {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -1237,7 +1237,7 @@ export default function App() {
                             key={opt.id}
                             type="button"
                             onClick={() => setSelectedQuizOption(opt.id)}
-                            className={`rounded-xl border-[1.5px] p-2.5 text-left text-sm font-semibold transition-colors cursor-pointer ${
+                            className={`min-h-[44px] flex items-center rounded-xl border-[1.5px] p-2.5 text-left text-sm font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 ${
                               isChosen && isCorrect
                                 ? "border-teal-600 bg-teal-50 dark:bg-teal-950/70 text-teal-900 dark:text-teal-100"
                                 : isChosen && !isCorrect

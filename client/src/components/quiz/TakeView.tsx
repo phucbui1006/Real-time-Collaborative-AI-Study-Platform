@@ -93,7 +93,7 @@ export function TakeView({ live, mine, remaining, onAnswer, onFinish, questions 
                   key={x.id}
                   onClick={() => setQi(i)}
                   aria-label={`Câu ${i + 1}`}
-                  className={`h-9 w-9 rounded-full text-xs font-normal font-mono tabular-nums transition-all cursor-pointer border-2 border-[#111118] shadow-[0_2px_0_0_#111118] flex items-center justify-center ${
+                  className={`h-10 w-10 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:h-9 sm:w-9 rounded-full text-xs font-normal font-mono tabular-nums transition-all cursor-pointer border-2 border-[#111118] shadow-[0_2px_0_0_#111118] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75] focus-visible:ring-offset-2 ${
                     isCurrent ? "ring-2 ring-[#0b7a75] ring-offset-2" : ""
                   } ${
                     !isAnswered
@@ -128,7 +128,7 @@ export function TakeView({ live, mine, remaining, onAnswer, onFinish, questions 
                   key={j}
                   disabled={locked}
                   onClick={() => onAnswer(q.id, j)}
-                  className={`flex w-full items-center gap-3.5 rounded-sm p-4 text-left text-sm font-normal transition-all cursor-pointer disabled:cursor-not-allowed ${
+                  className={`flex w-full items-center gap-3.5 rounded-sm p-4 text-left text-sm font-normal transition-all cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75] focus-visible:ring-offset-2 ${
                     picked
                       ? "bg-[#0b7a75] text-white border-2 border-[#111118] shadow-[0_3px_0_0_#111118]"
                       : "bg-[#f0f6ff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] border-2 border-[#111118] dark:border-[#2a2a3a] shadow-[0_2px_0_0_#111118] hover:bg-[#e1edff] dark:hover:bg-[#2a2a3a] active:translate-y-[2px]"
@@ -166,7 +166,7 @@ export function TakeView({ live, mine, remaining, onAnswer, onFinish, questions 
             <button
               onClick={() => setQi((i) => Math.max(0, i - 1))}
               disabled={qi === 0}
-              className="inline-flex items-center gap-1.5 h-12 px-6 rounded-sm border-2 border-[#111118] bg-white dark:bg-[#1b1b26] text-sm font-normal text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#242436] transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer shadow-[0_2px_0_0_#111118] active:translate-y-[1px]"
+              className="inline-flex items-center gap-1.5 h-12 px-6 rounded-sm border-2 border-[#111118] bg-white dark:bg-[#1b1b26] text-sm font-normal text-[#111118] dark:text-[#f0f6ff] hover:bg-[#e1edff] dark:hover:bg-[#242436] transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer shadow-[0_2px_0_0_#111118] active:translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75] focus-visible:ring-offset-2"
             >
               <ChevronLeft className="h-4 w-4" strokeWidth={1.75} />
               <span>Câu trước</span>
@@ -175,7 +175,7 @@ export function TakeView({ live, mine, remaining, onAnswer, onFinish, questions 
             {qi < qs.length - 1 ? (
               <button
                 onClick={() => setQi((i) => i + 1)}
-                className="inline-flex items-center gap-1.5 h-12 px-6 rounded-pill bg-[#0b7a75] hover:bg-[#09635f] text-white text-sm font-normal transition-all cursor-pointer border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px]"
+                className="inline-flex items-center gap-1.5 h-12 px-6 rounded-pill bg-[#0b7a75] hover:bg-[#09635f] text-white text-sm font-normal transition-all cursor-pointer border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75] focus-visible:ring-offset-2"
               >
                 <span>Câu tiếp</span>
                 <ChevronRight className="h-4 w-4" strokeWidth={1.75} />
@@ -183,7 +183,7 @@ export function TakeView({ live, mine, remaining, onAnswer, onFinish, questions 
             ) : (
               <button
                 onClick={handleFinishClick}
-                className="inline-flex items-center gap-2 h-12 px-7 rounded-pill bg-[#0b7a75] text-white hover:bg-[#09635f] text-sm font-normal transition-all cursor-pointer border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px]"
+                className="inline-flex items-center gap-2 h-12 px-7 rounded-pill bg-[#0b7a75] text-white hover:bg-[#09635f] text-sm font-normal transition-all cursor-pointer border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75] focus-visible:ring-offset-2"
               >
                 <span>
                   {answered < qs.length && !locked
@@ -224,7 +224,7 @@ export function TakeView({ live, mine, remaining, onAnswer, onFinish, questions 
               </div>
               <button
                 onClick={() => setShowConfirmModal(false)}
-                className="w-8 h-8 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] cursor-pointer"
+                className="w-10 h-10 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d0e2ff] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75]"
                 aria-label="Đóng"
               >
                 <X className="h-4 w-4" strokeWidth={1.75} />

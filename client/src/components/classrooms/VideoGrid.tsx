@@ -134,7 +134,8 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
             <button
               onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
               disabled={safeCurrentPage === 0}
-              className="h-6 w-6 rounded flex items-center justify-center bg-slate-800 hover:bg-slate-700 disabled:opacity-30 cursor-pointer"
+              aria-label="Trang camera trước"
+              className="h-8 w-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:h-6 sm:w-6 rounded flex items-center justify-center bg-slate-800 hover:bg-slate-700 disabled:opacity-30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
               title="Trang trước"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -145,7 +146,8 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={safeCurrentPage >= totalPages - 1}
-              className="h-6 w-6 rounded flex items-center justify-center bg-slate-800 hover:bg-slate-700 disabled:opacity-30 cursor-pointer"
+              aria-label="Trang camera sau"
+              className="h-8 w-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:h-6 sm:w-6 rounded flex items-center justify-center bg-slate-800 hover:bg-slate-700 disabled:opacity-30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
               title="Trang sau"
             >
               <ChevronRight className="w-3.5 h-3.5" />
@@ -222,7 +224,8 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
           <button
             onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
             disabled={safeCurrentPage === 0}
-            className="h-7 w-7 rounded-full flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            aria-label="Trang camera trước"
+            className="h-8 w-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:h-7 sm:w-7 rounded-full flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
             title="Trang trước"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -233,7 +236,8 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
             disabled={safeCurrentPage >= totalPages - 1}
-            className="h-7 w-7 rounded-full flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            aria-label="Trang camera sau"
+            className="h-8 w-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:h-7 sm:w-7 rounded-full flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
             title="Trang sau"
           >
             <ChevronRight className="w-4 h-4" />

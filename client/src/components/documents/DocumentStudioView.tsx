@@ -580,7 +580,7 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
       {/* ── Main Workspace: Split Screen (Reader 60% | AI Studio 40%) ────── */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
         {/* ─── CỘT TRÁI: DOCUMENT READER ───────────────────────────────────── */}
-        <section className="flex-1 flex flex-col h-full bg-[#f0f6ff] dark:bg-[#111118] border-r border-[#e1edff] dark:border-[#2a2a3a] overflow-hidden">
+        <section className="flex-1 min-h-[42vh] lg:min-h-0 flex flex-col h-full bg-[#f0f6ff] dark:bg-[#111118] border-r border-[#e1edff] dark:border-[#2a2a3a] overflow-hidden">
           {/* Thanh điều khiển trang & Zoom */}
           <div className="h-12 shrink-0 bg-white/80 dark:bg-[#1b1b26]/80 backdrop-blur-xs border-b border-[#e1edff] dark:border-[#2a2a3a] px-4 flex items-center justify-between text-xs">
             {/* Phân trang */}
@@ -588,7 +588,8 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage <= 1}
-                className="w-8 h-8 rounded-sm border border-[#111118] bg-white dark:bg-[#1b1b26] flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#e1edff] active:scale-95 transition-all cursor-pointer shadow-[0_1px_0_0_#111118]"
+                aria-label="Trang trước"
+                className="w-9 h-9 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 rounded-sm border border-[#111118] bg-white dark:bg-[#1b1b26] flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#e1edff] active:scale-95 transition-all cursor-pointer shadow-[0_1px_0_0_#111118] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75]"
                 title="Trang trước"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -601,7 +602,8 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
               <button
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage >= totalPages}
-                className="w-8 h-8 rounded-sm border border-[#111118] bg-white dark:bg-[#1b1b26] flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#e1edff] active:scale-95 transition-all cursor-pointer shadow-[0_1px_0_0_#111118]"
+                aria-label="Trang sau"
+                className="w-9 h-9 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 rounded-sm border border-[#111118] bg-white dark:bg-[#1b1b26] flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#e1edff] active:scale-95 transition-all cursor-pointer shadow-[0_1px_0_0_#111118] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75]"
                 title="Trang sau"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -613,14 +615,16 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
               <span className="text-[#111118]/60 dark:text-[#f0f6ff]/60 hidden sm:inline">Cỡ chữ:</span>
               <button
                 onClick={() => setFontSize((s) => Math.max(13, s - 1))}
-                className="px-2 py-0.5 rounded-sharp border border-[#111118] bg-white dark:bg-[#1b1b26] font-mono hover:bg-[#e1edff] text-xs cursor-pointer"
+                aria-label="Giảm cỡ chữ"
+                className="px-3 py-1.5 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:px-2 sm:py-0.5 rounded-sharp border border-[#111118] bg-white dark:bg-[#1b1b26] font-mono hover:bg-[#e1edff] text-xs cursor-pointer flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75]"
                 title="Giảm cỡ chữ"
               >
                 A-
               </button>
               <button
                 onClick={() => setFontSize((s) => Math.min(22, s + 1))}
-                className="px-2 py-0.5 rounded-sharp border border-[#111118] bg-white dark:bg-[#1b1b26] font-mono hover:bg-[#e1edff] text-xs cursor-pointer"
+                aria-label="Tăng cỡ chữ"
+                className="px-3 py-1.5 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:px-2 sm:py-0.5 rounded-sharp border border-[#111118] bg-white dark:bg-[#1b1b26] font-mono hover:bg-[#e1edff] text-xs cursor-pointer flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75]"
                 title="Tăng cỡ chữ"
               >
                 A+
@@ -823,7 +827,8 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                               e.stopPropagation();
                               handleDeleteSession(sess.id);
                             }}
-                            className={`p-1 rounded-sharp hover:bg-black/20 ${isActive ? "text-white" : "text-rose-500 hover:text-rose-700"} shrink-0 cursor-pointer`}
+                            aria-label="Xóa phiên trò chuyện này"
+                            className={`p-2 sm:p-1 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center rounded-sharp hover:bg-black/20 ${isActive ? "text-white" : "text-rose-500 hover:text-rose-700"} shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500`}
                             title="Xóa phiên trò chuyện này"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -844,14 +849,16 @@ export const DocumentStudioView: React.FC<DocumentStudioViewProps> = ({
                     setEditTitleInput(currentSession?.title || "");
                     setIsEditingTitle(true);
                   }}
-                  className="p-1.5 rounded-sm hover:bg-[#e1edff] dark:hover:bg-[#242436] text-[#111118]/70 dark:text-[#f0f6ff]/70 transition-colors cursor-pointer"
+                  aria-label="Đổi tên cuộc trò chuyện này"
+                  className="p-2 sm:p-1.5 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center rounded-sm hover:bg-[#e1edff] dark:hover:bg-[#242436] text-[#111118]/70 dark:text-[#f0f6ff]/70 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75]"
                   title="Đổi tên cuộc trò chuyện này"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => handleDeleteSession(currentSessionId)}
-                  className="p-1.5 rounded-sm hover:bg-rose-100 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
+                  aria-label="Xóa cuộc trò chuyện này"
+                  className="p-2 sm:p-1.5 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center rounded-sm hover:bg-rose-100 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                   title="Xóa cuộc trò chuyện này"
                 >
                   <Trash2 className="w-3.5 h-3.5" />

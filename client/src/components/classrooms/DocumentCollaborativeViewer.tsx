@@ -782,7 +782,8 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
           <button
             onClick={handlePrevPage}
             disabled={localPage === 0}
-            className="flex items-center justify-center h-8 px-2.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            aria-label="Trang trước"
+            className="flex items-center justify-center h-9 px-3 min-h-[44px] sm:min-h-0 sm:h-8 sm:px-2.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
           >
             <ChevronLeft className="w-4 h-4 mr-0.5" />
             <span>Trang trước</span>
@@ -790,7 +791,8 @@ export const DocumentCollaborativeViewer: React.FC<DocumentCollaborativeViewerPr
           <button
             onClick={handleNextPage}
             disabled={localPage >= totalPages - 1}
-            className="flex items-center justify-center h-8 px-2.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            aria-label="Trang sau"
+            className="flex items-center justify-center h-9 px-3 min-h-[44px] sm:min-h-0 sm:h-8 sm:px-2.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
           >
             <span>Trang sau</span>
             <ChevronRight className="w-4 h-4 ml-0.5" />

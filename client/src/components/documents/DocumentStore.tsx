@@ -285,7 +285,7 @@ export function DocumentStore({
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`h-9 px-4 text-sm font-normal transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+              className={`h-9 min-h-[44px] sm:min-h-0 px-4 text-sm font-normal transition-colors cursor-pointer whitespace-nowrap shrink-0 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75] focus-visible:ring-offset-2 ${
                 activeCategory === cat
                   ? "rounded-pill bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000]"
                   : "rounded-[8px] bg-[#e1edff] dark:bg-[#242436] text-[#111118] dark:text-[#f0f6ff] hover:bg-[#d0e2ff] dark:hover:bg-[#2e2e42]"
@@ -449,7 +449,9 @@ export function DocumentStore({
                         <div className="relative doc-menu-container" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => setActiveMenuId(activeMenuId === doc.id ? null : doc.id)}
-                            className="flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
+                            aria-label={`Tùy chọn cho tài liệu ${doc.title}`}
+                            aria-expanded={activeMenuId === doc.id}
+                            className="flex h-9 w-9 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:h-8 sm:w-8 items-center justify-center rounded-sm text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75]"
                           >
                             <MoreVertical className="h-4 w-4" strokeWidth={1.75} />
                           </button>
@@ -528,7 +530,8 @@ export function DocumentStore({
           >
             <button
               onClick={handleCloseModal}
-              className="absolute top-5 right-5 w-9 h-9 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d5e5ff] active:translate-y-[1px] transition-transform cursor-pointer"
+              aria-label="Đóng hộp thoại tải tài liệu"
+              className="absolute top-5 right-5 w-11 h-11 min-h-[44px] min-w-[44px] sm:w-9 sm:h-9 rounded-sm bg-[#e1edff] dark:bg-[#242436] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] flex items-center justify-center shadow-[0_2px_0_0_#111118] hover:bg-[#d5e5ff] active:translate-y-[1px] transition-transform cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75]"
             >
               <X className="h-4 w-4" strokeWidth={1.75} />
             </button>

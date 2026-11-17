@@ -480,7 +480,7 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                   📖 {doc.title}
                 </span>
               ) : (
-                <span className="text-[#111118]/60 dark:text-[#f0f6ff]/60">Trợ lý học tập đa năng</span>
+                <span className="text-slate-600 dark:text-slate-300">Trợ lý học tập đa năng</span>
               )}
             </div>
           </div>
@@ -495,7 +495,8 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                 e.stopPropagation();
                 setChatSizeMode("normal");
               }}
-              className="w-7 h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer"
+              aria-label="Mở lại khung chat"
+              className="w-8 h-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:w-7 sm:h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75]"
               title="Mở lại khung chat"
             >
               <ChevronUp className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -506,7 +507,8 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                 e.stopPropagation();
                 setChatSizeMode("minimized");
               }}
-              className="w-7 h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer"
+              aria-label="Thu gọn khung chat"
+              className="w-8 h-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:w-7 sm:h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75]"
               title="Thu gọn khung chat"
             >
               <Minus className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -521,7 +523,8 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                 setCustomWidth(null);
                 setChatSizeMode("normal");
               }}
-              className="w-7 h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer"
+              aria-label="Thu nhỏ về mặc định"
+              className="w-8 h-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:w-7 sm:h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75]"
               title="Thu nhỏ về mặc định"
             >
               <Minimize2 className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -533,7 +536,8 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
                 setCustomWidth(null);
                 setChatSizeMode("expanded");
               }}
-              className="w-7 h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer"
+              aria-label="Phóng to khung chat"
+              className="w-8 h-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:w-7 sm:h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#111118] dark:text-[#f0f6ff] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#e1edff] transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75]"
               title="Phóng to khung chat"
             >
               <Maximize2 className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -546,7 +550,8 @@ export function AIChat({ doc, isOpen, onOpen, onClose }: AIChatProps) {
               e.stopPropagation();
               onClose();
             }}
-            className="w-7 h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#ff4141] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#ffbac4]/30 transition-all cursor-pointer"
+            aria-label="Đóng khung chat"
+            className="w-8 h-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:w-7 sm:h-7 rounded-sm bg-white dark:bg-[#1b1b26] border border-[#111118] text-[#ff4141] shadow-[0_1px_0_0_#111118] flex items-center justify-center hover:bg-[#ffbac4]/30 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
             title="Đóng khung chat"
           >
             <X className="h-3.5 w-3.5" strokeWidth={1.75} />

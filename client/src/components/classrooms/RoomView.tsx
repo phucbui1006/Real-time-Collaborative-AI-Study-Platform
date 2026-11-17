@@ -1236,7 +1236,8 @@ export default function RoomView({
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <button
             onClick={handleLeave}
-            className="flex h-8.5 w-8.5 items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors cursor-pointer shrink-0"
+            aria-label="Quay lại danh sách phòng"
+            className="flex h-11 w-11 min-h-[44px] min-w-[44px] sm:h-9 sm:w-9 items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
             title="Quay lại danh sách phòng"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -1249,7 +1250,8 @@ export default function RoomView({
           {/* Chip Mã phòng với toast sao chép */}
           <button
             onClick={handleCopyCode}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900/90 text-teal-300 border border-slate-700/60 hover:bg-slate-800 text-xs font-mono tabular-nums transition-all cursor-pointer shrink-0 shadow-xs"
+            aria-label="Nhấn để sao chép mã phòng"
+            className="flex items-center gap-1 px-3 py-1.5 min-h-[44px] sm:min-h-0 rounded-lg bg-slate-900/90 text-teal-300 border border-slate-700/60 hover:bg-slate-800 text-xs font-mono tabular-nums transition-all cursor-pointer shrink-0 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
             title="Nhấn để sao chép mã phòng"
           >
             {copiedCode ? (
@@ -1306,7 +1308,8 @@ export default function RoomView({
               </button>
               <button
                 onClick={handleStopDocPresentation}
-                className="inline-flex items-center gap-1 h-8 px-2.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 text-xs font-medium transition-colors cursor-pointer"
+                aria-label="Dừng trình chiếu tài liệu này"
+                className="inline-flex items-center gap-1 h-9 px-3 min-h-[44px] sm:min-h-0 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 text-xs font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                 title="Dừng trình chiếu tài liệu này"
               >
                 <StopCircle className="w-3.5 h-3.5" />
@@ -1318,7 +1321,8 @@ export default function RoomView({
           {/* Nút Mời bạn bè */}
           <button
             onClick={handleInviteFriends}
-            className="inline-flex items-center gap-1.5 h-8 px-2.5 sm:px-3 rounded-xl bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 border border-teal-500/40 text-xs font-medium transition-colors cursor-pointer"
+            aria-label="Sao chép liên kết mời bạn vào phòng"
+            className="inline-flex items-center gap-1.5 h-9 px-3 min-h-[44px] sm:min-h-0 rounded-xl bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 border border-teal-500/40 text-xs font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
             title="Sao chép liên kết mời bạn vào phòng"
           >
             <Share2 className="w-3.5 h-3.5" />
@@ -1328,7 +1332,8 @@ export default function RoomView({
           {/* Nút Toàn màn hình */}
           <button
             onClick={toggleFullscreen}
-            className="flex h-8.5 w-8.5 items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors cursor-pointer"
+            aria-label={isFullscreen ? 'Thu nhỏ toàn màn hình' : 'Mở toàn màn hình'}
+            className="flex h-11 w-11 min-h-[44px] min-w-[44px] sm:h-9 sm:w-9 items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
             title={isFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}

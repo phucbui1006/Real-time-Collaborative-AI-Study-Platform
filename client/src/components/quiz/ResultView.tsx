@@ -47,7 +47,7 @@ export function ResultView({ res, onHome, onBackToHost }: ResultViewProps) {
         {onBackToHost && (
           <button
             onClick={onBackToHost}
-            className="inline-flex items-center justify-center gap-2 rounded-pill h-12 px-8 text-base font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 rounded-pill h-12 px-8 text-base font-normal bg-[#0b7a75] hover:bg-[#09635f] text-white border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75] focus-visible:ring-offset-2"
           >
             <span>Quản lý phòng thi & Bảng điểm</span>
           </button>
@@ -58,7 +58,7 @@ export function ResultView({ res, onHome, onBackToHost }: ResultViewProps) {
             onBackToHost
               ? "bg-white dark:bg-[#242436] hover:bg-[#f0f6ff] dark:hover:bg-[#2e2e42] text-[#111118] dark:text-[#f0f6ff]"
               : "bg-[#0b7a75] hover:bg-[#09635f] text-white"
-          } border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer`}
+          } border-2 border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[2px] transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75] focus-visible:ring-offset-2`}
         >
           <span>Về trang bài kiểm tra</span>
         </button>

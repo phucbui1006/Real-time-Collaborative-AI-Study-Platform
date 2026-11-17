@@ -10,7 +10,7 @@ interface LeaderboardProps {
 export function Leaderboard({ rows, total, limit, hideScores }: LeaderboardProps) {
   if (!rows || rows.length === 0) {
     return (
-      <div className="py-8 text-center text-sm font-normal text-[#111118]/60 dark:text-[#f0f6ff]/60">
+      <div className="py-8 text-center text-sm font-normal text-slate-600 dark:text-slate-300">
         Chưa có thí sinh tham gia. Hãy gửi mã phòng cho bạn bè để cùng vào thi nhé!
       </div>
     );

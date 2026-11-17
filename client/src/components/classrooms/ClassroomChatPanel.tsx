@@ -70,7 +70,7 @@ export const ClassroomChatPanel: React.FC<ClassroomChatPanelProps> = ({
           <button
             onClick={onClose}
             aria-label="Đóng bảng chat"
-            className="flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="flex h-9 w-9 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:h-7 sm:w-7 items-center justify-center rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
           >
             <X className="w-4 h-4" />
           </button>
@@ -146,7 +146,8 @@ export const ClassroomChatPanel: React.FC<ClassroomChatPanelProps> = ({
         <button
           type="submit"
           disabled={!text.trim()}
-          className="h-9 px-3 rounded bg-teal-600 hover:bg-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center transition-colors cursor-pointer shrink-0 shadow-xs"
+          aria-label="Gửi tin nhắn"
+          className="h-10 px-3.5 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:h-9 sm:px-3 rounded bg-teal-600 hover:bg-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center transition-colors cursor-pointer shrink-0 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
           title="Gửi tin nhắn"
         >
           <Send className="w-3.5 h-3.5" />
