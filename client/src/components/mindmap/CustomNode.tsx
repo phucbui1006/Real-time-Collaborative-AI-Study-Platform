@@ -10,9 +10,9 @@ interface CustomNodeProps {
 
 export const CustomNode: React.FC<CustomNodeProps> = ({ label, subtext }) => {
   return (
-    <div className="px-4 py-2 bg-slate-900 border border-indigo-500/50 rounded-lg shadow-md text-white text-center">
+    <div className="px-4 py-2 bg-white dark:bg-[#1b1b26] border-2 border-[#111118] dark:border-[#2a2a3a] rounded-md shadow-[0_2px_0_0_#111118] dark:shadow-[0_2px_0_0_#000000] text-[#111118] dark:text-[#f0f6ff] text-center">
       <p className="font-semibold text-sm">{label}</p>
-      {subtext && <p className="text-[10px] text-slate-400 mt-0.5">{subtext}</p>}
+      {subtext && <p className="text-[10px] text-[#0b7a75] dark:text-[#2dd4bf] mt-0.5">{subtext}</p>}
     </div>
   )
 }

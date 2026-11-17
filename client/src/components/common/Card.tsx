@@ -1,4 +1,4 @@
-// client/src/components/common/Card.tsx — Chuẩn UI_DESIGN_SKILL.md (Mục 3.5)
+// client/src/components/common/Card.tsx — Chuẩn UI_DESIGN_SKILL.md & Design System Teal
 import React from 'react'
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -21,9 +21,9 @@ export const Card: React.FC<CardProps> = ({
   }
 
   const baseStyle =
-    'bg-white rounded-md border border-slate-200/90 shadow-2xs text-slate-800'
+    'bg-white dark:bg-[#1b1b26] rounded-md border border-slate-200/90 dark:border-[#2a2a3a] shadow-2xs text-slate-800 dark:text-[#f0f6ff]'
   const hoverStyle = hoverable
-    ? 'hover:border-slate-300 hover:bg-slate-50/50 transition-colors duration-150 cursor-pointer'
+    ? 'hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50/50 dark:hover:bg-[#242436] transition-colors duration-150 cursor-pointer'
     : ''
 
   return (
@@ -51,7 +51,7 @@ export const CardTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({
   className = '',
   ...props
 }) => (
-  <h3 className={`text-base font-semibold text-slate-900 tracking-tight ${className}`} {...props}>
+  <h3 className={`text-base font-semibold text-slate-900 dark:text-[#f0f6ff] tracking-tight ${className}`} {...props}>
     {children}
   </h3>
 )
@@ -61,7 +61,7 @@ export const CardDescription: React.FC<React.HTMLAttributes<HTMLParagraphElement
   className = '',
   ...props
 }) => (
-  <p className={`text-xs text-slate-500 mt-0.5 ${className}`} {...props}>
+  <p className={`text-xs text-slate-500 dark:text-slate-400 mt-0.5 ${className}`} {...props}>
     {children}
   </p>
 )
@@ -77,7 +77,7 @@ export const CardFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   className = '',
   ...props
 }) => (
-  <div className={`mt-4 pt-3 border-t border-slate-100 flex items-center justify-between ${className}`} {...props}>
+  <div className={`mt-4 pt-3 border-t border-slate-100 dark:border-[#2a2a3a] flex items-center justify-between ${className}`} {...props}>
     {children}
   </div>
 )

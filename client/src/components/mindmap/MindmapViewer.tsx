@@ -15,16 +15,16 @@ interface MindmapViewerProps {
 
 export const MindmapViewer: React.FC<MindmapViewerProps> = ({ data }) => {
   return (
-    <div className="w-full h-full min-h-[400px] bg-slate-50 border border-slate-200/90 rounded-lg p-6 flex flex-col items-center justify-center">
+    <div className="w-full h-full min-h-[400px] bg-slate-50 dark:bg-[#1b1b26] border border-slate-200/90 dark:border-[#2a2a3a] rounded-lg p-6 flex flex-col items-center justify-center">
       {data ? (
         <div className="space-y-6 text-center">
-          <div className="inline-block bg-indigo-950 text-white font-semibold text-sm px-5 py-2.5 rounded-md shadow-xs border border-indigo-900">
+          <div className="inline-block bg-[#0b7a75] dark:bg-[#2dd4bf] text-white dark:text-[#111118] font-normal text-sm px-5 py-2.5 rounded-pill shadow-[0_2px_0_0_#111118] border border-[#111118]">
             {data.label}
           </div>
           {data.children && (
-            <div className="flex flex-wrap justify-center gap-3 pt-6 border-t border-slate-200">
+            <div className="flex flex-wrap justify-center gap-3 pt-6 border-t border-slate-200 dark:border-[#2a2a3a]">
               {data.children.map((child) => (
-                <div key={child.id} className="bg-white border border-slate-200 text-slate-800 px-3.5 py-1.5 rounded-md text-xs font-medium shadow-2xs">
+                <div key={child.id} className="bg-white dark:bg-[#242436] border border-slate-200 dark:border-[#2a2a3a] text-slate-800 dark:text-[#f0f6ff] px-3.5 py-1.5 rounded-sm text-xs font-normal shadow-2xs">
                   {child.label}
                 </div>
               ))}
@@ -32,7 +32,7 @@ export const MindmapViewer: React.FC<MindmapViewerProps> = ({ data }) => {
           )}
         </div>
       ) : (
-        <p className="text-xs text-slate-400">Chưa có sơ đồ tư duy nào được tạo</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500">Chưa có sơ đồ tư duy nào được tạo</p>
       )}
     </div>
   )

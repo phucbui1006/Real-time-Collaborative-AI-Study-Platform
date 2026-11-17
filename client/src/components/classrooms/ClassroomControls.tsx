@@ -137,7 +137,7 @@ export const ClassroomControls: React.FC<ClassroomControlsProps> = ({
           </div>
 
           {/* 3. NÚT CHIA SẺ MÀN HÌNH (S) - Desktop & Tablet */}
-          <div className="relative group flex flex-col items-center hidden sm:flex">
+          <div className="relative group hidden sm:flex flex-col items-center">
             <button
               onClick={onToggleScreenShare}
               disabled={!canShareScreen && !isSharingScreen}
@@ -164,7 +164,7 @@ export const ClassroomControls: React.FC<ClassroomControlsProps> = ({
           </div>
 
           {/* 4. NÚT CHIẾU TÀI LIỆU BÀI HỌC (Host & Thành viên) */}
-          <div className="relative group flex flex-col items-center hidden md:flex">
+          <div className="relative group hidden md:flex flex-col items-center">
             <button
               onClick={onOpenDocPicker}
               className={`h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-sm ${
@@ -183,7 +183,7 @@ export const ClassroomControls: React.FC<ClassroomControlsProps> = ({
           </div>
 
           {/* 5. NÚT GIƠ TAY PHÁT BIỂU (H) */}
-          <div className="relative group flex flex-col items-center hidden sm:flex">
+          <div className="relative group hidden sm:flex flex-col items-center">
             <button
               onClick={onRaiseHand}
               className={`h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-sm ${

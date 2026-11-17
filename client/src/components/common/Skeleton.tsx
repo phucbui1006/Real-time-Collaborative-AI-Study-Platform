@@ -1,4 +1,4 @@
-// client/src/components/common/Skeleton.tsx — Chuẩn UI_DESIGN_SKILL.md (Mục 5.2)
+// client/src/components/common/Skeleton.tsx — Chuẩn UI_DESIGN_SKILL.md (Mục 5.2) & Design System Teal
 import React from 'react'
 
 export interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -8,7 +8,7 @@ export interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
 export const Skeleton: React.FC<SkeletonProps> = ({ className = '', ...props }) => {
   return (
     <div
-      className={`animate-pulse bg-slate-200/70 rounded-md ${className}`}
+      className={`animate-pulse bg-slate-200/70 dark:bg-[#242436] rounded-md ${className}`}
       {...props}
     />
   )

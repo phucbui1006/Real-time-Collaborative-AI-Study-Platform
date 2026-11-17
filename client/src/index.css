@@ -201,6 +201,11 @@ button {
   cursor: pointer;
 }
 
+:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
 /* Nav Link — Crisp Academic Top Header Nav */
 .nav-link {
   display: inline-flex;

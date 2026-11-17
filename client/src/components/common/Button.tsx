@@ -1,4 +1,4 @@
-// client/src/components/common/Button.tsx — Chuẩn UI_DESIGN_SKILL.md (Mục 3.3)
+// client/src/components/common/Button.tsx — Chuẩn UI_DESIGN_SKILL.md & Design System Teal
 import React from 'react'
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -14,24 +14,24 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyle =
-    'inline-flex items-center justify-center gap-2 font-medium transition-all duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 disabled:opacity-50 disabled:pointer-events-none select-none'
+    'inline-flex items-center justify-center gap-2 font-medium transition-all duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#0b7a75] dark:focus-visible:ring-[#2dd4bf] focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none select-none'
 
   const variants = {
     // 1. Primary Button (Hành động chính / CTA = pill)
     primary:
-      'bg-indigo-950 text-white hover:bg-indigo-900 shadow-2xs active:translate-y-[1px] border border-indigo-900/60 rounded-pill',
+      'bg-[#0b7a75] hover:bg-[#08635f] dark:bg-[#2dd4bf] dark:hover:bg-[#14b8a6] text-white dark:text-[#111118] border border-[#111118] dark:border-[#2a2a3a] shadow-[0_4px_0_0_#111118] dark:shadow-[0_4px_0_0_#000000] active:translate-y-[1px] rounded-pill',
     // 1b. Primary Accent (CTA nổi bật = pill)
     accent:
-      'bg-indigo-600 text-white hover:bg-indigo-700 shadow-2xs active:translate-y-[1px] border border-indigo-500/60 rounded-pill',
+      'bg-[#ffda00] hover:bg-[#ebd000] text-[#111118] border border-[#111118] shadow-[0_4px_0_0_#111118] active:translate-y-[1px] rounded-pill font-semibold',
     // 2. Secondary / Outline Button (Hành động phụ = sm)
     secondary:
-      'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 shadow-2xs rounded-sm',
+      'bg-white dark:bg-[#1b1b26] text-slate-800 dark:text-[#f0f6ff] border border-slate-200 dark:border-[#2a2a3a] hover:bg-slate-50 dark:hover:bg-[#242436] hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs rounded-sm',
     // 3. Ghost Button (Nút trên thanh công cụ = sm)
     ghost:
-      'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-sm',
+      'bg-transparent text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#242436] hover:text-slate-900 dark:hover:text-white rounded-sm',
     // 4. Quiz Answer Button (Riêng cho 4 đáp án trong Phòng thi đấu = sm)
     quiz:
-      'bg-white text-slate-800 border-2 border-slate-200 rounded-sm p-4 font-medium shadow-[0_2px_0_0_#e2e8f0] hover:border-indigo-500 hover:bg-indigo-50/30 active:translate-y-[2px] active:shadow-none text-left justify-start',
+      'bg-white dark:bg-[#1b1b26] text-slate-800 dark:text-[#f0f6ff] border-2 border-slate-200 dark:border-[#2a2a3a] rounded-sm p-4 font-medium shadow-[0_2px_0_0_#e2e8f0] dark:shadow-[0_2px_0_0_#000000] hover:border-[#0b7a75] dark:hover:border-[#2dd4bf] hover:bg-[#e1edff]/40 dark:hover:bg-[#242436] active:translate-y-[2px] active:shadow-none text-left justify-start',
     // 5. Danger Button (Hành động nguy hiểm/xóa = sm)
     danger:
       'bg-rose-600 text-white hover:bg-rose-700 border border-rose-700/50 shadow-2xs active:translate-y-[1px] rounded-sm'

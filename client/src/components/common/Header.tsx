@@ -53,7 +53,7 @@ export function Header({
               <button
                 key={item.id}
                 onClick={() => onSelectTab(item.id)}
-                className={`h-16 inline-flex items-center px-1 text-base transition-colors duration-150 cursor-pointer ${
+                className={`h-16 inline-flex items-center px-1 text-base transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75] dark:focus-visible:ring-[#2dd4bf] rounded-xs ${
                   isActive
                     ? "border-b-2 border-[#0b7a75] dark:border-[#2dd4bf] font-normal text-[#0b7a75] dark:text-[#2dd4bf]"
                     : "border-b-2 border-transparent font-normal text-[#111118]/70 dark:text-[#f0f6ff]/70 hover:text-[#111118] dark:hover:text-[#f0f6ff]"
@@ -74,7 +74,7 @@ export function Header({
             <button
               type="button"
               onClick={onOpenSettings}
-              className="flex items-center gap-2 cursor-pointer"
+              className="flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75] dark:focus-visible:ring-[#2dd4bf] rounded-full"
               title="Cài đặt tài khoản"
             >
               {avatarUrl ? (
@@ -102,7 +102,7 @@ export function Header({
               <button
                 type="button"
                 onClick={onOpenSettings}
-                className="ml-0.5 rounded-sm text-[#111118]/60 dark:text-[#f0f6ff]/60 hover:text-[#0b7a75] dark:hover:text-[#2dd4bf] transition-colors p-1 cursor-pointer"
+                className="ml-0.5 rounded-sm text-[#111118]/60 dark:text-[#f0f6ff]/60 hover:text-[#0b7a75] dark:hover:text-[#2dd4bf] transition-colors p-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7a75] dark:focus-visible:ring-[#2dd4bf]"
                 title="Cài đặt tài khoản"
                 aria-label="Cài đặt tài khoản"
               >
@@ -112,7 +112,7 @@ export function Header({
 
             <button
               onClick={onLogout}
-              className="rounded-sm text-[#111118]/60 dark:text-[#f0f6ff]/60 hover:text-rose-600 dark:hover:text-rose-400 transition-colors p-1 cursor-pointer"
+              className="rounded-sm text-[#111118]/60 dark:text-[#f0f6ff]/60 hover:text-rose-600 dark:hover:text-rose-400 transition-colors p-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
               title="Đăng xuất"
               aria-label="Đăng xuất"
             >
